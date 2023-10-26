@@ -11,6 +11,7 @@ edition = "2021"
 env_logger = "0.10"
 futures = "0.3"
 hyper = { version = "0.14", features = [ "http1", "server", "runtime", "stream" ] }
+hyper-tungstenite = "0.11"
 lazy_static = "1.4"
 log = "0.4"
 nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "10988c28ed3de9773c59728d3e58bcb4b4624857", features = [ "speedy" ] }
