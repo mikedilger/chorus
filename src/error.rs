@@ -30,6 +30,10 @@ pub enum Error {
     #[error("TLS: {0}")]
     Rustls(#[from] tokio_rustls::rustls::Error),
 
+    // Speedy
+    #[error("Speedy: {0}")]
+    Speedy(#[from] speedy::Error),
+
     // Tunstenite
     #[error("Websocket: {0}")]
     Tungstenite(#[from] hyper_tungstenite::tungstenite::error::Error),
