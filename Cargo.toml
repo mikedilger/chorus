@@ -14,6 +14,7 @@ hyper = { version = "0.14", features = [ "http1", "server", "runtime", "stream" 
 hyper-tungstenite = "0.11"
 lazy_static = "1.4"
 log = "0.4"
+mmap-append = { git = "https://github.com/mikedilger/mmap-append", rev = "0bb234581a775dedeb90e24ce541b435a30d5eaf" }
 nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "10988c28ed3de9773c59728d3e58bcb4b4624857", features = [ "speedy" ] }
 ron = "0.8"
 rustls-pemfile = "1.0"

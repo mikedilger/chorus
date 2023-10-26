@@ -221,6 +221,7 @@ dependencies = [
  "hyper-tungstenite",
  "lazy_static",
  "log",
+ "mmap-append",
  "nostr-types",
  "ron",
  "rustls-pemfile",
@@ -701,6 +702,14 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys",
+]
+
+[[package]]
+name = "mmap-append"
+version = "0.1.0"
+source = "git+https://github.com/mikedilger/mmap-append?rev=0bb234581a775dedeb90e24ce541b435a30d5eaf#0bb234581a775dedeb90e24ce541b435a30d5eaf"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
