@@ -2,11 +2,14 @@
 pub mod config;
 pub mod error;
 pub mod globals;
+pub mod web;
 
 use crate::config::Config;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use hyper::{Body, Request, Response};
 use std::env;
+use std::error::Error as StdError;
 use std::fs::OpenOptions;
 use std::io::Read;
 use tokio::net::TcpListener;
@@ -37,7 +40,37 @@ async fn main() -> Result<(), Error> {
     // Store config into GLOBALS
     *GLOBALS.config.write().await = config;
 
-    log::error!("No main yet.");
+    let mut http_server = hyper::server::conn::Http::new();
+    http_server.http1_only(true);
+    http_server.http1_keep_alive(true);
 
-    Ok(())
+    loop {
+        let (tcp_stream, peer_addr) = listener.accept().await?;
+        log::info!("+PEER: {}", peer_addr);
+
+        let connection = http_server
+            .serve_connection(tcp_stream, hyper::service::service_fn(handle_request));
+
+        tokio::spawn(async move {
+            if let Err(he) = connection.await {
+                if let Some(src) = he.source() {
+                    if &*format!("{}", src) == "Transport endpoint is not connected (os error 107)" {
+                        // do nothing
+                    } else {
+                        // Print in detail
+                        eprintln!("{:?}", src);
+                    }
+                } else {
+                    // Print in less detail
+                    let e: Error = he.into();
+                    eprintln!("{}", e);
+                }
+            }
+            log::info!("-PEER: {}", peer_addr);
+        });
+    }
+}
+
+async fn handle_request(_request: Request<Body>) -> Result<Response<Body>, Error> {
+    Ok(web::serve_http().await?)
 }
