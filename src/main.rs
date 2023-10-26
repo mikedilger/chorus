@@ -1,4 +1,3 @@
-
 pub mod config;
 pub mod error;
 pub mod globals;
@@ -41,16 +40,17 @@ async fn main() -> Result<(), Error> {
     let tls_acceptor = {
         let certs: Vec<Certificate> =
             rustls_pemfile::certs(&mut BufReader::new(File::open(&config.certchain_pem_path)?))?
-            .drain(..)
-            .map(Certificate)
-            .collect();
+                .drain(..)
+                .map(Certificate)
+                .collect();
 
-        let mut keys: Vec<PrivateKey> =
-            rustls_pemfile::pkcs8_private_keys(&mut BufReader::new(File::open(&config.key_pem_path)?))?
-            .drain(..)
-            .rev()
-            .map(PrivateKey)
-            .collect();
+        let mut keys: Vec<PrivateKey> = rustls_pemfile::pkcs8_private_keys(&mut BufReader::new(
+            File::open(&config.key_pem_path)?,
+        ))?
+        .drain(..)
+        .rev()
+        .map(PrivateKey)
+        .collect();
 
         let key = match keys.pop() {
             Some(k) => k,
@@ -81,12 +81,15 @@ async fn main() -> Result<(), Error> {
             match acceptor.accept(tcp_stream).await {
                 Err(e) => log::error!("{}", e),
                 Ok(tls_stream) => {
-                    let connection = GLOBALS.http_server
+                    let connection = GLOBALS
+                        .http_server
                         .serve_connection(tls_stream, hyper::service::service_fn(handle_request));
                     tokio::spawn(async move {
                         if let Err(he) = connection.await {
                             if let Some(src) = he.source() {
-                                if &*format!("{}", src) == "Transport endpoint is not connected (os error 107)" {
+                                if &*format!("{}", src)
+                                    == "Transport endpoint is not connected (os error 107)"
+                                {
                                     // do nothing
                                 } else {
                                     // Print in detail
@@ -104,7 +107,6 @@ async fn main() -> Result<(), Error> {
             }
         });
     }
-
 }
 
 async fn handle_request(_request: Request<Body>) -> Result<Response<Body>, Error> {
