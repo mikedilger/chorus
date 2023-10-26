@@ -23,6 +23,10 @@ pub enum Error {
     #[error("JSON: {0}")]
     Json(#[from] serde_json::Error),
 
+    // LMDB
+    #[error("LMDB: {0}")]
+    Lmdb(#[from] heed::Error),
+
     #[error("Private Key Not Found")]
     NoPrivateKey,
 
