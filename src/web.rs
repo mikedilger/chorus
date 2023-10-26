@@ -1,9 +1,11 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use hyper::{Body, Response, StatusCode};
+use crate::session::Session;
+use hyper::{Body, Request, Response, StatusCode};
 use nostr_types::RelayInformationDocument;
 
-pub async fn serve_nip11() -> Result<Response<Body>, Error> {
+pub async fn serve_nip11(session: Session) -> Result<Response<Body>, Error> {
+    log::debug!("{}: sent NIP-11", session.peer);
     let rid = {
         let config_ref = GLOBALS.config.read().await;
         let mut rid = RelayInformationDocument::default();
@@ -26,7 +28,8 @@ pub async fn serve_nip11() -> Result<Response<Body>, Error> {
     Ok(response)
 }
 
-pub async fn serve_http() -> Result<Response<Body>, Error> {
+pub async fn serve_http(session: Session, request: Request<Body>) -> Result<Response<Body>, Error> {
+    log::debug!("{}: HTTP request for {}", session.peer, request.uri());
     let response = Response::builder()
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Headers", "*")

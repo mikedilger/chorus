@@ -1,8 +1,8 @@
 use crate::error::Error;
+use crate::session::Session;
 use nostr_types::{ClientMessage, RelayMessage};
 
-pub async fn handle(msg: ClientMessage) -> Result<RelayMessage, Error> {
-    log::debug!("Received: {}", serde_json::to_string(&msg)?);
+pub async fn handle(_session: &mut Session, msg: ClientMessage) -> Result<RelayMessage, Error> {
     match msg {
         ClientMessage::Event(_event) => Ok(RelayMessage::Notice(
             "EVENT is not yet supported".to_string(),
