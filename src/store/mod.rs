@@ -2,11 +2,10 @@ pub mod event_store;
 pub use event_store::EventStore;
 
 use crate::error::Error;
-use heed::{Database, Env, EnvFlags, EnvOpenOptions};
 use heed::types::{CowSlice, OwnedType};
+use heed::{Database, Env, EnvFlags, EnvOpenOptions};
 use nostr_types::Event;
 use std::fs;
-
 
 #[derive(Debug)]
 pub struct Store {

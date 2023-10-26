@@ -78,7 +78,9 @@ async fn main() -> Result<(), Error> {
                 match tls_acceptor_clone.accept(tcp_stream).await {
                     Err(e) => log::error!("{}", e),
                     Ok(tls_stream) => {
-                        if let Err(e) = serve(MaybeTlsStream::Rustls(Box::new(tls_stream)), peer_addr).await {
+                        if let Err(e) =
+                            serve(MaybeTlsStream::Rustls(Box::new(tls_stream)), peer_addr).await
+                        {
                             log::error!("{}", e);
                         }
                     }
