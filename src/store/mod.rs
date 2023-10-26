@@ -3,14 +3,16 @@ pub use event_store::EventStore;
 
 use crate::error::Error;
 use heed::{Database, Env, EnvFlags, EnvOpenOptions};
-use nostr_types::Id;
+use heed::types::{CowSlice, OwnedType};
+use nostr_types::Event;
 use std::fs;
+
 
 #[derive(Debug)]
 pub struct Store {
     pub events: EventStore,
     pub env: Env,
-    pub id_map: Database<Id, usize>,
+    pub id_map: Database<CowSlice<u8>, OwnedType<usize>>,
 }
 
 impl Store {
@@ -37,7 +39,7 @@ impl Store {
         let mut txn = env.write_txn()?;
         let id_map = env
             .database_options()
-            .types::<Id, usize>()
+            .types::<CowSlice<u8>, OwnedType<usize>>()
             .create(&mut txn)?;
         txn.commit()?;
 
@@ -50,5 +52,18 @@ impl Store {
             env,
             id_map,
         })
+    }
+
+    pub fn store_event(&self, event: &Event) -> Result<(), Error> {
+        // TBD: should we validate the event?
+        let mut txn = self.env.write_txn()?;
+
+        // Only if it doesn't already exist
+        if self.id_map.get(&txn, event.id.as_slice())?.is_none() {
+            let offset = self.events.store_event(event)?;
+            self.id_map.put(&mut txn, event.id.as_slice(), &offset)?;
+        }
+
+        Ok(())
     }
 }
