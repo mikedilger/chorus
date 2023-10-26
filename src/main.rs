@@ -1,9 +1,11 @@
 
 pub mod config;
 pub mod error;
+pub mod globals;
 
 use crate::config::Config;
 use crate::error::Error;
+use crate::globals::GLOBALS;
 use std::env;
 use std::fs::OpenOptions;
 use std::io::Read;
@@ -26,6 +28,9 @@ async fn main() -> Result<(), Error> {
     file.read_to_string(&mut contents)?;
     let config: Config = ron::from_str(&contents)?;
     log::debug!("Loaded config file.");
+
+    // Store config into GLOBALS
+    *GLOBALS.config.write().await = config;
 
     log::error!("No main yet.");
 
