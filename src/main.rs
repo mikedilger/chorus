@@ -2,6 +2,7 @@
 pub mod config;
 pub mod error;
 pub mod globals;
+pub mod tls;
 pub mod web;
 
 use crate::config::Config;
