@@ -2,6 +2,7 @@ Config(
     data_directory: "./sample",
     ip_address: "127.0.0.1",
     port: 8080,
+    use_tls: false,
     certchain_pem_path: "tls/fullchain.pem",
     key_pem_path: "tls/privkey.pem",
     name: None,
