@@ -51,6 +51,10 @@ pub enum Error {
     #[error("JSON string escape surrogate (ancient style) is not supported")]
     JsonEscapeSurrogate,
 
+    // LMDB
+    #[error("LMDB: {0}")]
+    Lmdb(#[from] heed::Error),
+
     // UTF-8
     #[error("UTF-8: {0}")]
     Utf8(#[from] std::str::Utf8Error),
