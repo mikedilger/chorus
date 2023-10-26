@@ -1,11 +1,14 @@
 use crate::config::Config;
+use crate::store::Store;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
+use std::sync::OnceLock;
 use tokio::sync::RwLock;
 
 pub struct Globals {
     pub config: RwLock<Config>,
     pub http_server: Http,
+    pub store: OnceLock<Store>,
 }
 
 lazy_static! {
@@ -17,6 +20,7 @@ lazy_static! {
         Globals {
             config: RwLock::new(Config::default()),
             http_server,
+            store: OnceLock::new(),
         }
     };
 }

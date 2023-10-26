@@ -11,6 +11,7 @@ use crate::config::Config;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::session::Session;
+use crate::store::Store;
 use crate::tls::MaybeTlsStream;
 use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::service::Service;
@@ -46,6 +47,10 @@ async fn main() -> Result<(), Error> {
     file.read_to_string(&mut contents)?;
     let config: Config = ron::from_str(&contents)?;
     log::debug!("Loaded config file.");
+
+    // Setup store
+    let store = Store::new(&config.data_directory)?;
+    let _ = GLOBALS.store.set(store);
 
     // TLS setup
     let maybe_tls_acceptor = if config.use_tls {
