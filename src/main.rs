@@ -72,21 +72,16 @@ async fn main() -> Result<(), Error> {
     // Store config into GLOBALS
     *GLOBALS.config.write().await = config;
 
-    let mut http_server = hyper::server::conn::Http::new();
-    http_server.http1_only(true);
-    http_server.http1_keep_alive(true);
-
     loop {
         let (tcp_stream, peer_addr) = listener.accept().await?;
         log::info!("+PEER: {}", peer_addr);
 
         let acceptor = tls_acceptor.clone();
-        let http_server_clone = http_server.clone();
         tokio::spawn(async move {
             match acceptor.accept(tcp_stream).await {
                 Err(e) => log::error!("{}", e),
                 Ok(tls_stream) => {
-                    let connection = http_server_clone
+                    let connection = GLOBALS.http_server
                         .serve_connection(tls_stream, hyper::service::service_fn(handle_request));
                     tokio::spawn(async move {
                         if let Err(he) = connection.await {
