@@ -67,6 +67,13 @@ pub enum Error {
     #[error("LMDB: {0}")]
     Lmdb(#[from] heed::Error),
 
+    #[error("Private Key Not Found")]
+    NoPrivateKey,
+
+    // Rustls
+    #[error("TLS: {0}")]
+    Rustls(#[from] tokio_rustls::rustls::Error),
+
     // Filter is underspecified
     #[error("Filter is underspecified. Scrapers are not allowed")]
     Scraper,

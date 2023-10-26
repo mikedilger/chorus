@@ -12,11 +12,14 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::store::Store;
 use hyper::{Body, Request, Response};
+use rustls::{Certificate, PrivateKey};
 use std::env;
 use std::error::Error as StdError;
-use std::fs::OpenOptions;
-use std::io::Read;
+use std::fs::{File, OpenOptions};
+use std::io::{BufReader, Read};
+use std::sync::Arc;
 use tokio::net::TcpListener;
+use tokio_rustls::{rustls, TlsAcceptor};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -41,6 +44,35 @@ async fn main() -> Result<(), Error> {
     let store = Store::new(&config.data_directory)?;
     let _ = GLOBALS.store.set(store);
 
+    // TLS setup
+    let tls_acceptor = {
+        let certs: Vec<Certificate> =
+            rustls_pemfile::certs(&mut BufReader::new(File::open(&config.certchain_pem_path)?))?
+                .drain(..)
+                .map(Certificate)
+                .collect();
+
+        let mut keys: Vec<PrivateKey> = rustls_pemfile::pkcs8_private_keys(&mut BufReader::new(
+            File::open(&config.key_pem_path)?,
+        ))?
+        .drain(..)
+        .rev()
+        .map(PrivateKey)
+        .collect();
+
+        let key = match keys.pop() {
+            Some(k) => k,
+            None => return Err(Error::NoPrivateKey),
+        };
+
+        let tls_config = rustls::ServerConfig::builder()
+            .with_safe_defaults()
+            .with_no_client_auth()
+            .with_single_cert(certs, key)?;
+
+        TlsAcceptor::from(Arc::new(tls_config))
+    };
+
     // Bind listener to port
     let listener = TcpListener::bind((&*config.ip_address, config.port)).await?;
     log::info!("Running on {}:{}", config.ip_address, config.port);
@@ -56,24 +88,33 @@ async fn main() -> Result<(), Error> {
     loop {
         let (tcp_stream, peer_addr) = listener.accept().await?;
 
-        let connection =
-            http_server.serve_connection(tcp_stream, hyper::service::service_fn(handle_request));
-
+        let acceptor = tls_acceptor.clone();
+        let http_server_clone = http_server.clone();
         tokio::spawn(async move {
-            // If our service exits with an error, log the error
-            if let Err(he) = connection.await {
-                if let Some(src) = he.source() {
-                    if &*format!("{}", src) == "Transport endpoint is not connected (os error 107)"
-                    {
-                        // do nothing
-                    } else {
-                        // Print in detail
-                        log::info!("{:?}", src);
-                    }
-                } else {
-                    // Print in less detail
-                    let e: Error = he.into();
-                    log::info!("{}", e);
+            match acceptor.accept(tcp_stream).await {
+                Err(e) => log::error!("{}", e),
+                Ok(tls_stream) => {
+                    let connection = http_server_clone
+                        .serve_connection(tls_stream, hyper::service::service_fn(handle_request));
+                    tokio::spawn(async move {
+                        // If our service exits with an error, log the error
+                        if let Err(he) = connection.await {
+                            if let Some(src) = he.source() {
+                                if &*format!("{}", src)
+                                    == "Transport endpoint is not connected (os error 107)"
+                                {
+                                    // do nothing
+                                } else {
+                                    // Print in detail
+                                    log::info!("{:?}", src);
+                                }
+                            } else {
+                                // Print in less detail
+                                let e: Error = he.into();
+                                log::info!("{}", e);
+                            }
+                        }
+                    });
                 }
             }
         });
