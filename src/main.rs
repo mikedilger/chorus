@@ -10,6 +10,8 @@ use std::io::Read;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    env_logger::init();
+
     // Get args (config path)
     let mut args = env::args();
     if args.len() <= 1 {
@@ -23,8 +25,9 @@ async fn main() -> Result<(), Error> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     let config: Config = ron::from_str(&contents)?;
+    log::debug!("Loaded config file.");
 
-    println!("No main yet.");
+    log::error!("No main yet.");
 
     Ok(())
 }
