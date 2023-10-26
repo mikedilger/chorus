@@ -1,8 +1,40 @@
-use std::{
-    pin::Pin,
-    task::{Context, Poll},
-};
+use crate::config::Config;
+use crate::error::Error;
+use rustls::{Certificate, PrivateKey};
+use std::fs::File;
+use std::io::BufReader;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio_rustls::{rustls, TlsAcceptor};
+
+pub fn tls_acceptor(config: &Config) -> Result<TlsAcceptor, Error> {
+    let certs: Vec<Certificate> =
+        rustls_pemfile::certs(&mut BufReader::new(File::open(&config.certchain_pem_path)?))?
+            .drain(..)
+            .map(Certificate)
+            .collect();
+
+    let mut keys: Vec<PrivateKey> =
+        rustls_pemfile::pkcs8_private_keys(&mut BufReader::new(File::open(&config.key_pem_path)?))?
+            .drain(..)
+            .rev()
+            .map(PrivateKey)
+            .collect();
+
+    let key = match keys.pop() {
+        Some(k) => k,
+        None => return Err(Error::NoPrivateKey),
+    };
+
+    let tls_config = rustls::ServerConfig::builder()
+        .with_safe_defaults()
+        .with_no_client_auth()
+        .with_single_cert(certs, key)?;
+
+    Ok(TlsAcceptor::from(Arc::new(tls_config)))
+}
 
 /// A stream that might be protected with TLS.
 #[allow(clippy::large_enum_variant)] // not great though
@@ -11,7 +43,7 @@ pub enum MaybeTlsStream<S> {
     /// Unencrypted socket stream.
     Plain(S),
     /// Encrypted socket stream using `rustls`.
-    Rustls(tokio_rustls::client::TlsStream<S>),
+    Rustls(tokio_rustls::server::TlsStream<S>),
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for MaybeTlsStream<S> {
