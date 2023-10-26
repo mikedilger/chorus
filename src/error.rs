@@ -23,6 +23,14 @@ pub enum Error {
     #[error("End of input")]
     EndOfInput,
 
+    // Http
+    #[error("HTTP: {0}")]
+    Http(#[from] hyper::http::Error),
+
+    // Hyper
+    #[error("Hyper: {0}")]
+    Hyper(#[from] hyper::Error),
+
     // I/O Error
     #[error("I/O: {0}")]
     Io(#[from] std::io::Error),

@@ -10,6 +10,7 @@ edition = "2021"
 [dependencies]
 env_logger = "0.10"
 heed = { git = "https://github.com/meilisearch/heed", rev = "64fd6fec293c0dee94855b8267557ce03e7ce5d8" }
+hyper = { version = "0.14", features = [ "http1", "server", "runtime", "stream" ] }
 lazy_static = "1.4"
 log = "0.4"
 mmap-append = { git = "https://github.com/mikedilger/mmap-append", rev = "0d20e193e7f13a442865a4a40a5da9a120e87411" }
