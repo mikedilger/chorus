@@ -19,6 +19,10 @@ pub enum Error {
     #[error("I/O: {0}")]
     Io(#[from] std::io::Error),
 
+    // JSON Error
+    #[error("JSON: {0}")]
+    Json(#[from] serde_json::Error),
+
     #[error("Private Key Not Found")]
     NoPrivateKey,
 
