@@ -61,7 +61,11 @@ impl Store {
         if self.id_map.get(&txn, event.id.as_slice())?.is_none() {
             let offset = self.events.store_event(event)?;
             self.id_map.put(&mut txn, event.id.as_slice(), &offset)?;
+        } else {
+            log::debug!("Existing event not stored");
         }
+
+        txn.commit()?;
 
         Ok(())
     }
