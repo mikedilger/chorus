@@ -9,6 +9,7 @@ pub mod types;
 use crate::config::Config;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::store::Store;
 use std::env;
 use std::fs::OpenOptions;
 use std::io::Read;
@@ -31,6 +32,10 @@ async fn main() -> Result<(), Error> {
     file.read_to_string(&mut contents)?;
     let config: Config = ron::from_str(&contents)?;
     log::debug!("Loaded config file.");
+
+    // Setup store
+    let store = Store::new(&config.data_directory)?;
+    let _ = GLOBALS.store.set(store);
 
     // Store config into GLOBALS
     *GLOBALS.config.write().await = config;
