@@ -8,9 +8,9 @@ use std::fs;
 
 #[derive(Debug)]
 pub struct Store {
-    events: EventStore,
-    env: Env,
-    id_map: Database<Id, usize>,
+    pub events: EventStore,
+    pub env: Env,
+    pub id_map: Database<Id, usize>,
 }
 
 impl Store {

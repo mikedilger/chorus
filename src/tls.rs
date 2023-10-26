@@ -42,7 +42,7 @@ pub enum MaybeTlsStream<S> {
     /// Unencrypted socket stream.
     Plain(S),
     /// Encrypted socket stream using `rustls`.
-    Rustls(tokio_rustls::server::TlsStream<S>),
+    Rustls(Box<tokio_rustls::server::TlsStream<S>>),
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for MaybeTlsStream<S> {

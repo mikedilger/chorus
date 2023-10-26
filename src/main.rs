@@ -78,7 +78,7 @@ async fn main() -> Result<(), Error> {
                 match tls_acceptor_clone.accept(tcp_stream).await {
                     Err(e) => log::error!("{}", e),
                     Ok(tls_stream) => {
-                        if let Err(e) = serve(MaybeTlsStream::Rustls(tls_stream), peer_addr).await {
+                        if let Err(e) = serve(MaybeTlsStream::Rustls(Box::new(tls_stream)), peer_addr).await {
                             log::error!("{}", e);
                         }
                     }
@@ -151,7 +151,7 @@ async fn handle(session: Session, mut request: Request<Body>) -> Result<Response
         if let Some(accept) = request.headers().get("Accept") {
             if let Ok(s) = accept.to_str() {
                 if s == "application/nostr+json" {
-                    return Ok(web::serve_nip11(session).await?);
+                    return web::serve_nip11(session).await;
                 }
             }
         }

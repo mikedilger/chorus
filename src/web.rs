@@ -8,14 +8,15 @@ pub async fn serve_nip11(session: Session) -> Result<Response<Body>, Error> {
     log::debug!("{}: sent NIP-11", session.peer);
     let rid = {
         let config_ref = GLOBALS.config.read().await;
-        let mut rid = RelayInformationDocument::default();
-        rid.name = config_ref.name.clone();
-        rid.description = config_ref.description.clone();
-        rid.pubkey = config_ref.public_key.map(|pk| pk.into()).clone();
-        rid.supported_nips = vec![11];
-        rid.software = Some(env!("CARGO_PKG_NAME").to_owned());
-        rid.version = Some(env!("CARGO_PKG_VERSION").to_owned());
-        rid
+        RelayInformationDocument {
+            name: config_ref.name.clone(),
+            description: config_ref.description.clone(),
+            pubkey: config_ref.public_key.map(|pk| pk.into()).clone(),
+            supported_nips: vec![11],
+            software: Some(env!("CARGO_PKG_NAME").to_owned()),
+            version: Some(env!("CARGO_PKG_VERSION").to_owned()),
+            ..Default::default()
+        }
     };
 
     let response = Response::builder()
