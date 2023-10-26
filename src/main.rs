@@ -8,13 +8,16 @@ use crate::config::Config;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::tls::MaybeTlsStream;
+use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::{Body, Request, Response};
+use hyper_tungstenite::{tungstenite, HyperWebsocket};
 use std::env;
 use std::error::Error as StdError;
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
+use tungstenite::Message;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -76,7 +79,8 @@ async fn main() -> Result<(), Error> {
 async fn serve(stream: MaybeTlsStream<TcpStream>, peer_addr: SocketAddr) -> Result<(), Error> {
     let connection = GLOBALS
         .http_server
-        .serve_connection(stream, hyper::service::service_fn(handle_request));
+        .serve_connection(stream, hyper::service::service_fn(handle_request))
+        .with_upgrades();
 
     tokio::spawn(async move {
         if let Err(he) = connection.await {
@@ -101,15 +105,61 @@ async fn serve(stream: MaybeTlsStream<TcpStream>, peer_addr: SocketAddr) -> Resu
     Ok(())
 }
 
-async fn handle_request(request: Request<Body>) -> Result<Response<Body>, Error> {
-    // check for Accept header of application/nostr+json
-    if let Some(accept) = request.headers().get("Accept") {
-        if let Ok(s) = accept.to_str() {
-            if s == "application/nostr+json" {
-                return Ok(web::serve_nip11().await?);
+async fn handle_request(mut request: Request<Body>) -> Result<Response<Body>, Error> {
+    if hyper_tungstenite::is_upgrade_request(&request) {
+        let (response, websocket) = hyper_tungstenite::upgrade(&mut request, None)?;
+        tokio::spawn(async move {
+            if let Err(e) = handle_websocket(websocket).await {
+                eprintln!("{}", e);
+            }
+        });
+        Ok(response)
+    } else {
+        // check for Accept header of application/nostr+json
+        if let Some(accept) = request.headers().get("Accept") {
+            if let Ok(s) = accept.to_str() {
+                if s == "application/nostr+json" {
+                    return Ok(web::serve_nip11().await?);
+                }
+            }
+        }
+
+        Ok(web::serve_http().await?)
+    }
+}
+
+async fn handle_websocket(websocket: HyperWebsocket) -> Result<(), Error> {
+    let mut websocket = websocket.await?;
+    while let Some(message) = websocket.next().await {
+        match message? {
+            Message::Text(msg) => {
+                println!("Received text message: {}", msg);
+                websocket.send(Message::text("Thank you, come again.")).await?;
+            },
+            Message::Binary(msg) => {
+                println!("Received binary message: {:02X?}", msg);
+                websocket.send(Message::binary(b"Thank you, come again.".to_vec())).await?;
+            },
+            Message::Ping(msg) => {
+                // No need to send a reply: tungstenite takes care of this for you.
+                println!("Received ping message: {:02X?}", msg);
+            },
+            Message::Pong(msg) => {
+                println!("Received pong message: {:02X?}", msg);
+            }
+            Message::Close(msg) => {
+                // No need to send a reply: tungstenite takes care of this for you.
+                if let Some(msg) = &msg {
+                    println!("Received close message with code {} and message: {}", msg.code, msg.reason);
+                } else {
+                    println!("Received close message");
+                }
+            },
+            Message::Frame(_msg) => {
+               unreachable!();
             }
         }
     }
 
-    Ok(web::serve_http().await?)
+    Ok(())
 }

@@ -29,4 +29,12 @@ pub enum Error {
     // Rustls
     #[error("TLS: {0}")]
     Rustls(#[from] tokio_rustls::rustls::Error),
+
+    // Tunstenite
+    #[error("Websocket: {0}")]
+    Tungstenite(#[from] hyper_tungstenite::tungstenite::error::Error),
+
+    // Tunstenite Protocol
+    #[error("Websocket Protocol: {0}")]
+    WebsocketProtocol(#[from] hyper_tungstenite::tungstenite::error::ProtocolError),
 }
