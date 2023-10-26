@@ -226,6 +226,7 @@ dependencies = [
  "rustls-pemfile",
  "serde",
  "serde_json",
+ "speedy",
  "thiserror",
  "tokio",
  "tokio-rustls",
