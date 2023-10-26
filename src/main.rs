@@ -1,6 +1,7 @@
 pub mod config;
 pub mod error;
 pub mod globals;
+pub mod nostr;
 pub mod tls;
 pub mod web;
 
@@ -11,6 +12,7 @@ use crate::tls::MaybeTlsStream;
 use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::{Body, Request, Response};
 use hyper_tungstenite::{tungstenite, HyperWebsocket};
+use nostr_types::RelayMessage;
 use std::env;
 use std::error::Error as StdError;
 use std::fs::OpenOptions;
@@ -130,34 +132,32 @@ async fn handle_websocket(websocket: HyperWebsocket) -> Result<(), Error> {
     let mut websocket = websocket.await?;
     while let Some(message) = websocket.next().await {
         match message? {
-            Message::Text(msg) => {
-                println!("Received text message: {}", msg);
-                websocket
-                    .send(Message::text("Thank you, come again."))
-                    .await?;
-            }
+            Message::Text(msg) => nostr::handle(&mut websocket, msg).await?,
             Message::Binary(msg) => {
-                println!("Received binary message: {:02X?}", msg);
-                websocket
-                    .send(Message::binary(b"Thank you, come again.".to_vec()))
-                    .await?;
+                log::info!("Received unhandled binary message: {:02X?}", msg);
+                let notice = RelayMessage::Notice(
+                    "Binary messages are not processed by this relay.".to_string(),
+                );
+                let string = serde_json::to_string(&notice)?;
+                websocket.send(Message::binary(string.as_bytes())).await?;
             }
             Message::Ping(msg) => {
                 // No need to send a reply: tungstenite takes care of this for you.
-                println!("Received ping message: {:02X?}", msg);
+                log::debug!("Received ping message: {:02X?}", msg);
             }
             Message::Pong(msg) => {
-                println!("Received pong message: {:02X?}", msg);
+                log::debug!("Received pong message: {:02X?}", msg);
             }
             Message::Close(msg) => {
                 // No need to send a reply: tungstenite takes care of this for you.
                 if let Some(msg) = &msg {
-                    println!(
+                    log::debug!(
                         "Received close message with code {} and message: {}",
-                        msg.code, msg.reason
+                        msg.code,
+                        msg.reason
                     );
                 } else {
-                    println!("Received close message");
+                    log::debug!("Received close message");
                 }
             }
             Message::Frame(_msg) => {
