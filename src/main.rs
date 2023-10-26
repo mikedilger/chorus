@@ -3,6 +3,7 @@ pub mod error;
 pub mod globals;
 pub mod nostr;
 pub mod session;
+pub mod store;
 pub mod tls;
 pub mod web;
 
