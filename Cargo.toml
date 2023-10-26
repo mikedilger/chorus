@@ -8,3 +8,4 @@ repository = "https://github.com/mikedilger/chorus"
 edition = "2021"
 
 [dependencies]
+thiserror = "1.0"
