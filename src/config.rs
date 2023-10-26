@@ -1,3 +1,4 @@
+use nostr_types::PublicKey;
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7,6 +8,9 @@ pub struct Config {
     pub use_tls: bool,
     pub certchain_pem_path: String,
     pub key_pem_path: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub public_key: Option<PublicKey>,
 }
 
 impl Default for Config {
@@ -17,6 +21,9 @@ impl Default for Config {
             use_tls: false,
             certchain_pem_path: "./tls/fullchain.pem".to_string(),
             key_pem_path: "./tls/privkey.pem".to_string(),
+            name: None,
+            description: None,
+            public_key: None,
         }
     }
 }

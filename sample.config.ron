@@ -4,4 +4,7 @@ Config(
     use_tls: false,
     certchain_pem_path: "tls/fullchain.pem",
     key_pem_path: "tls/privkey.pem",
+    name: None,
+    description: None,
+    public_key: None,
 )
