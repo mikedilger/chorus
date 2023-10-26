@@ -9,6 +9,7 @@ use crate::globals::GLOBALS;
 use std::env;
 use std::fs::OpenOptions;
 use std::io::Read;
+use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -28,6 +29,10 @@ async fn main() -> Result<(), Error> {
     file.read_to_string(&mut contents)?;
     let config: Config = ron::from_str(&contents)?;
     log::debug!("Loaded config file.");
+
+    // Bind listener to port
+    let listener = TcpListener::bind((&*config.ip_address, config.port)).await?;
+    log::info!("Running on {}:{}", config.ip_address, config.port);
 
     // Store config into GLOBALS
     *GLOBALS.config.write().await = config;
