@@ -13,6 +13,7 @@ use crate::store::Store;
 use std::env;
 use std::fs::OpenOptions;
 use std::io::Read;
+use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -36,6 +37,10 @@ async fn main() -> Result<(), Error> {
     // Setup store
     let store = Store::new(&config.data_directory)?;
     let _ = GLOBALS.store.set(store);
+
+    // Bind listener to port
+    let _listener = TcpListener::bind((&*config.ip_address, config.port)).await?;
+    log::info!("Running on {}:{}", config.ip_address, config.port);
 
     // Store config into GLOBALS
     *GLOBALS.config.write().await = config;
