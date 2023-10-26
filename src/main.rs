@@ -12,7 +12,7 @@ use crate::tls::MaybeTlsStream;
 use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::{Body, Request, Response};
 use hyper_tungstenite::{tungstenite, HyperWebsocket};
-use nostr_types::RelayMessage;
+use nostr_types::{ClientMessage, RelayMessage};
 use std::env;
 use std::error::Error as StdError;
 use std::fs::OpenOptions;
@@ -132,7 +132,12 @@ async fn handle_websocket(websocket: HyperWebsocket) -> Result<(), Error> {
     let mut websocket = websocket.await?;
     while let Some(message) = websocket.next().await {
         match message? {
-            Message::Text(msg) => nostr::handle(&mut websocket, msg).await?,
+            Message::Text(msg) => {
+                let client_msg: ClientMessage = serde_json::from_str(&msg)?;
+                let reply = nostr::handle(client_msg).await?;
+                let reply_string = serde_json::to_string(&reply)?;
+                websocket.send(Message::text(&reply_string)).await?;
+            }
             Message::Binary(msg) => {
                 log::info!("Received unhandled binary message: {:02X?}", msg);
                 let notice = RelayMessage::Notice(
