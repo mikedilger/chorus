@@ -2,26 +2,26 @@ use crate::config::Config;
 use crate::error::Error;
 use rustls::{Certificate, PrivateKey};
 use std::fs::File;
+use std::io::BufReader;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::io::BufReader;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio_rustls::{rustls, TlsAcceptor};
 
 pub fn tls_acceptor(config: &Config) -> Result<TlsAcceptor, Error> {
     let certs: Vec<Certificate> =
         rustls_pemfile::certs(&mut BufReader::new(File::open(&config.certchain_pem_path)?))?
-        .drain(..)
-        .map(Certificate)
-        .collect();
+            .drain(..)
+            .map(Certificate)
+            .collect();
 
     let mut keys: Vec<PrivateKey> =
         rustls_pemfile::pkcs8_private_keys(&mut BufReader::new(File::open(&config.key_pem_path)?))?
-        .drain(..)
-        .rev()
-        .map(PrivateKey)
-        .collect();
+            .drain(..)
+            .rev()
+            .map(PrivateKey)
+            .collect();
 
     let key = match keys.pop() {
         Some(k) => k,

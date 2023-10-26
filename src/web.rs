@@ -10,7 +10,7 @@ pub async fn serve_nip11() -> Result<Response<Body>, Error> {
         rid.name = config_ref.name.clone();
         rid.description = config_ref.description.clone();
         rid.pubkey = config_ref.public_key.map(|pk| pk.into()).clone();
-        rid.supported_nips = vec![ 11 ];
+        rid.supported_nips = vec![11];
         rid.software = Some(env!("CARGO_PKG_NAME").to_owned());
         rid.version = Some(env!("CARGO_PKG_VERSION").to_owned());
         rid
