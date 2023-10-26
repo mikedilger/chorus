@@ -3,6 +3,7 @@ include!("macros.rs");
 pub mod config;
 pub mod error;
 pub mod globals;
+pub mod store;
 pub mod types;
 
 use crate::config::Config;

@@ -53,6 +53,15 @@ impl<'a> Event<'a> {
         Ok(())
     }
 
+    // This copies, using the event_store mmap-append api
+    pub fn macopy(&self, output: &mut [u8]) -> Result<usize, std::io::Error> {
+        if output.len() < self.0.len() {
+            return Err(std::io::Error::other(Error::BufferTooSmall));
+        }
+        output[..self.0.len()].copy_from_slice(self.0);
+        Ok(self.0.len())
+    }
+
     pub fn as_bytes(&self) -> &[u8] {
         self.0
     }
