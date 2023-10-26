@@ -1,4 +1,6 @@
 Config(
     ip_address: "127.0.0.1",
     port: 8080,
+    certchain_pem_path: "tls/fullchain.pem",
+    key_pem_path: "tls/privkey.pem",
 )

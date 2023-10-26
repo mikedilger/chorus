@@ -18,4 +18,11 @@ pub enum Error {
     // I/O Error
     #[error("I/O: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Private Key Not Found")]
+    NoPrivateKey,
+
+    // Rustls
+    #[error("TLS: {0}")]
+    Rustls(#[from] tokio_rustls::rustls::Error),
 }
