@@ -12,6 +12,7 @@ env_logger = "0.10"
 hyper = { version = "0.14", features = [ "http1", "server", "runtime", "stream" ] }
 lazy_static = "1.4"
 log = "0.4"
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "10988c28ed3de9773c59728d3e58bcb4b4624857", features = [ "speedy" ] }
 ron = "0.8"
 rustls-pemfile = "1.0"
 serde = { version = "1.0", features = ["derive"] }
