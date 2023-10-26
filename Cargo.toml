@@ -24,3 +24,6 @@ speedy = { git = "https://github.com/mikedilger/speedy", rev="b8b713a7006958616d
 thiserror = "1.0"
 tokio = { version = "1", features = [ "full" ] }
 tokio-rustls = "0.24"
+
+[dev-dependencies]
+tempfile = "3"
