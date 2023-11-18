@@ -27,6 +27,10 @@ pub enum Error {
     #[error("LMDB: {0}")]
     Lmdb(#[from] heed::Error),
 
+    // Nostr-types
+    #[error("nostr-types: {0}")]
+    NostrTypes(#[from] nostr_types::Error),
+
     #[error("Private Key Not Found")]
     NoPrivateKey,
 
