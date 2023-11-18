@@ -4,14 +4,14 @@ pub use event_store::EventStore;
 use crate::error::Error;
 use heed::types::{CowSlice, OwnedType};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions};
-use nostr_types::Event;
+use nostr_types::{Event, Id, PublicKey, Unixtime};
 use std::fs;
 
 #[derive(Debug)]
 pub struct Store {
     pub events: EventStore,
     pub env: Env,
-    pub id_map: Database<CowSlice<u8>, OwnedType<usize>>,
+    pub id_index: Database<CowSlice<u8>, OwnedType<usize>>,
 }
 
 impl Store {
@@ -36,7 +36,7 @@ impl Store {
 
         // Open/Create maps
         let mut txn = env.write_txn()?;
-        let id_map = env
+        let id_index = env
             .database_options()
             .types::<CowSlice<u8>, OwnedType<usize>>()
             .create(&mut txn)?;
@@ -49,7 +49,7 @@ impl Store {
         Ok(Store {
             events: EventStore::new(event_map_file)?,
             env,
-            id_map,
+            id_index,
         })
     }
 
@@ -58,9 +58,11 @@ impl Store {
         let mut txn = self.env.write_txn()?;
 
         // Only if it doesn't already exist
-        if self.id_map.get(&txn, event.id.as_slice())?.is_none() {
+        if self.id_index.get(&txn, event.id.as_slice())?.is_none() {
+            // Store into event_store
             let offset = self.events.store_event(event)?;
-            self.id_map.put(&mut txn, event.id.as_slice(), &offset)?;
+            // Index into id_index
+            self.id_index.put(&mut txn, Self::id_index_key(&event), &offset)?;
         } else {
             log::debug!("Existing event not stored");
         }
@@ -68,5 +70,69 @@ impl Store {
         txn.commit()?;
 
         Ok(())
+    }
+
+    // id
+    fn id_index_key(event: &Event) -> &[u8] {
+        event.id.as_slice()
+    }
+
+    // reverse(created_at) + id
+    fn createdat_index_key(event: &Event) -> Vec<u8> {
+        let mut key: Vec<u8> = Vec::with_capacity(
+            std::mem::size_of::<i64>()
+                + std::mem::size_of::<Id>()
+        );
+        key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice());
+        key.extend(event.id.as_slice());
+        key
+    }
+
+    // author + reverse(created_at) + id
+    fn author_index_key(event: &Event) -> Vec<u8> {
+        let mut key: Vec<u8> = Vec::with_capacity(
+            std::mem::size_of::<PublicKey>()
+                + std::mem::size_of::<i64>()
+                + std::mem::size_of::<Id>()
+        );
+        key.extend(event.pubkey.as_bytes());
+        key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice());
+        key.extend(event.id.as_slice());
+        key
+    }
+
+    // kind + reverse(created_at) + id
+    fn kind_index_key(event: &Event) -> Vec<u8> {
+        let mut key: Vec<u8> = Vec::with_capacity(
+            std::mem::size_of::<u32>()
+                + std::mem::size_of::<i64>()
+                + std::mem::size_of::<Id>()
+        );
+        let ek: u32 = event.kind.into();
+        key.extend(ek.to_be_bytes().as_slice());
+        key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice());
+        key.extend(event.id.as_slice());
+        key
+    }
+
+    // tagletter + tagvalue_padded_214 + created_at + id   (= 255)
+    fn tag_index_key(tag: u8, value: &str, created_at: Unixtime, id: Id) -> Vec<u8> {
+        let padlen = 214;
+        let size = 1
+            + padlen
+            + std::mem::size_of::<i64>()
+            + std::mem::size_of::<Id>();
+        assert_eq!(size, 255);
+        let mut key: Vec<u8> = Vec::with_capacity(size);
+        key.push(tag);
+        if value.len() <= padlen {
+            key.extend(value.as_bytes());
+            key.extend(core::iter::repeat(0).take(padlen-value.len()));
+        } else {
+            key.extend(&value.as_bytes()[..214]);
+        }
+        key.extend((i64::MAX - created_at.0).to_be_bytes().as_slice());
+        key.extend(id.as_slice());
+        key
     }
 }
