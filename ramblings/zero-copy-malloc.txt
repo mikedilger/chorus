@@ -1,0 +1,54 @@
+# Chorus: The Inevitable has Happened
+
+As I recently confessed on Telegram I have been unable to stop myself from writing a relay. One part of my brain kept telling me "Focus on gossip!" but other parts kept solving problems and demanding I code those solutions somewhere. So I gave in. This is not to say that I have a working relay, far from it. But I have started coding. I hope OpenSats won't be too upset as I'm being funded for gossip, not for anything I damn well please, so I won't make this a big part of my day-to-day activities (unless they are cool with it) I'll just work on it a bit here and there.
+
+I've gotten to the point in the process where thinking about zero-copy and zero-allocation is necessary.
+
+## When writing incoming events, one easy-to-code solution does 3 copies and lots of little mallocs:
+
+- Websocket event buffer --serde_json--> heap nostr_types::Event  (N mallocs + 1 translation)
+- heap nostr_types::Event --speedy serialize--> Vec (1 mallocs + 1 translation)
+- Vec --LMDB mdb_put--> LMDB memory map (0 mallocs + 1 copy)
+
+Pre-allocating a reusable memory buffer doesn't really help that first copy because there  will be lots of strings which each get separately allocated on the heap due to the nature of the nostr_types::Event structure.
+
+The last two steps are two separate steps because LMDB doesn't allow a function to compose a value into the database directly, it requires the value to be pre-composed as a vector somewhere, which means it requires a copy from that vector.  Copies aren't very expensive if there are no mallocs (as in this case) but we still would rather avoid them if we can.
+
+## mmap-append removes the final copy
+
+I am storing events in a memory map that I manage myself, rather than into LMDB. This is primarily to avoid double-lookups where they aren't needed. If indexes yield an Id, then I have to translate from Id to Event which is another tree lookup. If indexes yield a memory offset, no translation necessary, it is direct. I can do that by storing events in my own memory map and indexing the memory offset where they are stored.  mmap-append was crafted to be multi-thread safe with only writers locking other writers, and readers not requiring any locks at all (even while a write is happening).
+
+But mmap-append gives me one more benefit. I can write the value directly in place, so we get this:
+
+- Websocket event buffer --serde_json--> heap nostr_types::Event  (N mallocs + 1 translation)
+- heap nostr_types::Event --speedy serialize--> mmap-append memory map (0 mallocs + 1 translation)
+
+To do this I would use speedy Writable::bytes_needed() and Writable::write_to_buffer().
+
+NOTE: speedy Context should be default endianness for the machine, so it becomes a no-op.
+
+## Getting down to just one copy
+
+If I dispense with nostr_types::Event and create a serialized event structure that allows easy
+direct field access with minimal parsing, I could potentially get down to just this:
+
+- Websocket event buffer --custom_speedy--> mmap-append memory map (0 mallocs + 1 translation)
+
+However, this custom speedy serialize function would need to parse JSON and build the custom serialized structure, which is a lot for a function to do. On reading, it would need to do the reverse. It would probably need to have two-passes, one to compute the length, and the second to do it, unless I modify mmap-append to shrink the appended result after the function writes (which I think I should do). It would need to deal with fields coming in any order too. Given all the string normalization and escape sequences, I would rely on serde_json to translate each string rather than try to rewrite that part.
+
+## Alternative approach:
+
+If we just left all events in their JSON format, we would also have a single copy, and wouldn't use any translation/serialization, and no allocation, something like this
+
+- Websocket event buffer --copy--> mmap-append memory map (0 mallocs + 1 copy)
+
+This is also super easy, and it is super fast. But the downsides are significant:
+
+- Events are not compressed and take more space, and worse yet
+- Events don't have easy access to fields, all accesses require parsing, multiple accesses then require repeating the same parsing multiple times
+
+## Final Thoughts
+
+Now that I've worked this out and written this up, I can put my mind to other tasks and come back around to actually doing this later on.
+
+Nostrasia starts in three days. I won't be doing much coding for the next 9 days.

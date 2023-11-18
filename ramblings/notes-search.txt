@@ -1,0 +1,102 @@
+
+ids
+authors
+kinds
+single-letter-tags
+since
+until
+limit
+
+
+Indexes:
+	ID -> Offset
+	CreatedAt + ID -> Offset
+	Author + CreatedAt + ID -> Offset
+	Kind + CreatedAt + ID -> Offset
+	TagLetter + TagValue[PaddedToFixedLength] + CreatedAt + ID -> Offset
+
+	NOTE: CreatedAt is stored inverted (distant future minus created_at) so that it
+    	sorts from present backwards.
+
+1) If ID is specified, load all those events, and manually check each event to see if
+	all other filters match.
+
+2) Pick one of these:
+
+______  ____  ___  _____  _____
+author  kind  tag  since  until		Iterate through all IDs
+______  ____  ___  _____
+author  kind  tag  since  until		Iterate through (CreatedAt+Id) from start..(Until+FF)
+______  ____  ___         _____
+author  kind  tag  since  until		Iterate through (CreatedAt+Id) from (Since+00)..end
+______  ____  ___
+author  kind  tag  since  until		Iterate through (CreatedAt+Id) from (Since+00)..(Until+FF)
+
+______  ____       _____  _____
+author  kind  tag  since  until     Iterate through (TagIndex) from TagLetter+TagValue+00+00 .. TagLetter+TagValue+FF+FF
+______  ____       _____
+author  kind  tag  since  until     Iterate through (TagIndex) from TagLetter+TagValue+00+00 .. TagLetter+TagValue+(Until)+FF
+______  ____              _____
+author  kind  tag  since  until     Iterate through (TagIndex) from TagLetter+TagValue+(Since)+00 .. TagLetter+TagValue+FF+FF
+______  ____
+author  kind  tag  since  until     Iterate through (TagIndex) from TagLetter+TagValue+(Since)+00 .. TagLetter+TagValue+(Until)+FF
+
+______        ___  _____  _____
+author  kind  tag  since  until     Iterate through (Kind
+______        ___  _____
+author  kind  tag  since  until     kind
+______        ___         _____
+author  kind  tag  since  until     kind
+______        ___
+author  kind  tag  since  until     kind
+
+______             _____  _____
+author  kind  tag  since  until     MERGE(kind, tag)
+______             _____
+author  kind  tag  since  until     MERGE(kind, tag)
+______                    _____
+author  kind  tag  since  until     MERGE(kind, tag)
+______
+author  kind  tag  since  until     MERGE(kind, tag)
+
+        ____  ___  _____  _____
+author  kind  tag  since  until     author
+        ____  ___  _____
+author  kind  tag  since  until     author
+        ____  ___         _____
+author  kind  tag  since  until     author
+        ____  ___
+author  kind  tag  since  until     author
+
+        ____       _____  _____
+author  kind  tag  since  until     MERGE(author, tag)
+        ____       _____
+author  kind  tag  since  until     MERGE(author, tag)
+        ____              _____
+author  kind  tag  since  until     MERGE(author, tag)
+        ____
+author  kind  tag  since  until     MERGE(author, tag)
+
+              ___  _____  _____
+author  kind  tag  since  until     MERGE(author, kind)
+              ___  _____
+author  kind  tag  since  until     MERGE(author, kind)
+              ___         _____
+author  kind  tag  since  until     MERGE(author, kind)
+              ___
+author  kind  tag  since  until     MERGE(author, kind)
+
+                   _____  _____
+author  kind  tag  since  until     MERGE(author, kind, tag)
+                   _____
+author  kind  tag  since  until     MERGE(author, kind, tag)
+                          _____
+author  kind  tag  since  until     MERGE(author, kind, tag)
+
+author  kind  tag  since  until     MERGE(author, kind, tag)
+
+									Iterate through A+C+ID from (Author+Since+00)..(Author+Until+FF)
+									INTERSECT AGAINST
+                                   	Iterate through Kind+C+ID from (Kind+Since+00)..(Kind+Until+FF)
+                                    INTERSECT AGAINST
+                                    Iterate throuth Tag+C+ID from (Tag+Since+00)..(Tag+Since+FF)

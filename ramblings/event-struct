@@ -1,0 +1,22 @@
+
+id: Id                  32
+pubkey: PublicKey       32
+sig: Signature          64
+created_at: Unixtime    8
+kind: EventKind         4
+var_length:             4
+var: [u8; dyn var_length]  var_length
+
+content_length: u32     4
+
+content: [u8; C]        C bytes
+tag offsets: [u32; T]   4 * T
+
+at each tag offset:
+  count, (length, value) * count
+
+Tag {
+  count: u32,
+  length: 32,
+  value: [u8, N],
+
