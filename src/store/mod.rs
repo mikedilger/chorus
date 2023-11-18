@@ -12,6 +12,10 @@ pub struct Store {
     pub events: EventStore,
     pub env: Env,
     pub id_index: Database<CowSlice<u8>, OwnedType<usize>>,
+    pub createdat_index: Database<CowSlice<u8>, OwnedType<usize>>,
+    pub author_index: Database<CowSlice<u8>, OwnedType<usize>>,
+    pub kind_index: Database<CowSlice<u8>, OwnedType<usize>>,
+    pub tag_index: Database<CowSlice<u8>, OwnedType<usize>>,
 }
 
 impl Store {
@@ -40,6 +44,23 @@ impl Store {
             .database_options()
             .types::<CowSlice<u8>, OwnedType<usize>>()
             .create(&mut txn)?;
+        let createdat_index = env
+            .database_options()
+            .types::<CowSlice<u8>, OwnedType<usize>>()
+            .create(&mut txn)?;
+        let author_index = env
+            .database_options()
+            .types::<CowSlice<u8>, OwnedType<usize>>()
+            .create(&mut txn)?;
+        let kind_index = env
+            .database_options()
+            .types::<CowSlice<u8>, OwnedType<usize>>()
+            .create(&mut txn)?;
+        let tag_index = env
+            .database_options()
+            .types::<CowSlice<u8>, OwnedType<usize>>()
+            .create(&mut txn)?;
+
         txn.commit()?;
 
         log::info!("Store is setup");
@@ -50,6 +71,10 @@ impl Store {
             events: EventStore::new(event_map_file)?,
             env,
             id_index,
+            createdat_index,
+            author_index,
+            kind_index,
+            tag_index,
         })
     }
 
@@ -61,8 +86,28 @@ impl Store {
         if self.id_index.get(&txn, event.id.as_slice())?.is_none() {
             // Store into event_store
             let offset = self.events.store_event(event)?;
+
             // Index into id_index
             self.id_index.put(&mut txn, Self::id_index_key(&event), &offset)?;
+
+            // Index into createdat_index
+            self.createdat_index.put(&mut txn, &Self::createdat_index_key(&event), &offset)?;
+
+            // Index into author_index
+            self.author_index.put(&mut txn, &Self::author_index_key(&event), &offset)?;
+
+            // Index into kind_index
+            self.kind_index.put(&mut txn, &Self::kind_index_key(&event), &offset)?;
+
+            // Index into tag index
+            for tag in event.tags.iter() {
+                let tn = tag.tagname();
+                if tn.len() == 1 {
+                    let letter = tn.as_bytes()[0];
+                    let tv = tag.value(1)?;
+                    self.tag_index.put(&mut txn, &Self::tag_index_key(letter, &tv, event.created_at, event.id), &offset)?;
+                }
+            }
         } else {
             log::debug!("Existing event not stored");
         }
