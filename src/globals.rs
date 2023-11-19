@@ -1,5 +1,7 @@
 use crate::config::Config;
+use crate::session::Session;
 use crate::store::Store;
+use dashmap::DashMap;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -11,6 +13,7 @@ pub struct Globals {
     pub http_server: Http,
     pub store: OnceLock<Store>,
     pub next_session_id: AtomicU64,
+    pub sessions: DashMap<u64, Session>,
 }
 
 impl Globals {
@@ -30,6 +33,7 @@ lazy_static! {
             http_server,
             store: OnceLock::new(),
             next_session_id: AtomicU64::new(0),
+            sessions: DashMap::new(),
         }
     };
 }
