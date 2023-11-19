@@ -89,19 +89,19 @@ impl Store {
 
             // Index into id_index
             self.id_index
-                .put(&mut txn, Self::id_index_key(&event), &offset)?;
+                .put(&mut txn, Self::id_index_key(event), &offset)?;
 
             // Index into createdat_index
             self.createdat_index
-                .put(&mut txn, &Self::createdat_index_key(&event), &offset)?;
+                .put(&mut txn, &Self::createdat_index_key(event), &offset)?;
 
             // Index into author_index
             self.author_index
-                .put(&mut txn, &Self::author_index_key(&event), &offset)?;
+                .put(&mut txn, &Self::author_index_key(event), &offset)?;
 
             // Index into kind_index
             self.kind_index
-                .put(&mut txn, &Self::kind_index_key(&event), &offset)?;
+                .put(&mut txn, &Self::kind_index_key(event), &offset)?;
 
             // Index into tag index
             for tag in event.tags.iter() {
