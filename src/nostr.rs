@@ -1,9 +1,9 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use crate::session::Session;
 use nostr_types::{ClientMessage, RelayMessage};
+use std::net::SocketAddr;
 
-pub async fn handle(_session: &mut Session, msg: ClientMessage) -> Result<RelayMessage, Error> {
+pub async fn handle(_session_id: u64, _peer: SocketAddr, msg: ClientMessage) -> Result<RelayMessage, Error> {
     match msg {
         ClientMessage::Event(event) => {
             match GLOBALS.store.get().unwrap().store_event(event.as_ref()) {

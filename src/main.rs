@@ -133,17 +133,19 @@ impl Service<Request<Body>> for Svc {
     }
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
+        let peer = self.peer;
         let session = Session::new(self.peer);
-        Box::pin(async { handle(session, req).await })
+        let session_id = GLOBALS.get_next_session_id();
+        GLOBALS.sessions.insert(session_id, session);
+        Box::pin(async move { handle(session_id, peer, req).await })
     }
 }
 
-async fn handle(session: Session, mut request: Request<Body>) -> Result<Response<Body>, Error> {
+async fn handle(session_id: u64, peer: SocketAddr, mut request: Request<Body>) -> Result<Response<Body>, Error> {
     if hyper_tungstenite::is_upgrade_request(&request) {
         let (response, websocket) = hyper_tungstenite::upgrade(&mut request, None)?;
         tokio::spawn(async move {
-            let peer = session.peer;
-            if let Err(e) = handle_websocket(session, websocket).await {
+            if let Err(e) = handle_websocket(session_id, peer, websocket).await {
                 log::error!("{}: {}", peer, e);
             }
         });
@@ -153,29 +155,29 @@ async fn handle(session: Session, mut request: Request<Body>) -> Result<Response
         if let Some(accept) = request.headers().get("Accept") {
             if let Ok(s) = accept.to_str() {
                 if s == "application/nostr+json" {
-                    return web::serve_nip11(session).await;
+                    return web::serve_nip11(session_id, peer).await;
                 }
             }
         }
-        Ok(web::serve_http(session, request).await?)
+        Ok(web::serve_http(session_id, peer, request).await?)
     }
 }
 
-async fn handle_websocket(mut session: Session, websocket: HyperWebsocket) -> Result<(), Error> {
+async fn handle_websocket(session_id: u64, peer: SocketAddr, websocket: HyperWebsocket) -> Result<(), Error> {
     let mut websocket = websocket.await?;
     while let Some(message) = websocket.next().await {
         match message? {
             Message::Text(msg) => {
-                log::debug!("{}: {}", session.peer, msg);
+                log::debug!("{}: {}", peer, msg);
                 let client_msg: ClientMessage = serde_json::from_str(&msg)?;
-                let reply = nostr::handle(&mut session, client_msg).await?;
+                let reply = nostr::handle(session_id, peer, client_msg).await?;
                 let reply_string = serde_json::to_string(&reply)?;
                 websocket.send(Message::text(&reply_string)).await?;
             }
             Message::Binary(msg) => {
                 log::info!(
                     "{}: Received unhandled binary message: {:02X?}",
-                    session.peer,
+                    peer,
                     msg
                 );
                 let notice = RelayMessage::Notice(
@@ -186,22 +188,22 @@ async fn handle_websocket(mut session: Session, websocket: HyperWebsocket) -> Re
             }
             Message::Ping(msg) => {
                 // No need to send a reply: tungstenite takes care of this for you.
-                log::debug!("{}: Received ping message: {:02X?}", session.peer, msg);
+                log::debug!("{}: Received ping message: {:02X?}", peer, msg);
             }
             Message::Pong(msg) => {
-                log::debug!("{}: Received pong message: {:02X?}", session.peer, msg);
+                log::debug!("{}: Received pong message: {:02X?}", peer, msg);
             }
             Message::Close(msg) => {
                 // No need to send a reply: tungstenite takes care of this for you.
                 if let Some(msg) = &msg {
                     log::debug!(
                         "{}: Received close message with code {} and message: {}",
-                        session.peer,
+                        peer,
                         msg.code,
                         msg.reason
                     );
                 } else {
-                    log::debug!("{}: Received close message", session.peer);
+                    log::debug!("{}: Received close message", peer);
                 }
             }
             Message::Frame(_msg) => {

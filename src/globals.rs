@@ -4,6 +4,7 @@ use crate::store::Store;
 use dashmap::DashMap;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
+use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 use tokio::sync::RwLock;
@@ -19,6 +20,10 @@ pub struct Globals {
 impl Globals {
     pub fn get_next_session_id(&self) -> u64 {
         self.next_session_id.fetch_add(1, Ordering::Relaxed)
+    }
+
+    pub fn get_session_peer(&self, session_id: u64) -> Option<SocketAddr> {
+        self.sessions.get(&session_id).map(|s| s.peer)
     }
 }
 
