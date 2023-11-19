@@ -141,7 +141,11 @@ impl Service<Request<Body>> for Svc {
     }
 }
 
-async fn handle(session_id: u64, peer: SocketAddr, mut request: Request<Body>) -> Result<Response<Body>, Error> {
+async fn handle(
+    session_id: u64,
+    peer: SocketAddr,
+    mut request: Request<Body>,
+) -> Result<Response<Body>, Error> {
     if hyper_tungstenite::is_upgrade_request(&request) {
         let (response, websocket) = hyper_tungstenite::upgrade(&mut request, None)?;
         tokio::spawn(async move {
@@ -163,7 +167,11 @@ async fn handle(session_id: u64, peer: SocketAddr, mut request: Request<Body>) -
     }
 }
 
-async fn handle_websocket(session_id: u64, peer: SocketAddr, websocket: HyperWebsocket) -> Result<(), Error> {
+async fn handle_websocket(
+    session_id: u64,
+    peer: SocketAddr,
+    websocket: HyperWebsocket,
+) -> Result<(), Error> {
     let mut websocket = websocket.await?;
     while let Some(message) = websocket.next().await {
         match message? {
@@ -175,11 +183,7 @@ async fn handle_websocket(session_id: u64, peer: SocketAddr, websocket: HyperWeb
                 websocket.send(Message::text(&reply_string)).await?;
             }
             Message::Binary(msg) => {
-                log::info!(
-                    "{}: Received unhandled binary message: {:02X?}",
-                    peer,
-                    msg
-                );
+                log::info!("{}: Received unhandled binary message: {:02X?}", peer, msg);
                 let notice = RelayMessage::Notice(
                     "Binary messages are not processed by this relay.".to_string(),
                 );

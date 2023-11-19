@@ -29,7 +29,11 @@ pub async fn serve_nip11(_session_id: u64, peer: SocketAddr) -> Result<Response<
     Ok(response)
 }
 
-pub async fn serve_http(_session_id: u64, peer: SocketAddr, request: Request<Body>) -> Result<Response<Body>, Error> {
+pub async fn serve_http(
+    _session_id: u64,
+    peer: SocketAddr,
+    request: Request<Body>,
+) -> Result<Response<Body>, Error> {
     log::debug!("{}: HTTP request for {}", peer, request.uri());
     let response = Response::builder()
         .header("Access-Control-Allow-Origin", "*")

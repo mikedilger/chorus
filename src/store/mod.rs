@@ -88,16 +88,20 @@ impl Store {
             let offset = self.events.store_event(event)?;
 
             // Index into id_index
-            self.id_index.put(&mut txn, Self::id_index_key(&event), &offset)?;
+            self.id_index
+                .put(&mut txn, Self::id_index_key(&event), &offset)?;
 
             // Index into createdat_index
-            self.createdat_index.put(&mut txn, &Self::createdat_index_key(&event), &offset)?;
+            self.createdat_index
+                .put(&mut txn, &Self::createdat_index_key(&event), &offset)?;
 
             // Index into author_index
-            self.author_index.put(&mut txn, &Self::author_index_key(&event), &offset)?;
+            self.author_index
+                .put(&mut txn, &Self::author_index_key(&event), &offset)?;
 
             // Index into kind_index
-            self.kind_index.put(&mut txn, &Self::kind_index_key(&event), &offset)?;
+            self.kind_index
+                .put(&mut txn, &Self::kind_index_key(&event), &offset)?;
 
             // Index into tag index
             for tag in event.tags.iter() {
@@ -105,7 +109,11 @@ impl Store {
                 if tn.len() == 1 {
                     let letter = tn.as_bytes()[0];
                     let tv = tag.value(1)?;
-                    self.tag_index.put(&mut txn, &Self::tag_index_key(letter, &tv, event.created_at, event.id), &offset)?;
+                    self.tag_index.put(
+                        &mut txn,
+                        &Self::tag_index_key(letter, &tv, event.created_at, event.id),
+                        &offset,
+                    )?;
                 }
             }
         } else {
@@ -124,10 +132,8 @@ impl Store {
 
     // reverse(created_at) + id
     fn createdat_index_key(event: &Event) -> Vec<u8> {
-        let mut key: Vec<u8> = Vec::with_capacity(
-            std::mem::size_of::<i64>()
-                + std::mem::size_of::<Id>()
-        );
+        let mut key: Vec<u8> =
+            Vec::with_capacity(std::mem::size_of::<i64>() + std::mem::size_of::<Id>());
         key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice());
         key.extend(event.id.as_slice());
         key
@@ -138,7 +144,7 @@ impl Store {
         let mut key: Vec<u8> = Vec::with_capacity(
             std::mem::size_of::<PublicKey>()
                 + std::mem::size_of::<i64>()
-                + std::mem::size_of::<Id>()
+                + std::mem::size_of::<Id>(),
         );
         key.extend(event.pubkey.as_bytes());
         key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice());
@@ -149,9 +155,7 @@ impl Store {
     // kind + reverse(created_at) + id
     fn kind_index_key(event: &Event) -> Vec<u8> {
         let mut key: Vec<u8> = Vec::with_capacity(
-            std::mem::size_of::<u32>()
-                + std::mem::size_of::<i64>()
-                + std::mem::size_of::<Id>()
+            std::mem::size_of::<u32>() + std::mem::size_of::<i64>() + std::mem::size_of::<Id>(),
         );
         let ek: u32 = event.kind.into();
         key.extend(ek.to_be_bytes().as_slice());
@@ -163,16 +167,13 @@ impl Store {
     // tagletter + tagvalue_padded_214 + created_at + id   (= 255)
     fn tag_index_key(tag: u8, value: &str, created_at: Unixtime, id: Id) -> Vec<u8> {
         let padlen = 214;
-        let size = 1
-            + padlen
-            + std::mem::size_of::<i64>()
-            + std::mem::size_of::<Id>();
+        let size = 1 + padlen + std::mem::size_of::<i64>() + std::mem::size_of::<Id>();
         assert_eq!(size, 255);
         let mut key: Vec<u8> = Vec::with_capacity(size);
         key.push(tag);
         if value.len() <= padlen {
             key.extend(value.as_bytes());
-            key.extend(core::iter::repeat(0).take(padlen-value.len()));
+            key.extend(core::iter::repeat(0).take(padlen - value.len()));
         } else {
             key.extend(&value.as_bytes()[..214]);
         }
