@@ -1,3 +1,6 @@
+mod event;
+pub use event::Event;
+
 mod id;
 pub use id::Id;
 
