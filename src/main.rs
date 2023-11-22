@@ -109,6 +109,15 @@ async fn serve(stream: MaybeTlsStream<TcpStream>, peer_addr: SocketAddr) -> Resu
     Ok(())
 }
 
-async fn handle_request(_request: Request<Body>) -> Result<Response<Body>, Error> {
+async fn handle_request(request: Request<Body>) -> Result<Response<Body>, Error> {
+    // check for Accept header of application/nostr+json
+    if let Some(accept) = request.headers().get("Accept") {
+        if let Ok(s) = accept.to_str() {
+            if s == "application/nostr+json" {
+                return web::serve_nip11().await;
+            }
+        }
+    }
+
     web::serve_http().await
 }

@@ -9,6 +9,7 @@ pub struct Globals {
     pub config: RwLock<Config>,
     pub store: OnceLock<Store>,
     pub http_server: Http,
+    pub rid: OnceLock<String>,
 }
 
 lazy_static! {
@@ -21,6 +22,7 @@ lazy_static! {
             config: RwLock::new(Config::default()),
             store: OnceLock::new(),
             http_server,
+            rid: OnceLock::new(),
         }
     };
 }
