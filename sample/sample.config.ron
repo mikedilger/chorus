@@ -1,4 +1,7 @@
 Config(
     ip_address: "127.0.0.1",
     port: 8080,
+    name: None,
+    description: None,
+    public_key_hex: None,
 )
