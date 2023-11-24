@@ -55,3 +55,21 @@ macro_rules! read_hex {
         }
     }};
 }
+
+macro_rules! parse_u16 {
+    ($input:expr, $start:expr) => {
+        u16::from_ne_bytes($input[$start .. $start+2].try_into().unwrap())
+    }
+}
+
+macro_rules! parse_u32 {
+    ($input:expr, $start:expr) => {
+        u32::from_ne_bytes($input[$start .. $start+4].try_into().unwrap())
+    }
+}
+
+macro_rules! parse_u64 {
+    ($input:expr, $start:expr) => {
+        u64::from_ne_bytes($input[$start .. $start+8].try_into().unwrap())
+    }
+}
