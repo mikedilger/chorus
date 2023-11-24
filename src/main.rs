@@ -1,3 +1,4 @@
+include!("macros.rs");
 
 pub mod config;
 pub mod error;
