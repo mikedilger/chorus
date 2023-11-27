@@ -1,6 +1,9 @@
 mod event;
 pub use event::Event;
 
+mod filter;
+pub use filter::Filter;
+
 mod id;
 pub use id::Id;
 
