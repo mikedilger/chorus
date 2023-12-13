@@ -2,6 +2,9 @@ use super::{Id, Kind, Pubkey, Sig, Tags, Time};
 use crate::Error;
 use std::fmt;
 
+mod json_event;
+use json_event::parse_json_event;
+
 /*
  * 0 [4 bytes] length of the event structure
  * 4 [2 bytes] kind
@@ -20,6 +23,15 @@ use std::fmt;
 pub struct Event<'a>(&'a [u8]);
 
 impl<'a> Event<'a> {
+    // Parse json into an Event. Returns the count of consumed input bytes and the Event
+    pub fn from_json(
+        json: &[u8],
+        output_buffer: &'a mut [u8],
+    ) -> Result<(usize, Event<'a>), Error> {
+        let (incount, outcount) = parse_json_event(json, output_buffer)?;
+        Ok((incount, Event(&output_buffer[..outcount])))
+    }
+
     // this marks off the slice of bytes that represent an event from a potentially longer input
     pub fn delineate(input: &'a [u8]) -> Result<Event<'a>, Error> {
         if input.len() < 144 + 4 + 4 {
