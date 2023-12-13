@@ -22,4 +22,8 @@ pub enum Error {
     // I/O Error
     #[error("I/O: {0}")]
     Io(#[from] std::io::Error),
+
+    // UTF-8
+    #[error("UTF-8 error")]
+    Utf8Error,
 }

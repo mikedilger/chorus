@@ -7,6 +7,8 @@ pub use id::Id;
 mod kind;
 pub use kind::Kind;
 
+pub mod parse;
+
 mod pubkey;
 pub use pubkey::Pubkey;
 
