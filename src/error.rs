@@ -23,6 +23,18 @@ pub enum Error {
     #[error("I/O: {0}")]
     Io(#[from] std::io::Error),
 
+    // JSON Bad Character
+    #[error("JSON bad character: {0} at position {1}, {2} was expected")]
+    JsonBadCharacter(char, usize, char),
+
+    // JSON Bad (general)
+    #[error("JSON bad: {0} at position {1}")]
+    JsonBad(&'static str, usize),
+
+    // JSON Bad Event
+    #[error("JSON bad event: {0} at position {1}")]
+    JsonBadEvent(&'static str, usize),
+
     // JSON Bad String Character
     #[error("JSON string bad character: codepoint {0}")]
     JsonBadStringChar(u32),
