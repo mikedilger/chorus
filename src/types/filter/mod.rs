@@ -2,6 +2,9 @@ use super::{Event, Id, Kind, Pubkey, Tags, Time};
 use crate::Error;
 use std::fmt;
 
+mod json_filter;
+use json_filter::parse_json_filter;
+
 /*
  *  0 [2 bytes] length of entire structure
  *  2 [2 bytes] num_ids
@@ -32,6 +35,16 @@ const KIND_SIZE: usize = 2;
 pub struct Filter<'a>(&'a [u8]);
 
 impl<'a> Filter<'a> {
+    // Parse json into a Filter. Returns the count of consumed input bytes and output
+    // bytes the Filter
+    pub fn from_json(
+        json: &[u8],
+        output_buffer: &'a mut [u8],
+    ) -> Result<(usize, usize, Filter<'a>), Error> {
+        let (incount, outcount) = parse_json_filter(json, output_buffer)?;
+        Ok((incount, outcount, Filter(&output_buffer[..outcount])))
+    }
+
     pub fn delineate(input: &'a [u8]) -> Result<Filter<'a>, Error> {
         if input.len() < ARRAYS_OFFSET {
             return Err(Error::EndOfInput);
