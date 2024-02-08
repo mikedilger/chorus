@@ -96,6 +96,7 @@ dependencies = [
  "env_logger",
  "lazy_static",
  "log",
+ "mmap-append",
  "ron",
  "serde",
  "thiserror",
@@ -195,6 +196,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f665ee40bc4a3c5590afb1e9677db74a508659dfd71e126420da8274909a0167"
 
 [[package]]
+name = "memmap2"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45fd3a57831bf88bc63f8cebc0cf956116276e97fef3966103e96416209f7c92"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -212,6 +222,15 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys",
+]
+
+[[package]]
+name = "mmap-append"
+version = "0.1.0"
+source = "git+https://github.com/mikedilger/mmap-append?rev=0d20e193e7f13a442865a4a40a5da9a120e87411#0d20e193e7f13a442865a4a40a5da9a120e87411"
+dependencies = [
+ "libc",
+ "memmap2",
 ]
 
 [[package]]
