@@ -2,7 +2,7 @@ pub mod event_store;
 pub use event_store::EventStore;
 
 use crate::error::Error;
-use crate::types::Event;
+use crate::types::{Event, Id, Kind, Pubkey, Time};
 use heed::types::{OwnedType, UnalignedSlice};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions};
 use std::fs;
@@ -87,5 +87,70 @@ impl Store {
         } else {
             Ok(None)
         }
+    }
+
+    // For looking up event by Author and Kind
+    // author(32) + kind(2) + reversecreatedat(8) + id(32)
+    #[allow(dead_code)]
+    fn key_akci(author: Pubkey, kind: Kind, created_at: Time, id: Id) -> Vec<u8> {
+        let mut key: Vec<u8> = Vec::with_capacity(
+            std::mem::size_of::<Pubkey>()
+                + std::mem::size_of::<Kind>()
+                + std::mem::size_of::<Time>()
+                + std::mem::size_of::<Id>(),
+        );
+        key.extend(author.as_slice());
+        key.extend(kind.0.to_be_bytes());
+        key.extend((u64::MAX - created_at.0).to_be_bytes().as_slice());
+        key.extend(id.as_slice());
+        key
+    }
+
+    // For looking up event by Author and Tag
+    // author(32) + tagletter(1) + fixlentag(182) + reversecreatedat(8) + id(32)
+    #[allow(dead_code)]
+    fn key_atci(author: Pubkey, letter: u8, tag_value: &[u8], created_at: Time, id: Id) -> Vec<u8> {
+        const PADLEN: usize = 182;
+        let mut key: Vec<u8> = Vec::with_capacity(
+            std::mem::size_of::<Pubkey>()
+                + PADLEN
+                + std::mem::size_of::<Time>()
+                + std::mem::size_of::<Id>(),
+        );
+        key.extend(author.as_slice());
+        key.push(letter);
+        if tag_value.len() <= PADLEN {
+            key.extend(tag_value);
+            key.extend(core::iter::repeat(0).take(PADLEN - tag_value.len()));
+        } else {
+            key.extend(&tag_value[..PADLEN]);
+        }
+        key.extend((u64::MAX - created_at.0).to_be_bytes().as_slice());
+        key.extend(id.as_slice());
+        key
+    }
+
+    // For looking up event by Kind and Tag
+    // kind(2) + tagletter(1) + fixlentag(182) + reversecreatedat(8) + id(32)
+    #[allow(dead_code)]
+    fn key_ktci(kind: Kind, letter: u8, tag_value: &[u8], created_at: Time, id: Id) -> Vec<u8> {
+        const PADLEN: usize = 182;
+        let mut key: Vec<u8> = Vec::with_capacity(
+            std::mem::size_of::<Kind>()
+                + PADLEN
+                + std::mem::size_of::<Time>()
+                + std::mem::size_of::<Id>(),
+        );
+        key.extend(kind.0.to_be_bytes());
+        key.push(letter);
+        if tag_value.len() <= PADLEN {
+            key.extend(tag_value);
+            key.extend(core::iter::repeat(0).take(PADLEN - tag_value.len()));
+        } else {
+            key.extend(&tag_value[..PADLEN]);
+        }
+        key.extend((u64::MAX - created_at.0).to_be_bytes().as_slice());
+        key.extend(id.as_slice());
+        key
     }
 }
