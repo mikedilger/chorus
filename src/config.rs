@@ -11,6 +11,7 @@ pub struct Config {
     pub name: Option<String>,
     pub description: Option<String>,
     pub public_key_hex: Option<String>,
+    pub user_hex_keys: Vec<String>,
 }
 
 impl Default for Config {
@@ -25,6 +26,7 @@ impl Default for Config {
             name: None,
             description: None,
             public_key_hex: None,
+            user_hex_keys: vec![],
         }
     }
 }
