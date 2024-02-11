@@ -12,6 +12,9 @@ pub struct Store {
     events: EventStore,
     env: Env,
     ids: Database<UnalignedSlice<u8>, OwnedType<usize>>,
+    akci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
+    atci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
+    ktci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
 }
 
 impl Store {
@@ -41,6 +44,21 @@ impl Store {
             .types::<UnalignedSlice<u8>, OwnedType<usize>>()
             .name("ids")
             .create(&mut txn)?;
+        let akci = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, OwnedType<usize>>()
+            .name("akci")
+            .create(&mut txn)?;
+        let atci = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, OwnedType<usize>>()
+            .name("atci")
+            .create(&mut txn)?;
+        let ktci = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, OwnedType<usize>>()
+            .name("ktci")
+            .create(&mut txn)?;
         txn.commit()?;
 
         log::info!("Store is setup");
@@ -51,6 +69,9 @@ impl Store {
             events: EventStore::new(event_map_file)?,
             env,
             ids,
+            akci,
+            atci,
+            ktci,
         })
     }
 
@@ -66,6 +87,49 @@ impl Store {
 
             // Index by id
             self.ids.put(&mut txn, event.id().0.as_slice(), &offset)?;
+
+            // Index by author and kind (with created_at and id)
+            self.akci.put(
+                &mut txn,
+                &Self::key_akci(event.pubkey(), event.kind(), event.created_at(), event.id()),
+                &offset,
+            )?;
+
+            for mut tsi in event.tags()?.iter() {
+                if let Some(tagname) = tsi.next() {
+                    // FIXME make sure it is a letter too
+                    if tagname.len() == 1 {
+                        if let Some(tagvalue) = tsi.next() {
+                            // Index by author and tag (with created_at and id)
+                            self.atci.put(
+                                &mut txn,
+                                &Self::key_atci(
+                                    event.pubkey(),
+                                    tagname[0],
+                                    tagvalue,
+                                    event.created_at(),
+                                    event.id(),
+                                ),
+                                &offset,
+                            )?;
+
+                            // Index by kind and tag (with created_at and id)
+                            self.ktci.put(
+                                &mut txn,
+                                &Self::key_ktci(
+                                    event.kind(),
+                                    tagname[0],
+                                    tagvalue,
+                                    event.created_at(),
+                                    event.id(),
+                                ),
+                                &offset,
+                            )?;
+                        }
+                    }
+                }
+            }
+
             txn.commit()?;
         } else {
             return Err(Error::Duplicate);
