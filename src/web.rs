@@ -59,10 +59,12 @@ fn build_rid(config: &Config) -> String {
         rid.push_str(description);
         rid.push('\"');
     }
-    if let Some(pubkeyhex) = &config.public_key_hex {
+    if let Some(pubkey) = &config.public_key {
+        let mut pkh: [u8; 64] = [0; 64];
+        pubkey.write_hex(&mut pkh).unwrap();
         rid.push(',');
         rid.push_str("\"pubkey\":\"");
-        rid.push_str(pubkeyhex);
+        rid.push_str(unsafe { std::str::from_utf8_unchecked(pkh.as_slice()) });
         rid.push('\"');
     }
     rid.push('}');

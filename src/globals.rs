@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{Config, FriendlyConfig};
 use crate::store::Store;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
@@ -19,7 +19,7 @@ lazy_static! {
         http_server.http1_keep_alive(true);
 
         Globals {
-            config: RwLock::new(Config::default()),
+            config: RwLock::new(FriendlyConfig::default().into_config().unwrap()),
             store: OnceLock::new(),
             http_server,
             rid: OnceLock::new(),
