@@ -78,4 +78,14 @@ impl Store {
     pub fn get_event_by_offset(&self, offset: usize) -> Result<Option<Event>, Error> {
         self.events.get_event_by_offset(offset)
     }
+
+    /// Get an event by Id
+    pub fn get_event_by_id(&self, id: Id) -> Result<Option<Event>, Error> {
+        let txn = self.env.read_txn()?;
+        if let Some(offset) = self.ids.get(&txn, id.0.as_slice())? {
+            self.events.get_event_by_offset(offset)
+        } else {
+            Ok(None)
+        }
+    }
 }
