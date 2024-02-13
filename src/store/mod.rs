@@ -2,10 +2,11 @@ pub mod event_store;
 pub use event_store::EventStore;
 
 use crate::error::Error;
-use crate::types::{Event, Id, Kind, Pubkey, Time};
+use crate::types::{Event, Filter, Id, Kind, Pubkey, Time};
 use heed::types::{OwnedType, UnalignedSlice};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions};
 use std::fs;
+use std::ops::Bound;
 
 #[derive(Debug)]
 pub struct Store {
@@ -151,6 +152,152 @@ impl Store {
         } else {
             Ok(None)
         }
+    }
+
+    pub fn find_events(&self, filter: Filter) -> Result<Vec<Event>, Error> {
+        let mut output: Vec<Event> = Vec::new();
+
+        if filter.num_ids() > 0 {
+            // Fetch by id
+            for id in filter.ids() {
+                if let Some(event) = self.get_event_by_id(id)? {
+                    // and check each against the rest of the filter
+                    if filter.event_matches(&event)? {
+                        output.push(event);
+                    }
+                }
+                // Stop if limited
+                if output.len() >= filter.limit() as usize {
+                    return Ok(output);
+                }
+            }
+        } else if filter.num_authors() > 0 && filter.num_kinds() > 0 {
+            for author in filter.authors() {
+                for kind in filter.kinds() {
+                    let start_prefix = Self::key_akci(
+                        author,
+                        kind,
+                        filter.until(), // scan goes backwards in time
+                        Id([0; 32]),
+                    );
+                    let end_prefix = Self::key_akci(
+                        author,
+                        kind,
+                        filter.since(), // scan goes backwards in time
+                        Id([255; 32]),
+                    );
+                    let range = (
+                        Bound::Included(&*start_prefix),
+                        Bound::Excluded(&*end_prefix),
+                    );
+                    let txn = self.env.read_txn()?;
+                    let iter = self.akci.range(&txn, &range)?;
+                    for result in iter {
+                        let (_key, offset) = result?;
+                        if let Some(event) = self.events.get_event_by_offset(offset)? {
+                            // check against the rest of the filter
+                            if filter.event_matches(&event)? {
+                                output.push(event);
+                            }
+                        }
+                        // Stop if limited
+                        if output.len() >= filter.limit() as usize {
+                            return Ok(output);
+                        }
+                    }
+                }
+            }
+        } else if filter.num_authors() > 0 && !filter.tags()?.is_empty() {
+            for author in filter.authors() {
+                let tags = filter.tags()?;
+                for mut tag in tags.iter() {
+                    if let Some(tag0) = tag.next() {
+                        if let Some(tagvalue) = tag.next() {
+                            let start_prefix = Self::key_atci(
+                                author,
+                                tag0[0],
+                                tagvalue,
+                                filter.until(), // scan goes backwards in time
+                                Id([0; 32]),
+                            );
+                            let end_prefix = Self::key_atci(
+                                author,
+                                tag0[0],
+                                tagvalue,
+                                filter.since(), // scan goes backwards in time
+                                Id([255; 32]),
+                            );
+                            let range = (
+                                Bound::Included(&*start_prefix),
+                                Bound::Excluded(&*end_prefix),
+                            );
+                            let txn = self.env.read_txn()?;
+                            let iter = self.akci.range(&txn, &range)?;
+                            for result in iter {
+                                let (_key, offset) = result?;
+                                if let Some(event) = self.events.get_event_by_offset(offset)? {
+                                    // check against the rest of the filter
+                                    if filter.event_matches(&event)? {
+                                        output.push(event);
+                                    }
+                                }
+                                // Stop if limited
+                                if output.len() >= filter.limit() as usize {
+                                    return Ok(output);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if filter.num_kinds() > 0 && !filter.tags()?.is_empty() {
+            for kind in filter.kinds() {
+                let tags = filter.tags()?;
+                for mut tag in tags.iter() {
+                    if let Some(tag0) = tag.next() {
+                        if let Some(tagvalue) = tag.next() {
+                            let start_prefix = Self::key_ktci(
+                                kind,
+                                tag0[0],
+                                tagvalue,
+                                filter.until(), // scan goes backwards in time
+                                Id([0; 32]),
+                            );
+                            let end_prefix = Self::key_ktci(
+                                kind,
+                                tag0[0],
+                                tagvalue,
+                                filter.since(), // scan goes backwards in time
+                                Id([255; 32]),
+                            );
+                            let range = (
+                                Bound::Included(&*start_prefix),
+                                Bound::Excluded(&*end_prefix),
+                            );
+                            let txn = self.env.read_txn()?;
+                            let iter = self.akci.range(&txn, &range)?;
+                            for result in iter {
+                                let (_key, offset) = result?;
+                                if let Some(event) = self.events.get_event_by_offset(offset)? {
+                                    // check against the rest of the filter
+                                    if filter.event_matches(&event)? {
+                                        output.push(event);
+                                    }
+                                }
+                                // Stop if limited
+                                if output.len() >= filter.limit() as usize {
+                                    return Ok(output);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            return Err(Error::Scraper);
+        }
+
+        Ok(output)
     }
 
     // For looking up event by Author and Kind

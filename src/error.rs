@@ -59,6 +59,10 @@ pub enum Error {
     #[error("LMDB: {0}")]
     Lmdb(#[from] heed::Error),
 
+    // Filter is underspecified
+    #[error("Filter is underspecified. Scrapers are not allowed")]
+    Scraper,
+
     // UTF-8
     #[error("UTF-8: {0}")]
     Utf8(#[from] std::str::Utf8Error),
