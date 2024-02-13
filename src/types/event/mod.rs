@@ -128,3 +128,12 @@ impl fmt::Display for Event<'_> {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct OwnedEvent(pub Vec<u8>);
+
+impl OwnedEvent {
+    pub fn as_event(&self) -> Result<Event<'_>, Error> {
+        Event::delineate(&self.0)
+    }
+}

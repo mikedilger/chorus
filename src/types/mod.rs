@@ -1,8 +1,8 @@
 mod event;
-pub use event::Event;
+pub use event::{Event, OwnedEvent};
 
 mod filter;
-pub use filter::Filter;
+pub use filter::{Filter, OwnedFilter};
 
 mod id;
 pub use id::Id;

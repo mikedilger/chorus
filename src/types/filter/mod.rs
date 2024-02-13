@@ -419,6 +419,15 @@ impl<'a> Iterator for FilterKindIter<'a> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct OwnedFilter(pub Vec<u8>);
+
+impl OwnedFilter {
+    pub fn as_filter(&self) -> Result<Filter<'_>, Error> {
+        Filter::delineate(&self.0)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
