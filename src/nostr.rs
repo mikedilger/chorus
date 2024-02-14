@@ -176,8 +176,12 @@ impl WebSocketService {
         Ok(())
     }
 
-    pub async fn auth(&mut self, _msg: String, __inpos: usize) -> Result<(), Error> {
-        unimplemented!()
+    pub async fn auth(&mut self, msg: String, _inpos: usize) -> Result<(), Error> {
+        let _input = msg.as_bytes();
+
+        let reply = NostrReply::Notice("AUTH is not yet supported".to_owned());
+        self.websocket.send(Message::text(reply.as_json())).await?;
+        Ok(())
     }
 }
 
