@@ -3,7 +3,7 @@ use crate::globals::GLOBALS;
 use crate::reply::NostrReply;
 use crate::types::parse::json_escape::json_unescape;
 use crate::types::parse::json_parse::*;
-use crate::types::{Event, Kind};
+use crate::types::{Event, Filter, Kind, OwnedFilter};
 use crate::WebSocketService;
 use futures::SinkExt;
 use hyper_tungstenite::tungstenite::Message;
@@ -40,8 +40,77 @@ impl WebSocketService {
         Ok(())
     }
 
-    pub async fn req(&mut self, _msg: String, mut _inpos: usize) -> Result<(), Error> {
-        unimplemented!()
+    pub async fn req(&mut self, msg: String, mut inpos: usize) -> Result<(), Error> {
+        let input = msg.as_bytes();
+
+        // ["REQ", <subid>, json-filter, json-filter, ... ]
+
+        eat_whitespace(input, &mut inpos);
+        verify_char(input, b',', &mut inpos)?;
+        eat_whitespace(input, &mut inpos);
+
+        let mut outpos = 0;
+
+        // Read the subid into the session buffer
+        verify_char(input, b'"', &mut inpos)?;
+        let (inlen, outlen) = json_unescape(&input[inpos..], &mut self.buffer[outpos..])?;
+        inpos += inlen;
+        let subid = unsafe { String::from_utf8_unchecked(self.buffer[outpos..outlen].to_owned()) };
+        outpos += outlen;
+        verify_char(input, b'"', &mut inpos)?; // FIXME: json_unescape should eat the closing quote
+
+        log::info!("SUBID={}", subid);
+
+        // Read the filter into the session buffer
+        let mut filters: Vec<OwnedFilter> = Vec::new();
+        loop {
+            eat_whitespace(input, &mut inpos);
+            if input[inpos] == b']' {
+                break;
+            }
+            verify_char(input, b',', &mut inpos)?;
+            // whitespace after the comma is handled within Filter::from_json
+            let (incount, outcount, filter) =
+                Filter::from_json(&input[inpos..], &mut self.buffer[outpos..])?;
+            inpos += incount;
+            outpos += outcount;
+
+            let filterbytes = filter.as_bytes().to_owned();
+            filters.push(OwnedFilter(filterbytes));
+        }
+
+        // Serve events matching subscription
+        {
+            let mut events: Vec<Event> = Vec::new();
+            for filter in filters.iter() {
+                let filter_events = GLOBALS
+                    .store
+                    .get()
+                    .unwrap()
+                    .find_events(filter.as_filter()?)?;
+                events.extend(filter_events)
+            }
+
+            // sort
+            events.sort_by_key(|e| std::cmp::Reverse(e.created_at()));
+
+            // dedup
+            events.dedup();
+
+            for event in events.drain(..) {
+                let reply = NostrReply::Event(&subid, event);
+                self.websocket.send(Message::text(reply.as_json())).await?;
+            }
+
+            // eose
+            let reply = NostrReply::Eose(&subid);
+            self.websocket.send(Message::text(reply.as_json())).await?;
+        }
+
+        // Store subscription
+        self.subscriptions.insert(subid, filters);
+
+        Ok(())
     }
 
     pub async fn event(&mut self, msg: String, mut inpos: usize) -> Result<(), Error> {
@@ -70,7 +139,7 @@ impl WebSocketService {
             Ok(offset) => {
                 GLOBALS.new_events.send(offset)?; // advertise the new event
                 NostrReply::Ok(event.id(), true, "".to_owned())
-            },
+            }
             Err(Error::Duplicate) => NostrReply::Ok(event.id(), true, "duplicate:".to_owned()),
             Err(e) => NostrReply::Ok(event.id(), false, format!("{e}")),
         };
