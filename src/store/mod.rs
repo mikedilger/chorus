@@ -73,4 +73,9 @@ impl Store {
 
         Ok(offset)
     }
+
+    /// Get an event by offset
+    pub fn get_event_by_offset(&self, offset: usize) -> Result<Option<Event>, Error> {
+        self.events.get_event_by_offset(offset)
+    }
 }
