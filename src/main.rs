@@ -3,6 +3,7 @@ include!("macros.rs");
 pub mod config;
 pub mod error;
 pub mod globals;
+pub mod nostr;
 pub mod reply;
 pub mod store;
 pub mod tls;
@@ -223,8 +224,12 @@ impl WebSocketService {
         match message {
             Message::Text(msg) => {
                 log::debug!("{}: <= {}", self.peer, msg);
-                let reply = NostrReply::Notice("error: Not Yet Implemented".to_string());
-                self.websocket.send(Message::text(reply.as_json())).await?;
+                // This is defined in nostr.rs
+                if let Err(e) = self.handle_nostr_message(msg).await {
+                    log::error!("{e}");
+                    let reply = NostrReply::Notice(format!("error: {}", e));
+                    self.websocket.send(Message::text(reply.as_json())).await?;
+                }
             }
             Message::Binary(msg) => {
                 let reply = NostrReply::Notice(
