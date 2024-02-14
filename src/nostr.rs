@@ -1,7 +1,9 @@
 use crate::error::Error;
+use crate::globals::GLOBALS;
 use crate::reply::NostrReply;
 use crate::types::parse::json_escape::json_unescape;
 use crate::types::parse::json_parse::*;
+use crate::types::{Event, Kind};
 use crate::WebSocketService;
 use futures::SinkExt;
 use hyper_tungstenite::tungstenite::Message;
@@ -42,8 +44,37 @@ impl WebSocketService {
         unimplemented!()
     }
 
-    pub async fn event(&mut self, _msg: String, mut _inpos: usize) -> Result<(), Error> {
-        unimplemented!()
+    pub async fn event(&mut self, msg: String, mut inpos: usize) -> Result<(), Error> {
+        let input = msg.as_bytes();
+
+        eat_whitespace(input, &mut inpos);
+        verify_char(input, b',', &mut inpos)?;
+        eat_whitespace(input, &mut inpos);
+
+        // Read the event into the session buffer
+        let (_incount, event) = Event::from_json(&input[inpos..], &mut self.buffer)?;
+
+        // Check if the event passes muster
+        if !validate_event(&event).await? {
+            let reply = NostrReply::Ok(
+                event.id(),
+                false,
+                "blocked: this personal relay only accepts events related to its users".to_owned(),
+            );
+            self.websocket.send(Message::text(reply.as_json())).await?;
+            return Ok(());
+        }
+
+        // Store and index the event
+        // FIXME: send the event to other listeners in case it matches their subs
+        let reply = match GLOBALS.store.get().unwrap().store_event(&event) {
+            Ok(_) => NostrReply::Ok(event.id(), true, "".to_owned()),
+            Err(Error::Duplicate) => NostrReply::Ok(event.id(), true, "duplicate:".to_owned()),
+            Err(e) => NostrReply::Ok(event.id(), false, format!("{e}")),
+        };
+
+        self.websocket.send(Message::text(reply.as_json())).await?;
+        Ok(())
     }
 
     pub async fn close(&mut self, msg: String, mut inpos: usize) -> Result<(), Error> {
@@ -77,4 +108,40 @@ impl WebSocketService {
     pub async fn auth(&mut self, _msg: String, __inpos: usize) -> Result<(), Error> {
         unimplemented!()
     }
+}
+
+async fn validate_event(event: &Event<'_>) -> Result<bool, Error> {
+    // FIXME: check signature
+
+    // Accept relay lists from anybody
+    if event.kind() == Kind(10002) {
+        return Ok(true);
+    }
+
+    // If the author is one of our users, always accept it
+    if GLOBALS
+        .config
+        .read()
+        .await
+        .user_keys
+        .contains(&event.pubkey())
+    {
+        return Ok(true);
+    }
+
+    // If the event tags one of our users, always accept it
+    for mut tag in event.tags()?.iter() {
+        if tag.next() == Some(b"p") {
+            if let Some(value) = tag.next() {
+                for ukhex in &GLOBALS.config.read().await.user_hex_keys {
+                    if value == ukhex.as_bytes() {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+    }
+
+    // Reject everything else
+    Ok(false)
 }
