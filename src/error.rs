@@ -11,6 +11,14 @@ pub enum Error {
     #[error("Output buffer too small")]
     BufferTooSmall,
 
+    // Channel Recv
+    #[error("Channel receive: {0}")]
+    ChannelRecv(#[from] tokio::sync::broadcast::error::RecvError),
+
+    // Channel Send
+    #[error("Channel send: {0}")]
+    ChannelSend(#[from] tokio::sync::broadcast::error::SendError<usize>),
+
     // Config
     #[error("Config: {0}")]
     Config(#[from] ron::error::SpannedError),
