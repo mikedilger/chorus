@@ -16,11 +16,13 @@ use crate::globals::GLOBALS;
 use crate::reply::NostrReply;
 use crate::store::Store;
 use crate::tls::MaybeTlsStream;
+use crate::types::OwnedFilter;
 use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::service::Service;
 use hyper::upgrade::Upgraded;
 use hyper::{Body, Request, Response};
 use hyper_tungstenite::{tungstenite, WebSocketStream};
+use std::collections::HashMap;
 use std::env;
 use std::error::Error as StdError;
 use std::fs::OpenOptions;
@@ -159,7 +161,13 @@ async fn handle_http_request(
                     log::info!("{}: websocket started", peer);
 
                     // Build a websocket service
-                    let mut ws_service = WebSocketService { peer, websocket };
+                    let mut ws_service = WebSocketService {
+                        peer,
+                        subscriptions: HashMap::new(),
+                        // We start with a 1-page buffer, and grow it if needed.
+                        buffer: vec![0; 4096],
+                        websocket,
+                    };
 
                     // Handle the websocket
                     if let Err(e) = ws_service.handle_websocket_stream().await {
@@ -197,6 +205,8 @@ async fn handle_http_request(
 
 struct WebSocketService {
     pub peer: SocketAddr,
+    pub subscriptions: HashMap<String, Vec<OwnedFilter>>,
+    pub buffer: Vec<u8>,
     pub websocket: WebSocketStream<Upgraded>,
 }
 
