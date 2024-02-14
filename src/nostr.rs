@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::reply::NostrReply;
+use crate::types::parse::json_escape::json_unescape;
 use crate::types::parse::json_parse::*;
 use crate::WebSocketService;
 use futures::SinkExt;
@@ -45,8 +46,32 @@ impl WebSocketService {
         unimplemented!()
     }
 
-    pub async fn close(&mut self, _msg: String, mut _inpos: usize) -> Result<(), Error> {
-        unimplemented!()
+    pub async fn close(&mut self, msg: String, mut inpos: usize) -> Result<(), Error> {
+        let input = msg.as_bytes();
+
+        // ["CLOSE", <subid>]
+
+        eat_whitespace(input, &mut inpos);
+        verify_char(input, b',', &mut inpos)?;
+        eat_whitespace(input, &mut inpos);
+        verify_char(input, b'"', &mut inpos)?;
+
+        // read "subid" string into buffer
+        let (_inlen, outlen) = json_unescape(&input[inpos..], &mut self.buffer[..])?;
+
+        // consider as a &str
+        let subid = unsafe { std::str::from_utf8_unchecked(&self.buffer[..outlen]) };
+
+        // If we have that subscription
+        let reply = if self.subscriptions.contains_key(subid) {
+            // Remove it, and let them know
+            self.subscriptions.remove(subid);
+            NostrReply::Closed(subid, "".to_owned())
+        } else {
+            NostrReply::Notice(format!("no such subscription id: {}", subid))
+        };
+        self.websocket.send(Message::text(reply.as_json())).await?;
+        Ok(())
     }
 
     pub async fn auth(&mut self, _msg: String, __inpos: usize) -> Result<(), Error> {
