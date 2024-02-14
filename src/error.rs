@@ -74,6 +74,10 @@ pub enum Error {
     #[error("TLS: {0}")]
     Rustls(#[from] tokio_rustls::rustls::Error),
 
+    // Tunstenite
+    #[error("Websocket: {0}")]
+    Tungstenite(#[from] hyper_tungstenite::tungstenite::error::Error),
+
     // Filter is underspecified
     #[error("Filter is underspecified. Scrapers are not allowed")]
     Scraper,
@@ -85,4 +89,8 @@ pub enum Error {
     // UTF-8
     #[error("UTF-8 error")]
     Utf8Error,
+
+    // Tunstenite Protocol
+    #[error("Websocket Protocol: {0}")]
+    WebsocketProtocol(#[from] hyper_tungstenite::tungstenite::error::ProtocolError),
 }
