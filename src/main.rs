@@ -213,8 +213,10 @@ struct WebSocketService {
 
 impl WebSocketService {
     async fn handle_websocket_stream(&mut self) -> Result<(), Error> {
+        // Subscribe to the new_events broadcast channel
+        let mut new_events = GLOBALS.new_events.subscribe();
+
         loop {
-            // We will add more to this later
             tokio::select! {
                 message_option = self.websocket.next() => {
                     match message_option {
@@ -225,6 +227,38 @@ impl WebSocketService {
                         None => break, // websocket must be closed
                     }
                 },
+                offset_result = new_events.recv() => {
+                    let offset = offset_result?;
+                    self.handle_new_event(offset).await?;
+                },
+            }
+        }
+
+        Ok(())
+    }
+
+    // If the event matches a subscription they have open, send them the event
+    async fn handle_new_event(&mut self, new_event_offset: usize) -> Result<(), Error> {
+        if self.subscriptions.is_empty() {
+            return Ok(());
+        }
+
+        if let Some(event) = GLOBALS
+            .store
+            .get()
+            .unwrap()
+            .get_event_by_offset(new_event_offset)?
+        {
+            'subs: for (subid, filters) in self.subscriptions.iter() {
+                for filter in filters.iter() {
+                    if filter.as_filter()?.event_matches(&event)? {
+                        let message = NostrReply::Event(subid, event.clone());
+                        self.websocket
+                            .send(Message::text(message.as_json()))
+                            .await?;
+                        continue 'subs;
+                    }
+                }
             }
         }
 
