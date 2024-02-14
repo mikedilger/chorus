@@ -15,6 +15,10 @@ pub enum Error {
     #[error("Config: {0}")]
     Config(#[from] ron::error::SpannedError),
 
+    // Duplicate event
+    #[error("Duplicate")]
+    Duplicate,
+
     // End of Input
     #[error("End of input")]
     EndOfInput,
