@@ -137,17 +137,17 @@ impl Service<Request<Body>> for HttpService {
 }
 
 async fn handle_http_request(
-    _peer: SocketAddr,
+    peer: SocketAddr,
     request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
     // check for Accept header of application/nostr+json
     if let Some(accept) = request.headers().get("Accept") {
         if let Ok(s) = accept.to_str() {
             if s == "application/nostr+json" {
-                return web::serve_nip11().await;
+                return web::serve_nip11(peer).await;
             }
         }
     }
 
-    web::serve_http().await
+    web::serve_http(peer, request).await
 }

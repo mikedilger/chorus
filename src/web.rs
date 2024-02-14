@@ -1,9 +1,11 @@
 use crate::config::Config;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use hyper::{Body, Response, StatusCode};
+use hyper::{Body, Request, Response, StatusCode};
+use std::net::SocketAddr;
 
-pub async fn serve_http() -> Result<Response<Body>, Error> {
+pub async fn serve_http(peer: SocketAddr, request: Request<Body>) -> Result<Response<Body>, Error> {
+    log::debug!("{}: HTTP request for {}", peer, request.uri());
     let response = Response::builder()
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Headers", "*")
@@ -13,7 +15,8 @@ pub async fn serve_http() -> Result<Response<Body>, Error> {
     Ok(response)
 }
 
-pub async fn serve_nip11() -> Result<Response<Body>, Error> {
+pub async fn serve_nip11(peer: SocketAddr) -> Result<Response<Body>, Error> {
+    log::debug!("{}: sent NIP-11", peer);
     let rid = {
         let config = GLOBALS.config.read().await;
         GLOBALS.rid.get_or_init(|| build_rid(&config))
