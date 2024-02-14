@@ -66,9 +66,11 @@ impl WebSocketService {
         }
 
         // Store and index the event
-        // FIXME: send the event to other listeners in case it matches their subs
         let reply = match GLOBALS.store.get().unwrap().store_event(&event) {
-            Ok(_) => NostrReply::Ok(event.id(), true, "".to_owned()),
+            Ok(offset) => {
+                GLOBALS.new_events.send(offset)?; // advertise the new event
+                NostrReply::Ok(event.id(), true, "".to_owned())
+            },
             Err(Error::Duplicate) => NostrReply::Ok(event.id(), true, "duplicate:".to_owned()),
             Err(e) => NostrReply::Ok(event.id(), false, format!("{e}")),
         };
