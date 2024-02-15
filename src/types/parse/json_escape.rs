@@ -38,6 +38,8 @@ pub fn json_escape(input: &[u8], out: &mut [u8]) -> Result<usize, Error> {
                     if codepoint > 0x20 {
                         panic!("unnecessary encoding requested");
                     }
+                    // This violates NIP-01 which doesn't allow characters like 0x00
+                    // even though JSON UTF-8 does.
                     output(format!("\\u{:04x}", codepoint).as_bytes())?;
                 }
             }
@@ -114,6 +116,7 @@ pub fn json_unescape(input: &[u8], out: &mut [u8]) -> Result<(usize, usize), Err
                 b'n' => output_byte!(LINEFEED, out, &mut write_pos)?,
                 b'r' => output_byte!(CR, out, &mut write_pos)?,
                 b't' => output_byte!(TAB, out, &mut write_pos)?,
+                // This violates NIP-01 but we accept it
                 b'u' => uescape = Some((0, 0)),
                 _ => return Err(ChorusError::JsonEscape.into()), // nothing else is a legal escape
             }
