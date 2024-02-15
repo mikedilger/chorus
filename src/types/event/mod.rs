@@ -1,5 +1,5 @@
 use super::{Id, Kind, Pubkey, Sig, Tags, Time};
-use crate::Error;
+use crate::error::{ChorusError, Error};
 use std::fmt;
 
 mod json_event;
@@ -35,11 +35,11 @@ impl<'a> Event<'a> {
     // this marks off the slice of bytes that represent an event from a potentially longer input
     pub fn delineate(input: &'a [u8]) -> Result<Event<'a>, Error> {
         if input.len() < 144 + 4 + 4 {
-            return Err(Error::EndOfInput);
+            return Err(ChorusError::EndOfInput.into());
         }
         let len = parse_u32!(input, 0) as usize;
         if input.len() < len {
-            return Err(Error::EndOfInput);
+            return Err(ChorusError::EndOfInput.into());
         }
         Ok(Event(&input[0..len]))
     }
@@ -47,7 +47,7 @@ impl<'a> Event<'a> {
     // This copies
     pub fn copy(&self, output: &mut [u8]) -> Result<(), Error> {
         if output.len() < self.0.len() {
-            return Err(Error::BufferTooSmall);
+            return Err(ChorusError::BufferTooSmall.into());
         }
         output[..self.0.len()].copy_from_slice(self.0);
         Ok(())
@@ -56,7 +56,7 @@ impl<'a> Event<'a> {
     // This copies, using the event_store mmap-append api
     pub fn macopy(&self, output: &mut [u8]) -> Result<usize, std::io::Error> {
         if output.len() < self.0.len() {
-            return Err(std::io::Error::other(Error::BufferTooSmall));
+            return Err(std::io::Error::other(ChorusError::BufferTooSmall));
         }
         output[..self.0.len()].copy_from_slice(self.0);
         Ok(self.0.len())
@@ -144,7 +144,7 @@ impl<'a> Event<'a> {
 
         let hashref = <sha256::Hash as AsRef<[u8]>>::as_ref(&hash);
         if hashref != self.id().as_slice() {
-            return Err(Error::BadEventId);
+            return Err(ChorusError::BadEventId.into());
         }
 
         let pubkey = XOnlyPublicKey::from_slice(self.pubkey().as_slice())?;

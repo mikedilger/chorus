@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::error::{ChorusError, Error};
 
 // Reads the next code point if UTF-8, and returns it along with the number of characters
 // that make it up.
@@ -18,7 +18,7 @@ pub fn next_code_point(input: &[u8]) -> Result<Option<(u32, usize)>, Error> {
     // Decode from a byte combination out of: [[[x y] z] w]
     let init = utf8_first_byte(x, 2);
     if len < 2 {
-        return Err(Error::Utf8Error);
+        return Err(ChorusError::Utf8Error.into());
     }
     let y = input[1];
     let mut ch = utf8_acc_cont_byte(init, y);
@@ -26,7 +26,7 @@ pub fn next_code_point(input: &[u8]) -> Result<Option<(u32, usize)>, Error> {
         // [[x y z] w] case
         // 5th bit in 0xE0 .. 0xEF is always clear, so `init` is still valid
         if len < 3 {
-            return Err(Error::Utf8Error);
+            return Err(ChorusError::Utf8Error.into());
         }
         let z = input[2];
         let y_z = utf8_acc_cont_byte((y & CONT_MASK) as u32, z);
@@ -35,7 +35,7 @@ pub fn next_code_point(input: &[u8]) -> Result<Option<(u32, usize)>, Error> {
             // [x y z w] case
             // use only the lower 3 bits of `init`
             if len < 4 {
-                return Err(Error::Utf8Error);
+                return Err(ChorusError::Utf8Error.into());
             }
             let w = input[3];
             ch = (init & 7) << 18 | utf8_acc_cont_byte(y_z, w);
@@ -78,7 +78,7 @@ pub fn encode_utf8(code: u32, dst: &mut [u8]) -> Result<usize, Error> {
             *dst.get_unchecked_mut(3) = (code & 0x3F) as u8 | TAG_CONT;
             4
         } else {
-            return Err(Error::BufferTooSmall);
+            return Err(ChorusError::BufferTooSmall.into());
         }
     };
     Ok(len)

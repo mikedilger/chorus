@@ -11,7 +11,7 @@ pub mod types;
 pub mod web;
 
 use crate::config::{Config, FriendlyConfig};
-use crate::error::Error;
+use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
 use crate::reply::NostrReply;
 use crate::store::Store;
@@ -172,13 +172,15 @@ async fn handle_http_request(
 
                     // Handle the websocket
                     if let Err(e) = ws_service.handle_websocket_stream().await {
-                        match e {
-                            Error::Tungstenite(tungstenite::error::Error::Protocol(
-                                tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
-                            )) => {
-                                // swallow
-                            }
-                            e => log::error!("{}: {}", peer, e),
+                        if matches!(
+                            e.inner,
+                            ChorusError::Tungstenite(tungstenite::error::Error::Protocol(
+                                tungstenite::error::ProtocolError::ResetWithoutClosingHandshake
+                            ))
+                        ) {
+                            // Swallow the boring error
+                        } else {
+                            log::error!("{}: {}", peer, e);
                         }
                     }
 

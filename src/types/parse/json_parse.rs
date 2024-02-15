@@ -1,5 +1,5 @@
 use super::json_escape::json_unescape;
-use crate::Error;
+use crate::error::{ChorusError, Error};
 
 #[inline]
 pub fn eat_whitespace(input: &[u8], inposp: &mut usize) {
@@ -18,16 +18,12 @@ pub fn eat_whitespace_and_commas(input: &[u8], inposp: &mut usize) {
 #[inline]
 pub fn verify_char(input: &[u8], ch: u8, inposp: &mut usize) -> Result<(), Error> {
     if *inposp >= input.len() {
-        Err(Error::JsonBad("Too Short or Missing Fields", *inposp))
+        Err(ChorusError::JsonBad("Too Short or Missing Fields", *inposp).into())
     } else if input[*inposp] == ch {
         *inposp += 1;
         Ok(())
     } else {
-        Err(Error::JsonBadCharacter(
-            input[*inposp] as char,
-            *inposp,
-            ch as char,
-        ))
+        Err(ChorusError::JsonBadCharacter(input[*inposp] as char, *inposp, ch as char).into())
     }
 }
 
@@ -42,7 +38,7 @@ pub fn next_object_field(input: &[u8], inposp: &mut usize) -> Result<bool, Error
     eat_whitespace(input, inposp);
     // next comes either comma or end brace
     if *inposp >= input.len() {
-        return Err(Error::JsonBad("Too short", *inposp));
+        return Err(ChorusError::JsonBad("Too short", *inposp).into());
     }
     if input[*inposp] == b'}' {
         *inposp += 1;
@@ -51,14 +47,14 @@ pub fn next_object_field(input: &[u8], inposp: &mut usize) -> Result<bool, Error
         *inposp += 1;
         Ok(false)
     } else {
-        Err(Error::JsonBad("Unexpected char", *inposp))
+        Err(ChorusError::JsonBad("Unexpected char", *inposp).into())
     }
 }
 
 pub fn read_id(input: &[u8], inposp: &mut usize, output: &mut [u8]) -> Result<(), Error> {
     verify_char(input, b'"', inposp)?;
     if *inposp + 64 >= input.len() {
-        return Err(Error::JsonBad("Too short reading id", *inposp));
+        return Err(ChorusError::JsonBad("Too short reading id", *inposp).into());
     }
     // Read the hex ID and write the binary ID into the output event structure
     read_hex!(&input[*inposp..*inposp + 64], &mut output[..32], 32)?;
@@ -70,7 +66,7 @@ pub fn read_id(input: &[u8], inposp: &mut usize, output: &mut [u8]) -> Result<()
 pub fn read_pubkey(input: &[u8], inposp: &mut usize, output: &mut [u8]) -> Result<(), Error> {
     verify_char(input, b'"', inposp)?;
     if *inposp + 64 >= input.len() {
-        return Err(Error::JsonBad("Too short reading pubkey", *inposp));
+        return Err(ChorusError::JsonBad("Too short reading pubkey", *inposp).into());
     }
     // Read the hex pubkey and write the binary pubkey into the output event structure
     read_hex!(&input[*inposp..*inposp + 64], &mut output[..32], 32)?;
@@ -88,10 +84,11 @@ pub fn read_u64(input: &[u8], inposp: &mut usize) -> Result<u64, Error> {
         *inposp += 1;
     }
     if !any {
-        return Err(Error::JsonBad(
+        return Err(ChorusError::JsonBad(
             "Created at must be a positive or zero valued number",
             *inposp,
-        ));
+        )
+        .into());
     }
     Ok(value)
 }
@@ -105,13 +102,14 @@ pub fn read_kind(input: &[u8], inposp: &mut usize) -> Result<u16, Error> {
         *inposp += 1;
     }
     if !any {
-        return Err(Error::JsonBad(
+        return Err(ChorusError::JsonBad(
             "Kind at must be a positive or zero valued number",
             *inposp,
-        ));
+        )
+        .into());
     }
     if value > 65535 {
-        Err(Error::JsonBad("Kind larger than 65535", *inposp))
+        Err(ChorusError::JsonBad("Kind larger than 65535", *inposp).into())
     } else {
         Ok(value as u16)
     }
@@ -173,7 +171,7 @@ pub fn read_tags_array(
                 }
                 eat_whitespace(input, inposp);
             }
-            _ => return Err(Error::JsonBad("Tag array bad character", *inposp)),
+            _ => return Err(ChorusError::JsonBad("Tag array bad character", *inposp).into()),
         }
     }
 
@@ -191,7 +189,7 @@ pub fn count_tags(input: &[u8], mut inpos: usize) -> Result<usize, Error> {
     match input[inpos] {
         b']' => return Ok(0), // no tags
         b'[' => (),           // expected
-        _ => return Err(Error::JsonBad("Tag array bad initial character", inpos)),
+        _ => return Err(ChorusError::JsonBad("Tag array bad initial character", inpos).into()),
     }
 
     let mut count = 1;
@@ -210,7 +208,7 @@ pub fn count_tags(input: &[u8], mut inpos: usize) -> Result<usize, Error> {
                 burn_tag(input, &mut inpos)?;
                 eat_whitespace(input, &mut inpos);
             }
-            _ => return Err(Error::JsonBad("Tag array bad character", inpos)),
+            _ => return Err(ChorusError::JsonBad("Tag array bad character", inpos).into()),
         }
     }
 }
@@ -249,7 +247,7 @@ pub fn read_tag(
                 *inposp += 1;
                 break;
             }
-            _ => return Err(Error::JsonBad("Tag array bad character", *inposp)),
+            _ => return Err(ChorusError::JsonBad("Tag array bad character", *inposp).into()),
         }
     }
 
@@ -284,7 +282,7 @@ pub fn read_content(
 pub fn read_sig(input: &[u8], inposp: &mut usize, output: &mut [u8]) -> Result<(), Error> {
     verify_char(input, b'"', inposp)?;
     if *inposp + 128 >= input.len() {
-        return Err(Error::JsonBad("Too short reading sig", *inposp));
+        return Err(ChorusError::JsonBad("Too short reading sig", *inposp).into());
     }
     // Read the hex sig and write the binary sig into the output event structure
     read_hex!(&input[*inposp..*inposp + 128], &mut output[80..144], 64)?;
@@ -307,7 +305,7 @@ pub fn burn_string(input: &[u8], inposp: &mut usize) -> Result<(), Error> {
         *inposp += 1;
         Ok(())
     } else {
-        Err(Error::JsonBad("Unterminated string", *inposp))
+        Err(ChorusError::JsonBad("Unterminated string", *inposp).into())
     }
 }
 
@@ -372,10 +370,7 @@ pub fn burn_array(input: &[u8], inposp: &mut usize) -> Result<(), Error> {
 
 pub fn burn_value(input: &[u8], inposp: &mut usize) -> Result<(), Error> {
     if *inposp >= input.len() {
-        return Err(Error::JsonBad(
-            "Too short burning an unused JSON value",
-            *inposp,
-        ));
+        return Err(ChorusError::JsonBad("Too short burning an unused JSON value", *inposp).into());
     }
     match input[*inposp] {
         b'"' => {
@@ -398,10 +393,11 @@ pub fn burn_value(input: &[u8], inposp: &mut usize) -> Result<(), Error> {
             if b"123456789".contains(&input[*inposp]) {
                 burn_number(input, inposp)?
             } else {
-                return Err(Error::JsonBad(
+                return Err(ChorusError::JsonBad(
                     "Too short burning an unused JSON value",
                     *inposp,
-                ));
+                )
+                .into());
             }
         }
     }
@@ -414,7 +410,7 @@ pub fn burn_null(input: &[u8], inposp: &mut usize) -> Result<(), Error> {
         *inposp += 4;
         Ok(())
     } else {
-        Err(Error::JsonBad("Expected null", *inposp))
+        Err(ChorusError::JsonBad("Expected null", *inposp).into())
     }
 }
 
@@ -423,7 +419,7 @@ pub fn burn_true(input: &[u8], inposp: &mut usize) -> Result<(), Error> {
         *inposp += 4;
         Ok(())
     } else {
-        Err(Error::JsonBad("Expected true", *inposp))
+        Err(ChorusError::JsonBad("Expected true", *inposp).into())
     }
 }
 
@@ -432,7 +428,7 @@ pub fn burn_false(input: &[u8], inposp: &mut usize) -> Result<(), Error> {
         *inposp += 5;
         Ok(())
     } else {
-        Err(Error::JsonBad("Expected false", *inposp))
+        Err(ChorusError::JsonBad("Expected false", *inposp).into())
     }
 }
 

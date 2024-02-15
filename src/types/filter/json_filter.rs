@@ -1,12 +1,12 @@
+use crate::error::{ChorusError, Error};
 use crate::types::parse::json_escape::json_unescape;
 use crate::types::parse::json_parse::*;
-use crate::Error;
 
 /// Parses a JSON filter from the `input` buffer. Places the parsed filter into the `output` buffer.
 /// Returns the count of consumed bytes and output bytes
 pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
     if input.len() < 2 {
-        return Err(Error::JsonBadFilter("Too short", 0));
+        return Err(ChorusError::JsonBadFilter("Too short", 0).into());
     }
 
     // This tracks where we are currently looking in the input as we scan forward.
@@ -76,7 +76,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
         if inpos + 4 <= input.len() && &input[inpos..inpos + 4] == b"ids\"" {
             // Check for duplicate
             if found & HAVE_IDS == HAVE_IDS {
-                return Err(Error::JsonBadFilter("Duplicate id field", inpos));
+                return Err(ChorusError::JsonBadFilter("Duplicate id field", inpos).into());
             }
             inpos += 4;
 
@@ -97,7 +97,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
         } else if inpos + 8 <= input.len() && &input[inpos..inpos + 8] == b"authors\"" {
             // Check for duplicate
             if found & HAVE_AUTHORS == HAVE_AUTHORS {
-                return Err(Error::JsonBadFilter("Duplicate authors field", inpos));
+                return Err(ChorusError::JsonBadFilter("Duplicate authors field", inpos).into());
             }
             inpos += 8;
 
@@ -117,7 +117,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
         } else if inpos + 6 <= input.len() && &input[inpos..inpos + 6] == b"kinds\"" {
             // Check for duplicate
             if found & HAVE_KINDS == HAVE_KINDS {
-                return Err(Error::JsonBadFilter("Duplicate kinds field", inpos));
+                return Err(ChorusError::JsonBadFilter("Duplicate kinds field", inpos).into());
             }
             inpos += 6;
 
@@ -137,7 +137,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
         } else if inpos + 6 <= input.len() && &input[inpos..inpos + 6] == b"since\"" {
             // Check for duplicate
             if found & HAVE_SINCE == HAVE_SINCE {
-                return Err(Error::JsonBadFilter("Duplicate since field", inpos));
+                return Err(ChorusError::JsonBadFilter("Duplicate since field", inpos).into());
             }
             inpos += 6;
 
@@ -149,7 +149,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
         } else if inpos + 6 <= input.len() && &input[inpos..inpos + 6] == b"until\"" {
             // Check for duplicate
             if found & HAVE_UNTIL == HAVE_UNTIL {
-                return Err(Error::JsonBadFilter("Duplicate until field", inpos));
+                return Err(ChorusError::JsonBadFilter("Duplicate until field", inpos).into());
             }
             inpos += 6;
 
@@ -161,7 +161,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
         } else if inpos + 6 <= input.len() && &input[inpos..inpos + 6] == b"limit\"" {
             // Check for duplicate
             if found & HAVE_LIMIT == HAVE_LIMIT {
-                return Err(Error::JsonBadFilter("Duplicate limit field", inpos));
+                return Err(ChorusError::JsonBadFilter("Duplicate limit field", inpos).into());
             }
             inpos += 6;
 
@@ -189,7 +189,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
             // Remember we found this tag in the `found_tags` bitfield
             if let Some(bit) = letter_to_tag_bit(letter) {
                 if found_tags & bit == bit {
-                    return Err(Error::JsonBadFilter("Duplicate tag", inpos));
+                    return Err(ChorusError::JsonBadFilter("Duplicate tag", inpos).into());
                 }
                 found_tags |= bit;
             }
@@ -250,10 +250,9 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
             }
             let u = read_u64(input, &mut inpos)?;
             if u > 65535 {
-                return Err(Error::JsonBadFilter(
-                    "Filter has kind number too large",
-                    inpos,
-                ));
+                return Err(
+                    ChorusError::JsonBadFilter("Filter has kind number too large", inpos).into(),
+                );
             }
             output[end..end + 2].copy_from_slice((u as u16).to_ne_bytes().as_slice());
             num_kinds += 1;
@@ -321,7 +320,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
     }
 
     if end > 65535 {
-        return Err(Error::JsonBadFilter("Filter is too long", end));
+        return Err(ChorusError::JsonBadFilter("Filter is too long", end).into());
     }
 
     // Write length of filter

@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::error::Error;
+use crate::error::{ChorusError, Error};
 use rustls::{Certificate, PrivateKey};
 use std::fs::File;
 use std::io::BufReader;
@@ -25,7 +25,7 @@ pub fn tls_acceptor(config: &Config) -> Result<TlsAcceptor, Error> {
 
     let key = match keys.pop() {
         Some(k) => k,
-        None => return Err(Error::NoPrivateKey),
+        None => return Err(ChorusError::NoPrivateKey.into()),
     };
 
     let tls_config = rustls::ServerConfig::builder()

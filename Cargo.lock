@@ -152,7 +152,6 @@ dependencies = [
  "secp256k1",
  "serde",
  "tempfile",
- "thiserror",
  "tokio",
  "tokio-rustls",
 ]

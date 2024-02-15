@@ -1,5 +1,5 @@
 use super::{Event, Id, Kind, Pubkey, Tags, Time};
-use crate::Error;
+use crate::error::{ChorusError, Error};
 use std::fmt;
 
 mod json_filter;
@@ -47,18 +47,18 @@ impl<'a> Filter<'a> {
 
     pub fn delineate(input: &'a [u8]) -> Result<Filter<'a>, Error> {
         if input.len() < ARRAYS_OFFSET {
-            return Err(Error::EndOfInput);
+            return Err(ChorusError::EndOfInput.into());
         }
         let len = parse_u16!(input, 0) as usize;
         if input.len() < len {
-            return Err(Error::EndOfInput);
+            return Err(ChorusError::EndOfInput.into());
         }
         Ok(Filter(&input[0..len]))
     }
 
     pub fn copy(&self, output: &mut [u8]) -> Result<(), Error> {
         if output.len() < self.0.len() {
-            return Err(Error::EndOfInput);
+            return Err(ChorusError::EndOfInput.into());
         }
         output[..self.0.len()].copy_from_slice(self.0);
         Ok(())

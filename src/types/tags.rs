@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::error::{ChorusError, Error};
 use std::fmt;
 
 /*
@@ -23,11 +23,11 @@ impl<'a> Tags<'a> {
     // this marks off the slice of bytes that represent the tags from a potentially longer input
     pub fn delineate(input: &'a [u8]) -> Result<Tags<'a>, Error> {
         if input.len() < 2 {
-            return Err(Error::EndOfInput);
+            return Err(ChorusError::EndOfInput.into());
         }
         let len = parse_u16!(input, 0) as usize;
         if input.len() < len {
-            return Err(Error::EndOfInput);
+            return Err(ChorusError::EndOfInput.into());
         }
         Ok(Tags(&input[0..len]))
     }
@@ -35,7 +35,7 @@ impl<'a> Tags<'a> {
     // This copies
     pub fn copy(&self, output: &mut [u8]) -> Result<(), Error> {
         if output.len() < self.0.len() {
-            return Err(Error::BufferTooSmall);
+            return Err(ChorusError::BufferTooSmall.into());
         }
         output[..self.0.len()].copy_from_slice(self.0);
         Ok(())

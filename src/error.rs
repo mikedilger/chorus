@@ -1,112 +1,308 @@
-use thiserror::Error;
+use std::error::Error as StdError;
+use std::panic::Location;
+
+#[derive(Debug)]
+pub struct Error {
+    pub inner: ChorusError,
+    location: &'static Location<'static>,
+}
+
+impl StdError for Error {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(&self.inner)
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}, {}", self.inner, self.location)
+    }
+}
 
 /// Errors that can occur in the chorus crate
-#[derive(Error, Debug)]
-pub enum Error {
+#[derive(Debug)]
+pub enum ChorusError {
     // Bad event id
-    #[error("Bad event id, does not match hash")]
     BadEventId,
 
     // Bad hex input
-    #[error("Bad hex input")]
     BadHexInput,
 
     // Output buffer too small
-    #[error("Output buffer too small")]
     BufferTooSmall,
 
     // Channel Recv
-    #[error("Channel receive: {0}")]
-    ChannelRecv(#[from] tokio::sync::broadcast::error::RecvError),
+    ChannelRecv(tokio::sync::broadcast::error::RecvError),
 
     // Channel Send
-    #[error("Channel send: {0}")]
-    ChannelSend(#[from] tokio::sync::broadcast::error::SendError<usize>),
+    ChannelSend(tokio::sync::broadcast::error::SendError<usize>),
 
     // Config
-    #[error("Config: {0}")]
-    Config(#[from] ron::error::SpannedError),
+    Config(ron::error::SpannedError),
 
     // Crypto
-    #[error("Crypto: {0}")]
-    Crypto(#[from] secp256k1::Error),
+    Crypto(secp256k1::Error),
 
     // Duplicate event
-    #[error("Duplicate")]
     Duplicate,
 
     // End of Input
-    #[error("End of input")]
     EndOfInput,
 
     // Http
-    #[error("HTTP: {0}")]
-    Http(#[from] hyper::http::Error),
+    Http(hyper::http::Error),
 
     // Hyper
-    #[error("Hyper: {0}")]
-    Hyper(#[from] hyper::Error),
+    Hyper(hyper::Error),
 
-    // I/O Error
-    #[error("I/O: {0}")]
-    Io(#[from] std::io::Error),
+    // I/O
+    Io(std::io::Error),
 
     // JSON Bad (general)
-    #[error("JSON bad: {0} at position {1}")]
     JsonBad(&'static str, usize),
 
     // JSON Bad Character
-    #[error("JSON bad character: {0} at position {1}, {2} was expected")]
     JsonBadCharacter(char, usize, char),
 
     // JSON Bad Event
-    #[error("JSON bad event: {0} at position {1}")]
     JsonBadEvent(&'static str, usize),
 
     // JSON Bad Filter
-    #[error("JSON bad filter: {0} at position {1}")]
     JsonBadFilter(&'static str, usize),
 
     // JSON Bad String Character
-    #[error("JSON string bad character: codepoint {0}")]
     JsonBadStringChar(u32),
 
     // JSON Escape
-    #[error("JSON string escape error")]
     JsonEscape,
 
     // JSON Escape Surrogate
-    #[error("JSON string escape surrogate (ancient style) is not supported")]
     JsonEscapeSurrogate,
 
     // LMDB
-    #[error("LMDB: {0}")]
-    Lmdb(#[from] heed::Error),
+    Lmdb(heed::Error),
 
-    #[error("Private Key Not Found")]
+    // No private key
     NoPrivateKey,
 
     // Rustls
-    #[error("TLS: {0}")]
-    Rustls(#[from] tokio_rustls::rustls::Error),
+    Rustls(tokio_rustls::rustls::Error),
 
-    // Tunstenite
-    #[error("Websocket: {0}")]
-    Tungstenite(#[from] hyper_tungstenite::tungstenite::error::Error),
+    // Tungstenite
+    Tungstenite(hyper_tungstenite::tungstenite::error::Error),
 
     // Filter is underspecified
-    #[error("Filter is underspecified. Scrapers are not allowed")]
     Scraper,
 
     // UTF-8
-    #[error("UTF-8: {0}")]
-    Utf8(#[from] std::str::Utf8Error),
+    Utf8(std::str::Utf8Error),
 
     // UTF-8
-    #[error("UTF-8 error")]
     Utf8Error,
 
-    // Tunstenite Protocol
-    #[error("Websocket Protocol: {0}")]
-    WebsocketProtocol(#[from] hyper_tungstenite::tungstenite::error::ProtocolError),
+    // Tungstenite Protocol
+    WebsocketProtocol(hyper_tungstenite::tungstenite::error::ProtocolError),
+}
+
+impl std::fmt::Display for ChorusError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChorusError::BadEventId => write!(f, "Bad event id, does not match hash"),
+            ChorusError::BadHexInput => write!(f, "Bad hex input"),
+            ChorusError::BufferTooSmall => write!(f, "Output buffer too small"),
+            ChorusError::ChannelRecv(e) => write!(f, "{e}"),
+            ChorusError::ChannelSend(e) => write!(f, "{e}"),
+            ChorusError::Config(e) => write!(f, "{e}"),
+            ChorusError::Crypto(e) => write!(f, "{e}"),
+            ChorusError::Duplicate => write!(f, "Duplicate"),
+            ChorusError::EndOfInput => write!(f, "End of input"),
+            ChorusError::Http(e) => write!(f, "{e}"),
+            ChorusError::Hyper(e) => write!(f, "{e}"),
+            ChorusError::Io(e) => write!(f, "{e}"),
+            ChorusError::JsonBad(err, pos) => write!(f, "JSON bad: {err} at position {pos}"),
+            ChorusError::JsonBadCharacter(c, pos, ec) => write!(
+                f,
+                "JSON bad character: {c} at position {pos}, {ec} was expected"
+            ),
+            ChorusError::JsonBadEvent(err, pos) => {
+                write!(f, "JSON bad event: {err} at position {pos}")
+            }
+            ChorusError::JsonBadFilter(err, pos) => {
+                write!(f, "JSON bad filter: {err} at position {pos}")
+            }
+            ChorusError::JsonBadStringChar(ch) => {
+                write!(f, "JSON string bad character: codepoint {ch}")
+            }
+            ChorusError::JsonEscape => write!(f, "JSON string escape error"),
+            ChorusError::JsonEscapeSurrogate => write!(
+                f,
+                "JSON string escape surrogate (ancient style) is not supported"
+            ),
+            ChorusError::Lmdb(e) => write!(f, "{e}"),
+            ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
+            ChorusError::Rustls(e) => write!(f, "{e}"),
+            ChorusError::Tungstenite(e) => write!(f, "{e}"),
+            ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
+            ChorusError::Utf8(e) => write!(f, "{e}"),
+            ChorusError::Utf8Error => write!(f, "UTF-8 error"),
+            ChorusError::WebsocketProtocol(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl StdError for ChorusError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            ChorusError::ChannelRecv(e) => Some(e),
+            ChorusError::ChannelSend(e) => Some(e),
+            ChorusError::Config(e) => Some(e),
+            ChorusError::Crypto(e) => Some(e),
+            ChorusError::Http(e) => Some(e),
+            ChorusError::Hyper(e) => Some(e),
+            ChorusError::Io(e) => Some(e),
+            ChorusError::Lmdb(e) => Some(e),
+            ChorusError::Rustls(e) => Some(e),
+            ChorusError::Tungstenite(e) => Some(e),
+            ChorusError::Utf8(e) => Some(e),
+            ChorusError::WebsocketProtocol(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+// Note: we impl Into because our typical pattern is ChorusError::Variant.into()
+//       when we tried implementing From, the location was deep in rust code's
+//       blanket into implementation, which wasn't the line number we wanted.
+//
+//       As for converting other error types (below) the try! macro uses From so it
+//       is correct.
+#[allow(clippy::from_over_into)]
+impl Into<Error> for ChorusError {
+    #[track_caller]
+    fn into(self) -> Error {
+        Error {
+            inner: self,
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<tokio::sync::broadcast::error::RecvError> for Error {
+    #[track_caller]
+    fn from(err: tokio::sync::broadcast::error::RecvError) -> Self {
+        Error {
+            inner: ChorusError::ChannelRecv(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<tokio::sync::broadcast::error::SendError<usize>> for Error {
+    #[track_caller]
+    fn from(err: tokio::sync::broadcast::error::SendError<usize>) -> Self {
+        Error {
+            inner: ChorusError::ChannelSend(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<ron::error::SpannedError> for Error {
+    #[track_caller]
+    fn from(err: ron::error::SpannedError) -> Self {
+        Error {
+            inner: ChorusError::Config(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<secp256k1::Error> for Error {
+    #[track_caller]
+    fn from(err: secp256k1::Error) -> Self {
+        Error {
+            inner: ChorusError::Crypto(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<hyper::http::Error> for Error {
+    #[track_caller]
+    fn from(err: hyper::http::Error) -> Self {
+        Error {
+            inner: ChorusError::Http(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<hyper::Error> for Error {
+    #[track_caller]
+    fn from(err: hyper::Error) -> Self {
+        Error {
+            inner: ChorusError::Hyper(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    #[track_caller]
+    fn from(err: std::io::Error) -> Self {
+        Error {
+            inner: ChorusError::Io(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<heed::Error> for Error {
+    #[track_caller]
+    fn from(err: heed::Error) -> Self {
+        Error {
+            inner: ChorusError::Lmdb(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<tokio_rustls::rustls::Error> for Error {
+    #[track_caller]
+    fn from(err: tokio_rustls::rustls::Error) -> Self {
+        Error {
+            inner: ChorusError::Rustls(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<hyper_tungstenite::tungstenite::error::Error> for Error {
+    #[track_caller]
+    fn from(err: hyper_tungstenite::tungstenite::error::Error) -> Self {
+        Error {
+            inner: ChorusError::Tungstenite(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<std::str::Utf8Error> for Error {
+    #[track_caller]
+    fn from(err: std::str::Utf8Error) -> Self {
+        Error {
+            inner: ChorusError::Utf8(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<hyper_tungstenite::tungstenite::error::ProtocolError> for Error {
+    #[track_caller]
+    fn from(err: hyper_tungstenite::tungstenite::error::ProtocolError) -> Self {
+        Error {
+            inner: ChorusError::WebsocketProtocol(err),
+            location: std::panic::Location::caller(),
+        }
+    }
 }

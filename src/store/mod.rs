@@ -1,7 +1,7 @@
 pub mod event_store;
 pub use event_store::EventStore;
 
-use crate::error::Error;
+use crate::error::{ChorusError, Error};
 use crate::types::{Event, Filter, Id, Kind, Pubkey, Time};
 use heed::types::{OwnedType, UnalignedSlice};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions};
@@ -133,7 +133,7 @@ impl Store {
 
             txn.commit()?;
         } else {
-            return Err(Error::Duplicate);
+            return Err(ChorusError::Duplicate.into());
         }
 
         Ok(offset)
@@ -294,7 +294,7 @@ impl Store {
                 }
             }
         } else {
-            return Err(Error::Scraper);
+            return Err(ChorusError::Scraper.into());
         }
 
         Ok(output)

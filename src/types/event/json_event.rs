@@ -1,5 +1,5 @@
+use crate::error::{ChorusError, Error};
 use crate::types::parse::json_parse::*;
-use crate::Error;
 
 /// Parses a JSON event from the `input` buffer. Places the parsed event into the `output` buffer.
 /// Returns the count of consumed bytes and output bytes
@@ -7,7 +7,7 @@ pub fn parse_json_event(input: &[u8], output: &mut [u8]) -> Result<(usize, usize
     // Minimum-sized JSON event is 204 characters long
     // NOTE: 152 is the minimum binary event
     if input.len() < 204 {
-        return Err(Error::JsonBadEvent("Too Short", 0));
+        return Err(ChorusError::JsonBadEvent("Too Short", 0).into());
     }
 
     // This tracks where we are currently looking in the input as we scan forward.
@@ -49,12 +49,12 @@ pub fn parse_json_event(input: &[u8], output: &mut [u8]) -> Result<(usize, usize
         // field and value: kind":1
         // This allows us to skip length tests below that are shorter than inpos+7
         if inpos + 7 > input.len() {
-            return Err(Error::JsonBadEvent("Too Short or Missing Fields", inpos));
+            return Err(ChorusError::JsonBadEvent("Too Short or Missing Fields", inpos).into());
         }
 
         if &input[inpos..inpos + 3] == b"id\"" {
             if complete & HAVE_ID == HAVE_ID {
-                return Err(Error::JsonBadEvent("Duplicate id field", inpos));
+                return Err(ChorusError::JsonBadEvent("Duplicate id field", inpos).into());
             }
             inpos += 3;
             eat_colon_with_whitespace(input, &mut inpos)?;
@@ -62,7 +62,7 @@ pub fn parse_json_event(input: &[u8], output: &mut [u8]) -> Result<(usize, usize
             complete |= HAVE_ID;
         } else if &input[inpos..inpos + 4] == b"sig\"" {
             if complete & HAVE_SIG == HAVE_SIG {
-                return Err(Error::JsonBadEvent("Duplicate sig field", inpos));
+                return Err(ChorusError::JsonBadEvent("Duplicate sig field", inpos).into());
             }
             inpos += 4;
             eat_colon_with_whitespace(input, &mut inpos)?;
@@ -70,7 +70,7 @@ pub fn parse_json_event(input: &[u8], output: &mut [u8]) -> Result<(usize, usize
             complete |= HAVE_SIG;
         } else if &input[inpos..inpos + 5] == b"kind\"" {
             if complete & HAVE_KIND == HAVE_KIND {
-                return Err(Error::JsonBadEvent("Duplicate kind field", inpos));
+                return Err(ChorusError::JsonBadEvent("Duplicate kind field", inpos).into());
             }
             inpos += 5;
             eat_colon_with_whitespace(input, &mut inpos)?;
@@ -79,7 +79,7 @@ pub fn parse_json_event(input: &[u8], output: &mut [u8]) -> Result<(usize, usize
             complete |= HAVE_KIND;
         } else if &input[inpos..inpos + 5] == b"tags\"" {
             if complete & HAVE_TAGS == HAVE_TAGS {
-                return Err(Error::JsonBadEvent("Duplicate tags field", inpos));
+                return Err(ChorusError::JsonBadEvent("Duplicate tags field", inpos).into());
             }
             inpos += 5;
             eat_colon_with_whitespace(input, &mut inpos)?;
@@ -93,7 +93,7 @@ pub fn parse_json_event(input: &[u8], output: &mut [u8]) -> Result<(usize, usize
             }
         } else if &input[inpos..inpos + 7] == b"pubkey\"" {
             if complete & HAVE_PUBKEY == HAVE_PUBKEY {
-                return Err(Error::JsonBadEvent("Duplicate pubkey field", inpos));
+                return Err(ChorusError::JsonBadEvent("Duplicate pubkey field", inpos).into());
             }
             inpos += 7;
             eat_colon_with_whitespace(input, &mut inpos)?;
@@ -101,7 +101,7 @@ pub fn parse_json_event(input: &[u8], output: &mut [u8]) -> Result<(usize, usize
             complete |= HAVE_PUBKEY;
         } else if inpos + 8 <= input.len() && &input[inpos..inpos + 8] == b"content\"" {
             if complete & HAVE_CONTENT == HAVE_CONTENT {
-                return Err(Error::JsonBadEvent("Duplicate pubkey field", inpos));
+                return Err(ChorusError::JsonBadEvent("Duplicate pubkey field", inpos).into());
             }
             inpos += 8;
             eat_colon_with_whitespace(input, &mut inpos)?;
@@ -119,7 +119,7 @@ pub fn parse_json_event(input: &[u8], output: &mut [u8]) -> Result<(usize, usize
             }
         } else if inpos + 11 <= input.len() && &input[inpos..inpos + 11] == b"created_at\"" {
             if complete & HAVE_CREATED_AT == HAVE_CREATED_AT {
-                return Err(Error::JsonBadEvent("Duplicate created_at field", inpos));
+                return Err(ChorusError::JsonBadEvent("Duplicate created_at field", inpos).into());
             }
             inpos += 11;
             eat_colon_with_whitespace(input, &mut inpos)?;
@@ -142,7 +142,7 @@ pub fn parse_json_event(input: &[u8], output: &mut [u8]) -> Result<(usize, usize
             u32::from_ne_bytes(output[0..4].try_into().unwrap()) as usize,
         ))
     } else {
-        Err(Error::JsonBadEvent("Missing Fields", inpos))
+        Err(ChorusError::JsonBadEvent("Missing Fields", inpos).into())
     }
 }
 

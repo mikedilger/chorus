@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
 use crate::reply::NostrReply;
 use crate::types::parse::json_escape::json_unescape;
@@ -140,8 +140,13 @@ impl WebSocketService {
                 GLOBALS.new_events.send(offset)?; // advertise the new event
                 NostrReply::Ok(event.id(), true, "".to_owned())
             }
-            Err(Error::Duplicate) => NostrReply::Ok(event.id(), true, "duplicate:".to_owned()),
-            Err(e) => NostrReply::Ok(event.id(), false, format!("{e}")),
+            Err(e) => {
+                if matches!(e.inner, ChorusError::Duplicate) {
+                    NostrReply::Ok(event.id(), true, "duplicate:".to_owned())
+                } else {
+                    NostrReply::Ok(event.id(), false, format!("{e}"))
+                }
+            }
         };
 
         self.websocket.send(Message::text(reply.as_json())).await?;

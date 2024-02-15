@@ -1,5 +1,5 @@
 use super::utf8::{encode_utf8, next_code_point};
-use crate::Error;
+use crate::error::{ChorusError, Error};
 
 // LITERAL UNESCAPED:   0x20-0x21, 0x23-0x5B, 0x5D-10FFFF
 // ESCAPES:     \"  \\  \/  /b  /f  /n  /r  /t
@@ -13,7 +13,7 @@ pub fn json_escape(input: &[u8], out: &mut [u8]) -> Result<usize, Error> {
     // closure to output bytes
     let mut output = |s: &[u8]| -> Result<(), Error> {
         if out.len() < write_pos + s.len() {
-            Err(Error::BufferTooSmall)
+            Err(ChorusError::BufferTooSmall.into())
         } else {
             out[write_pos..write_pos + s.len()].copy_from_slice(s);
             write_pos += s.len();
@@ -51,7 +51,9 @@ pub fn json_escape(input: &[u8], out: &mut [u8]) -> Result<usize, Error> {
 macro_rules! output_slice {
     ($slice:expr, $out:expr, $pos:expr) => {
         if $out.len() < *$pos + $slice.len() {
-            Err(Error::BufferTooSmall)
+            Err(Into::<crate::error::Error>::into(
+                crate::error::ChorusError::BufferTooSmall,
+            ))
         } else {
             $out[*$pos..*$pos + $slice.len()].copy_from_slice($slice);
             *$pos += $slice.len();
@@ -63,7 +65,9 @@ macro_rules! output_slice {
 macro_rules! output_byte {
     ($byte:expr, $out:expr, $pos:expr) => {
         if $out.len() < *$pos + 1 {
-            Err(Error::BufferTooSmall)
+            Err(Into::<crate::error::Error>::into(
+                crate::error::ChorusError::BufferTooSmall,
+            ))
         } else {
             unsafe { *$out.get_unchecked_mut(*$pos) = $byte };
             *$pos += 1;
@@ -99,7 +103,7 @@ pub fn json_unescape(input: &[u8], out: &mut [u8]) -> Result<(usize, usize), Err
         if inescape {
             inescape = false;
             if codepoint > 255 {
-                return Err(Error::JsonEscape);
+                return Err(ChorusError::JsonEscape.into());
             }
             match codepoint as u8 {
                 QUOTE | BACKSLASH | SLASH => {
@@ -111,17 +115,17 @@ pub fn json_unescape(input: &[u8], out: &mut [u8]) -> Result<(usize, usize), Err
                 b'r' => output_byte!(CR, out, &mut write_pos)?,
                 b't' => output_byte!(TAB, out, &mut write_pos)?,
                 b'u' => uescape = Some((0, 0)),
-                _ => return Err(Error::JsonEscape), // nothing else is a legal escape
+                _ => return Err(ChorusError::JsonEscape.into()), // nothing else is a legal escape
             }
         } else if let Some((digit, total)) = uescape {
             // must be a digit
             if !(48..=57).contains(&codepoint) {
-                return Err(Error::JsonEscape);
+                return Err(ChorusError::JsonEscape.into());
             }
             let total = total + ((codepoint - 48) << (4 * (3 - digit)));
             if digit >= 3 {
                 if (0xD800..=0xDFFF).contains(&total) {
-                    return Err(Error::JsonEscapeSurrogate);
+                    return Err(ChorusError::JsonEscapeSurrogate.into());
                 }
                 let s = encode_utf8(total, &mut out[write_pos..])?;
                 write_pos += s;
@@ -138,7 +142,7 @@ pub fn json_unescape(input: &[u8], out: &mut [u8]) -> Result<(usize, usize), Err
             // ending double quote
             break;
         } else {
-            return Err(Error::JsonBadStringChar(codepoint));
+            return Err(ChorusError::JsonBadStringChar(codepoint).into());
         }
         p += size;
     }

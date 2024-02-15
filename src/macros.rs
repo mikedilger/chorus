@@ -19,7 +19,7 @@ macro_rules! write_hex {
     ($input:expr, $output:expr, $bytelen:expr) => {{
         assert_eq!($input.len(), $bytelen);
         if $output.len() != $bytelen * 2 {
-            Err(Error::BufferTooSmall)
+            Err(crate::error::ChorusError::BufferTooSmall.into())
         } else {
             for (i, byte) in $input.iter().enumerate() {
                 $output[i * 2] = crate::HEX_CHARS[((byte & 0xF0) >> 4) as usize];
@@ -34,17 +34,17 @@ macro_rules! read_hex {
     ($input:expr, $output:expr, $bytelen:expr) => {{
         assert_eq!($output.len(), $bytelen);
         if $input.len() != $bytelen * 2 {
-            Err(Error::EndOfInput)
+            Err(Into::<crate::error::Error>::into(crate::error::ChorusError::EndOfInput))
         } else {
             let mut i = 0;
             loop {
                 let high = crate::HEX_INVERSE[$input[i * 2] as usize];
                 if high == 255 {
-                    break Err(Error::BadHexInput);
+                    break Err(crate::error::ChorusError::BadHexInput.into());
                 }
                 let low = crate::HEX_INVERSE[$input[i * 2 + 1] as usize];
                 if low == 255 {
-                    break Err(Error::BadHexInput);
+                    break Err(crate::error::ChorusError::BadHexInput.into());
                 }
                 $output[i] = high * 16 + low;
                 i += 1;
