@@ -150,9 +150,16 @@ pub fn parse_json_event(input: &[u8], output: &mut [u8]) -> Result<(usize, usize
 mod test {
     use super::*;
 
-    // FIXME this will fail on big-endian machines
     #[test]
     fn test_parse_json_event() {
+        if 256_u16.to_ne_bytes() == [1, 0] {
+            test_parse_json_event_big_endian();
+        } else {
+            test_parse_json_event_little_endian();
+        }
+    }
+
+    fn test_parse_json_event_little_endian() {
         let json = br#"{"id":"a9663055164ab8b30d9524656370c4bf93393bb051b7edf4556f40c5298dc0c7","pubkey":"ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49","created_at":1681778790,"kind":1,"sig":"4dfea1a6f73141d5691e43afc3234dbe73016db0fb207cf247e0127cc2591ee6b4be5b462272030a9bde75882aae810f359682b1b6ce6cbb97201141c576db42","content":"He got snowed in","tags":[["client","gossip"],["p","e2ccf7cf20403f3f2a4a55b328f0de3be38558a7d5f33632fdaaefc726c1c8eb"],["e","2c86abcc98f7fd8a6750aab8df6c1863903f107206cc2d72e8afeb6c38357aed","wss://nostr-pub.wellorder.net/","root"]]}"#;
         let mut buffer: Vec<u8> = Vec::with_capacity(4096);
         buffer.resize(4096, 0);
@@ -162,7 +169,8 @@ mod test {
             &buffer[0..size],
             &[
                 116, 1, 0, 0, // 372 bytes long
-                1, 0, 0, 0, // kind 1
+                1, 0, // kind 1
+                0, 0, // padding
                 102, 232, 61, 100, 0, 0, 0, 0, // created at 1681778790
                 169, 102, 48, 85, 22, 74, 184, 179, 13, 149, 36, 101, 99, 112, 196, 191, 147, 57,
                 59, 176, 81, 183, 237, 244, 85, 111, 64, 197, 41, 141, 192, 199, // id
@@ -215,6 +223,82 @@ mod test {
                 72, 101, 32, 103, 111, 116, 32, 115, 110, 111, 119, 101, 100, 32, 105,
                 110, // "He got snowed in"
 
+                     // 372:
+            ]
+        );
+
+        // Same event in a different order
+        let json2 = br#"{"kind":1,"pubkey":"ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49","created_at":1681778790,"sig":"4dfea1a6f73141d5691e43afc3234dbe73016db0fb207cf247e0127cc2591ee6b4be5b462272030a9bde75882aae810f359682b1b6ce6cbb97201141c576db42","tags":[["client","gossip"],["p","e2ccf7cf20403f3f2a4a55b328f0de3be38558a7d5f33632fdaaefc726c1c8eb"],["e","2c86abcc98f7fd8a6750aab8df6c1863903f107206cc2d72e8afeb6c38357aed","wss://nostr-pub.wellorder.net/","root"]],"id":"a9663055164ab8b30d9524656370c4bf93393bb051b7edf4556f40c5298dc0c7","content":"He got snowed in"}"#;
+        let mut buffer2: Vec<u8> = Vec::with_capacity(4096);
+        buffer2.resize(4096, 0);
+        let (_insize, size) = parse_json_event(&json2[..], &mut buffer2).unwrap();
+        assert_eq!(size, 372);
+        assert_eq!(&buffer[..372], &buffer2[..372]);
+    }
+
+    fn test_parse_json_event_big_endian() {
+        let json = br#"{"id":"a9663055164ab8b30d9524656370c4bf93393bb051b7edf4556f40c5298dc0c7","pubkey":"ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49","created_at":1681778790,"kind":1,"sig":"4dfea1a6f73141d5691e43afc3234dbe73016db0fb207cf247e0127cc2591ee6b4be5b462272030a9bde75882aae810f359682b1b6ce6cbb97201141c576db42","content":"He got snowed in","tags":[["client","gossip"],["p","e2ccf7cf20403f3f2a4a55b328f0de3be38558a7d5f33632fdaaefc726c1c8eb"],["e","2c86abcc98f7fd8a6750aab8df6c1863903f107206cc2d72e8afeb6c38357aed","wss://nostr-pub.wellorder.net/","root"]]}"#;
+        let mut buffer: Vec<u8> = Vec::with_capacity(4096);
+        buffer.resize(4096, 0);
+        let (_insize, size) = parse_json_event(&json[..], &mut buffer).unwrap();
+        assert_eq!(size, 372);
+        assert_eq!(
+            &buffer[0..size],
+            &[
+                0, 0, 1, 116, // 372 bytes long
+                0, 1, // kind 1
+                0, 0, // padding
+                0, 0, 0, 0, 100, 61, 232, 102, // created at 1681778790
+                169, 102, 48, 85, 22, 74, 184, 179, 13, 149, 36, 101, 99, 112, 196, 191, 147, 57,
+                59, 176, 81, 183, 237, 244, 85, 111, 64, 197, 41, 141, 192, 199, // id
+                238, 17, 165, 223, 244, 12, 25, 165, 85, 244, 31, 228, 43, 72, 240, 14, 97, 140,
+                145, 34, 86, 34, 174, 55, 182, 194, 187, 103, 183, 108, 78, 73, // pubkey
+                77, 254, 161, 166, 247, 49, 65, 213, 105, 30, 67, 175, 195, 35, 77, 190, 115, 1,
+                109, 176, 251, 32, 124, 242, 71, 224, 18, 124, 194, 89, 30, 230, 180, 190, 91, 70,
+                34, 114, 3, 10, 155, 222, 117, 136, 42, 174, 129, 15, 53, 150, 130, 177, 182, 206,
+                108, 187, 151, 32, 17, 65, 197, 118, 219, 66, // sig
+                // 144:
+                0, 208, // tags section is 208 bytes long
+                3, 0, // there are three tags
+                0, 10, // first tag is at offset 10
+                0, 28, // second tag is at offset 28
+                0, 99, // third tag is at offset 99
+                // 154: (144+10)
+                0, 2, // the first tag has 2 strings
+                0, 6, // the first string is 6 bytes long
+                99, 108, 105, 101, 110, 116, // "client"
+                0, 6, // the second string is 6 bytes long
+                103, 111, 115, 115, 105, 112, // "gossip"
+                // 172: (144+28)
+                0, 2, // the second tag has two strings
+                0, 1,   // the first string is 1 char long
+                112, // "p"
+                0, 64, // the second string is 64 bytes long
+                101, 50, 99, 99, 102, 55, 99, 102, 50, 48, 52, 48, 51, 102, 51, 102, 50, 97, 52,
+                97, 53, 53, 98, 51, 50, 56, 102, 48, 100, 101, 51, 98, 101, 51, 56, 53, 53, 56, 97,
+                55, 100, 53, 102, 51, 51, 54, 51, 50, 102, 100, 97, 97, 101, 102, 99, 55, 50, 54,
+                99, 49, 99, 56, 101,
+                98, // "e2ccf7cf20403f3f2a4a55b328f0de3be38558a7d5f33632fdaaefc726c1c8eb"
+                // 243: (144+99)
+                0, 4, // the third tag has 4 strings
+                0, 1,   // the first string is 1 char long
+                101, // "e"
+                0, 64, // the second string is 64 bytes long
+                50, 99, 56, 54, 97, 98, 99, 99, 57, 56, 102, 55, 102, 100, 56, 97, 54, 55, 53, 48,
+                97, 97, 98, 56, 100, 102, 54, 99, 49, 56, 54, 51, 57, 48, 51, 102, 49, 48, 55, 50,
+                48, 54, 99, 99, 50, 100, 55, 50, 101, 56, 97, 102, 101, 98, 54, 99, 51, 56, 51, 53,
+                55, 97, 101,
+                100, // "2c86abcc98f7fd8a6750aab8df6c1863903f107206cc2d72e8afeb6c38357aed"
+                0, 30, // the third string is 30 bytes long
+                119, 115, 115, 58, 47, 47, 110, 111, 115, 116, 114, 45, 112, 117, 98, 46, 119, 101,
+                108, 108, 111, 114, 100, 101, 114, 46, 110, 101, 116,
+                47, //  "wss://nostr-pub.wellorder.net/"
+                0, 4, // the fourth string is 4 bytes long
+                114, 111, 111, 116, // "root"
+                // 352: (144+208)
+                0, 0, 0, 16, // the content is 16 bytes long
+                72, 101, 32, 103, 111, 116, 32, 115, 110, 111, 119, 101, 100, 32, 105,
+                110, // "He got snowed in"
                      // 372:
             ]
         );
