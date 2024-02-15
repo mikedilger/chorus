@@ -14,6 +14,7 @@ pub struct FriendlyConfig {
     pub description: Option<String>,
     pub public_key_hex: Option<String>,
     pub user_hex_keys: Vec<String>,
+    pub verify_events: bool,
 }
 
 impl Default for FriendlyConfig {
@@ -29,6 +30,7 @@ impl Default for FriendlyConfig {
             description: None,
             public_key_hex: None,
             user_hex_keys: vec![],
+            verify_events: true,
         }
     }
 }
@@ -46,6 +48,7 @@ impl FriendlyConfig {
             description,
             public_key_hex,
             user_hex_keys,
+            verify_events,
         } = self;
 
         let mut public_key: Option<Pubkey> = None;
@@ -70,6 +73,7 @@ impl FriendlyConfig {
             public_key,
             user_keys,
             user_hex_keys,
+            verify_events,
         })
     }
 }
@@ -87,4 +91,5 @@ pub struct Config {
     pub public_key: Option<Pubkey>,
     pub user_keys: Vec<Pubkey>,
     pub user_hex_keys: Vec<String>,
+    pub verify_events: bool,
 }

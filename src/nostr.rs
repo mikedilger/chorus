@@ -186,7 +186,10 @@ impl WebSocketService {
 }
 
 async fn validate_event(event: &Event<'_>) -> Result<bool, Error> {
-    // FIXME: check signature
+    // Verify event is valid
+    if GLOBALS.config.read().await.verify_events {
+        event.verify()?;
+    }
 
     // Accept relay lists from anybody
     if event.kind() == Kind(10002) {

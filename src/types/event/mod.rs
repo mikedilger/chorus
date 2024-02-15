@@ -125,6 +125,35 @@ impl<'a> Event<'a> {
         output.extend(br#""}"#);
         Ok(output)
     }
+
+    pub fn verify(&self) -> Result<(), Error> {
+        use secp256k1::hashes::{sha256, Hash};
+        use secp256k1::schnorr::Signature;
+        use secp256k1::{Message, XOnlyPublicKey};
+
+        let signable = format!(
+            r#"[0,"{}",{},{},{},"{}"]"#,
+            self.pubkey(),
+            self.created_at(),
+            self.kind(),
+            self.tags()?,
+            unsafe { std::str::from_utf8_unchecked(self.content()) },
+        );
+
+        let hash = sha256::Hash::hash(signable.as_bytes());
+
+        let hashref = <sha256::Hash as AsRef<[u8]>>::as_ref(&hash);
+        if hashref != self.id().as_slice() {
+            return Err(Error::BadEventId);
+        }
+
+        let pubkey = XOnlyPublicKey::from_slice(self.pubkey().as_slice())?;
+        let sig = Signature::from_slice(self.sig().as_slice())?;
+        let message = Message::from_digest_slice(hashref)?;
+        sig.verify(&message, &pubkey)?;
+
+        Ok(())
+    }
 }
 
 impl fmt::Display for Event<'_> {

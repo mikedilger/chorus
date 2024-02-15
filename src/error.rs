@@ -3,6 +3,10 @@ use thiserror::Error;
 /// Errors that can occur in the chorus crate
 #[derive(Error, Debug)]
 pub enum Error {
+    // Bad event id
+    #[error("Bad event id, does not match hash")]
+    BadEventId,
+
     // Bad hex input
     #[error("Bad hex input")]
     BadHexInput,
@@ -22,6 +26,10 @@ pub enum Error {
     // Config
     #[error("Config: {0}")]
     Config(#[from] ron::error::SpannedError),
+
+    // Crypto
+    #[error("Crypto: {0}")]
+    Crypto(#[from] secp256k1::Error),
 
     // Duplicate event
     #[error("Duplicate")]
