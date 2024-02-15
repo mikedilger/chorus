@@ -5,9 +5,13 @@ use crate::types::parse::json_parse::*;
 /// Returns the count of consumed bytes and output bytes
 pub fn parse_json_event(input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
     // Minimum-sized JSON event is 204 characters long
-    // NOTE: 152 is the minimum binary event
     if input.len() < 204 {
         return Err(ChorusError::JsonBadEvent("Too Short", 0).into());
+    }
+
+    // NOTE: 152 is the minimum binary event
+    if output.len() < 152 {
+        return Err(ChorusError::BufferTooSmall.into());
     }
 
     // This tracks where we are currently looking in the input as we scan forward.

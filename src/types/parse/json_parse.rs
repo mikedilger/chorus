@@ -1,4 +1,5 @@
 use super::json_escape::json_unescape;
+use super::put;
 use crate::error::{ChorusError, Error};
 
 #[inline]
@@ -52,6 +53,9 @@ pub fn next_object_field(input: &[u8], inposp: &mut usize) -> Result<bool, Error
 }
 
 pub fn read_id(input: &[u8], inposp: &mut usize, output: &mut [u8]) -> Result<(), Error> {
+    if output.len() < 32 {
+        return Err(ChorusError::BufferTooSmall.into());
+    }
     verify_char(input, b'"', inposp)?;
     if *inposp + 64 >= input.len() {
         return Err(ChorusError::JsonBad("Too short reading id", *inposp).into());
@@ -64,6 +68,9 @@ pub fn read_id(input: &[u8], inposp: &mut usize, output: &mut [u8]) -> Result<()
 }
 
 pub fn read_pubkey(input: &[u8], inposp: &mut usize, output: &mut [u8]) -> Result<(), Error> {
+    if output.len() < 32 {
+        return Err(ChorusError::BufferTooSmall.into());
+    }
     verify_char(input, b'"', inposp)?;
     if *inposp + 64 >= input.len() {
         return Err(ChorusError::JsonBad("Too short reading pubkey", *inposp).into());
@@ -126,14 +133,18 @@ pub fn read_tags_array(
     verify_char(input, b'[', inposp)?; // outer array open brace
     eat_whitespace(input, inposp);
 
+    if output.len() < 4 {
+        return Err(ChorusError::BufferTooSmall.into());
+    }
+
     // NOTE: we cannot write any tag strings until after we have counted the tags.
     // (our tags structure is optimized for reading, not writing)
     let num_tags: usize = count_tags(input, *inposp)?;
-    output[2..4].copy_from_slice((num_tags as u16).to_ne_bytes().as_slice());
+    put(output, 2, (num_tags as u16).to_ne_bytes().as_slice())?;
 
     // Case where we have no tags
     if num_tags == 0 {
-        output[0..2].copy_from_slice(4_u16.to_ne_bytes().as_slice());
+        put(output, 0, 4_u16.to_ne_bytes().as_slice())?;
         return Ok(4);
     }
 
@@ -142,11 +153,18 @@ pub fn read_tags_array(
 
     let mut tag_num = 0;
     let mut outpos: usize = 4 + num_tags * 2;
+    if output.len() < outpos {
+        return Err(ChorusError::BufferTooSmall.into());
+    }
+
     loop {
         // Write the offset of this tag
         let offset_slot = 4 + tag_num * 2;
-        output[offset_slot..offset_slot + 2]
-            .copy_from_slice((outpos as u16).to_ne_bytes().as_slice());
+        put(
+            output,
+            offset_slot,
+            (outpos as u16).to_ne_bytes().as_slice(),
+        )?;
 
         // Read the tag (bumps inpos and outpos)
         read_tag(input, inposp, output, &mut outpos)?;
@@ -176,7 +194,7 @@ pub fn read_tags_array(
     }
 
     // Write length of tags section
-    output[0..2].copy_from_slice((outpos as u16).to_ne_bytes().as_slice());
+    put(output, 0, (outpos as u16).to_ne_bytes().as_slice())?;
 
     Ok(outpos)
 }
@@ -228,7 +246,7 @@ pub fn read_tag(
         // read string
         let (inlen, outlen) = json_unescape(&input[*inposp..], &mut output[*outposp + 2..])?;
         // write the length before it
-        output[*outposp..*outposp + 2].copy_from_slice((outlen as u16).to_ne_bytes().as_slice());
+        put(output, *outposp, (outlen as u16).to_ne_bytes().as_slice())?;
         // bump the outposp past it
         *outposp += 2 + outlen;
         // bump the inpos past the string (and the ending quote which isn't counted in the len)
@@ -252,7 +270,11 @@ pub fn read_tag(
     }
 
     // Write the count of strings at the very start
-    output[countpos..countpos + 2].copy_from_slice((num_strings as u16).to_ne_bytes().as_slice());
+    put(
+        output,
+        countpos,
+        (num_strings as u16).to_ne_bytes().as_slice(),
+    )?;
 
     Ok(())
 }
@@ -270,16 +292,20 @@ pub fn read_content(
     *inposp += inlen + 1; // +1 to pass the end quote
 
     // Write content length
-    output[after_tags..after_tags + 4].copy_from_slice((outlen as u32).to_ne_bytes().as_slice());
+    put(output, after_tags, (outlen as u32).to_ne_bytes().as_slice())?;
 
     // Write event size
     let event_len = after_tags + 4 + outlen;
-    output[0..4].copy_from_slice((event_len as u32).to_ne_bytes().as_slice());
+    put(output, 0, (event_len as u32).to_ne_bytes().as_slice())?;
 
     Ok(())
 }
 
+// FIXME this is too event-offset specific
 pub fn read_sig(input: &[u8], inposp: &mut usize, output: &mut [u8]) -> Result<(), Error> {
+    if output.len() < 144 {
+        return Err(ChorusError::BufferTooSmall.into());
+    }
     verify_char(input, b'"', inposp)?;
     if *inposp + 128 >= input.len() {
         return Err(ChorusError::JsonBad("Too short reading sig", *inposp).into());

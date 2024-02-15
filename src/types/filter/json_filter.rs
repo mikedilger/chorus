@@ -1,6 +1,7 @@
 use crate::error::{ChorusError, Error};
 use crate::types::parse::json_escape::json_unescape;
 use crate::types::parse::json_parse::*;
+use crate::types::parse::put;
 
 /// Parses a JSON filter from the `input` buffer. Places the parsed filter into the `output` buffer.
 /// Returns the count of consumed bytes and output bytes
@@ -35,16 +36,20 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
     };
 
     // Start structure with that of an empty filter
-    output[0..32].copy_from_slice(&[
-        0, 0, // length (we will fill it in later)
-        0, 0, // 0 ids
-        0, 0, // 0 authors
-        0, 0, // 0 kinds
-        255, 255, 255, 255, // max limit
-        0, 0, 0, 0, // padding
-        0, 0, 0, 0, 0, 0, 0, 0, // since 1970
-        255, 255, 255, 255, 255, 255, 255, 255, // until max unixtime
-    ]);
+    put(
+        output,
+        0,
+        &[
+            0, 0, // length (we will fill it in later)
+            0, 0, // 0 ids
+            0, 0, // 0 authors
+            0, 0, // 0 kinds
+            255, 255, 255, 255, // max limit
+            0, 0, 0, 0, // padding
+            0, 0, 0, 0, 0, 0, 0, 0, // since 1970
+            255, 255, 255, 255, 255, 255, 255, 255, // until max unixtime
+        ],
+    )?;
 
     let mut end: usize = 32;
 
@@ -143,7 +148,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
 
             eat_colon_with_whitespace(input, &mut inpos)?;
             let since = read_u64(input, &mut inpos)?;
-            output[16..24].copy_from_slice(since.to_ne_bytes().as_slice());
+            put(output, 16, since.to_ne_bytes().as_slice())?;
 
             found |= HAVE_SINCE;
         } else if inpos + 6 <= input.len() && &input[inpos..inpos + 6] == b"until\"" {
@@ -155,7 +160,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
 
             eat_colon_with_whitespace(input, &mut inpos)?;
             let until = read_u64(input, &mut inpos)?;
-            output[24..32].copy_from_slice(until.to_ne_bytes().as_slice());
+            put(output, 24, until.to_ne_bytes().as_slice())?;
 
             found |= HAVE_UNTIL;
         } else if inpos + 6 <= input.len() && &input[inpos..inpos + 6] == b"limit\"" {
@@ -168,7 +173,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
             eat_colon_with_whitespace(input, &mut inpos)?;
             let limit = read_u64(input, &mut inpos)?;
             let limit: u32 = limit as u32;
-            output[8..12].copy_from_slice(limit.to_ne_bytes().as_slice());
+            put(output, 8, limit.to_ne_bytes().as_slice())?;
 
             found |= HAVE_LIMIT;
         } else if inpos + 3 <= input.len()
@@ -218,7 +223,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
         }
 
         // Write num_ids
-        output[2..4].copy_from_slice(num_ids.to_ne_bytes().as_slice());
+        put(output, 2, num_ids.to_ne_bytes().as_slice())?;
     }
 
     // Copy authors
@@ -236,7 +241,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
         }
 
         // write num_authors
-        output[4..6].copy_from_slice(num_authors.to_ne_bytes().as_slice());
+        put(output, 4, num_authors.to_ne_bytes().as_slice())?;
     }
 
     // Copy kinds
@@ -254,28 +259,35 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
                     ChorusError::JsonBadFilter("Filter has kind number too large", inpos).into(),
                 );
             }
-            output[end..end + 2].copy_from_slice((u as u16).to_ne_bytes().as_slice());
+            put(output, end, (u as u16).to_ne_bytes().as_slice())?;
             num_kinds += 1;
             end += 2;
         }
 
         // write num_kinds
-        output[6..8].copy_from_slice(num_kinds.to_ne_bytes().as_slice());
+        put(output, 6, num_kinds.to_ne_bytes().as_slice())?;
     }
 
     // Copy tags
     {
         let write_tags_start = end;
         // write number of tags
-        output[write_tags_start + 2..write_tags_start + 4]
-            .copy_from_slice((num_tag_fields as u16).to_ne_bytes().as_slice());
+        put(
+            output,
+            write_tags_start + 2,
+            (num_tag_fields as u16).to_ne_bytes().as_slice(),
+        )?;
         // bump end past offset fields
         end += 4 + 2 * num_tag_fields;
         // Now pull in each tag
+        #[allow(clippy::needless_range_loop)]
         for w in 0..num_tag_fields {
             // Write it's offset
-            output[write_tags_start + 4 + (2 * w)..write_tags_start + 4 + (2 * w) + 2]
-                .copy_from_slice(((end - write_tags_start) as u16).to_ne_bytes().as_slice());
+            put(
+                output,
+                write_tags_start + 4 + (2 * w),
+                ((end - write_tags_start) as u16).to_ne_bytes().as_slice(),
+            )?;
 
             let mut inpos = start_tags[w];
             let letter = input[inpos];
@@ -283,7 +295,10 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
             // bump past count output and write letter
             let countindex = end;
             end += 2;
-            output[end..end + 2].copy_from_slice(1_u16.to_ne_bytes().as_slice());
+            put(output, end, 1_u16.to_ne_bytes().as_slice())?;
+            if output.len() < end + 2 {
+                return Err(crate::error::ChorusError::BufferTooSmall.into());
+            }
             output[end + 2] = letter;
 
             // bump past what we just wrote
@@ -305,18 +320,21 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
                 // copy  data
                 let (inlen, outlen) = json_unescape(&input[inpos..], &mut output[end + 2..])?;
                 // write len
-                output[end..end + 2].copy_from_slice((outlen as u16).to_ne_bytes().as_slice());
+                put(output, end, (outlen as u16).to_ne_bytes().as_slice())?;
                 end += 2 + outlen;
                 inpos += inlen + 1;
                 count += 1;
             }
 
             // write count
-            output[countindex..countindex + 2].copy_from_slice(count.to_ne_bytes().as_slice());
+            put(output, countindex, count.to_ne_bytes().as_slice())?;
         }
         // write length of tags section
-        output[write_tags_start..write_tags_start + 2]
-            .copy_from_slice(((end - write_tags_start) as u16).to_ne_bytes().as_slice());
+        put(
+            output,
+            write_tags_start,
+            ((end - write_tags_start) as u16).to_ne_bytes().as_slice(),
+        )?;
     }
 
     if end > 65535 {
@@ -324,7 +342,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
     }
 
     // Write length of filter
-    output[..2].copy_from_slice((end as u16).to_ne_bytes().as_slice());
+    put(output, 0, (end as u16).to_ne_bytes().as_slice())?;
 
     Ok((inpos, end))
 }
