@@ -86,46 +86,49 @@ impl Store {
         if self.ids.get(&txn, event.id().0.as_slice())?.is_none() {
             offset = self.events.store_event(event)?;
 
-            // Index by id
-            self.ids.put(&mut txn, event.id().0.as_slice(), &offset)?;
+            // Do not index ephemeral events
+            if !event.kind().is_ephemeral() {
+                // Index by id
+                self.ids.put(&mut txn, event.id().0.as_slice(), &offset)?;
 
-            // Index by author and kind (with created_at and id)
-            self.akci.put(
-                &mut txn,
-                &Self::key_akci(event.pubkey(), event.kind(), event.created_at(), event.id()),
-                &offset,
-            )?;
+                // Index by author and kind (with created_at and id)
+                self.akci.put(
+                    &mut txn,
+                    &Self::key_akci(event.pubkey(), event.kind(), event.created_at(), event.id()),
+                    &offset,
+                )?;
 
-            for mut tsi in event.tags()?.iter() {
-                if let Some(tagname) = tsi.next() {
-                    // FIXME make sure it is a letter too
-                    if tagname.len() == 1 {
-                        if let Some(tagvalue) = tsi.next() {
-                            // Index by author and tag (with created_at and id)
-                            self.atci.put(
-                                &mut txn,
-                                &Self::key_atci(
-                                    event.pubkey(),
-                                    tagname[0],
-                                    tagvalue,
-                                    event.created_at(),
-                                    event.id(),
-                                ),
-                                &offset,
-                            )?;
+                for mut tsi in event.tags()?.iter() {
+                    if let Some(tagname) = tsi.next() {
+                        // FIXME make sure it is a letter too
+                        if tagname.len() == 1 {
+                            if let Some(tagvalue) = tsi.next() {
+                                // Index by author and tag (with created_at and id)
+                                self.atci.put(
+                                    &mut txn,
+                                    &Self::key_atci(
+                                        event.pubkey(),
+                                        tagname[0],
+                                        tagvalue,
+                                        event.created_at(),
+                                        event.id(),
+                                    ),
+                                    &offset,
+                                )?;
 
-                            // Index by kind and tag (with created_at and id)
-                            self.ktci.put(
-                                &mut txn,
-                                &Self::key_ktci(
-                                    event.kind(),
-                                    tagname[0],
-                                    tagvalue,
-                                    event.created_at(),
-                                    event.id(),
-                                ),
-                                &offset,
-                            )?;
+                                // Index by kind and tag (with created_at and id)
+                                self.ktci.put(
+                                    &mut txn,
+                                    &Self::key_ktci(
+                                        event.kind(),
+                                        tagname[0],
+                                        tagvalue,
+                                        event.created_at(),
+                                        event.id(),
+                                    ),
+                                    &offset,
+                                )?;
+                            }
                         }
                     }
                 }
