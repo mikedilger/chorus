@@ -18,11 +18,12 @@ pub struct Store {
     atci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     ktci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     deleted: Database<U64<BigEndian>, Unit>,
+    allow_scraping: bool,
 }
 
 impl Store {
     /// Setup persistent storage
-    pub fn new(data_directory: &str) -> Result<Store, Error> {
+    pub fn new(data_directory: &str, allow_scraping: bool) -> Result<Store, Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
             builder.flags(EnvFlags::NO_TLS);
@@ -82,6 +83,7 @@ impl Store {
             atci,
             ktci,
             deleted,
+            allow_scraping,
         })
     }
 
@@ -288,6 +290,20 @@ impl Store {
                                 }
                             }
                         }
+                    }
+                }
+            }
+        } else if self.allow_scraping {
+            // This is INEFFICIENT as it scans through EVERY EVENT
+            // but the filter is a scraper and we don't have a lot of support
+            // for scrapers.
+            let txn = self.env.read_txn()?;
+            let iter = self.ids.iter(&txn)?;
+            for result in iter {
+                let (_key, offset) = result?;
+                if let Some(event) = self.events.get_event_by_offset(offset)? {
+                    if filter.event_matches(&event)? {
+                        output.push(event);
                     }
                 }
             }

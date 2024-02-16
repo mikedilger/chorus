@@ -15,6 +15,7 @@ pub struct FriendlyConfig {
     pub public_key_hex: Option<String>,
     pub user_hex_keys: Vec<String>,
     pub verify_events: bool,
+    pub allow_scraping: bool,
 }
 
 impl Default for FriendlyConfig {
@@ -31,6 +32,7 @@ impl Default for FriendlyConfig {
             public_key_hex: None,
             user_hex_keys: vec![],
             verify_events: true,
+            allow_scraping: false,
         }
     }
 }
@@ -49,6 +51,7 @@ impl FriendlyConfig {
             public_key_hex,
             user_hex_keys,
             verify_events,
+            allow_scraping,
         } = self;
 
         let mut public_key: Option<Pubkey> = None;
@@ -74,6 +77,7 @@ impl FriendlyConfig {
             user_keys,
             user_hex_keys,
             verify_events,
+            allow_scraping,
         })
     }
 }
@@ -92,4 +96,5 @@ pub struct Config {
     pub user_keys: Vec<Pubkey>,
     pub user_hex_keys: Vec<String>,
     pub verify_events: bool,
+    pub allow_scraping: bool,
 }

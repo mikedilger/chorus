@@ -12,4 +12,8 @@ FriendlyConfig(
       "ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49"
     ],
     verify_events: true,
+
+    // This is a bad idea in production, but useful for testing or for dumping
+    // your entire relay
+    allow_scraping: true,
 )
