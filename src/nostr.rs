@@ -1,6 +1,6 @@
 use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
-use crate::reply::NostrReply;
+use crate::reply::{NostrReply, NostrReplyPrefix};
 use crate::types::parse::json_escape::json_unescape;
 use crate::types::parse::json_parse::*;
 use crate::types::{Event, Filter, Kind, OwnedFilter};
@@ -128,7 +128,8 @@ impl WebSocketService {
             let reply = NostrReply::Ok(
                 event.id(),
                 false,
-                "blocked: this personal relay only accepts events related to its users".to_owned(),
+                NostrReplyPrefix::Blocked,
+                "this personal relay only accepts events related to its users".to_owned(),
             );
             self.websocket.send(Message::text(reply.as_json())).await?;
             return Ok(());
@@ -138,13 +139,13 @@ impl WebSocketService {
         let reply = match GLOBALS.store.get().unwrap().store_event(&event) {
             Ok(offset) => {
                 GLOBALS.new_events.send(offset)?; // advertise the new event
-                NostrReply::Ok(event.id(), true, "".to_owned())
+                NostrReply::Ok(event.id(), true, NostrReplyPrefix::None, "".to_owned())
             }
             Err(e) => {
                 if matches!(e.inner, ChorusError::Duplicate) {
-                    NostrReply::Ok(event.id(), true, "duplicate:".to_owned())
+                    NostrReply::Ok(event.id(), true, NostrReplyPrefix::Duplicate, "".to_owned())
                 } else {
-                    NostrReply::Ok(event.id(), false, format!("{e}"))
+                    NostrReply::Ok(event.id(), false, NostrReplyPrefix::Error, format!("{e}"))
                 }
             }
         };
@@ -173,7 +174,7 @@ impl WebSocketService {
         let reply = if self.subscriptions.contains_key(subid) {
             // Remove it, and let them know
             self.subscriptions.remove(subid);
-            NostrReply::Closed(subid, "".to_owned())
+            NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned())
         } else {
             NostrReply::Notice(format!("no such subscription id: {}", subid))
         };
