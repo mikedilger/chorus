@@ -118,7 +118,13 @@ impl<'a> Event<'a> {
         output.extend(br#","tags":"#);
         output.extend(self.tags()?.as_json());
         output.extend(br#","content":""#);
-        output.extend(self.content());
+        // FIXME: we cannot just extend with the raw content, we have to
+        // json_escape it first.
+        // BUT unfortunately that currently requires a malloc. We will fix
+        // that in the next commit
+        let mut escaped_content = vec![0; self.content().len() * 2];
+        let content_outlen = json_escape(self.content(), &mut escaped_content[..])?;
+        output.extend(&escaped_content[..content_outlen]);
         output.extend(br#"","sig":""#);
         let pos = output.len();
         output.resize(pos + 128, 0);
