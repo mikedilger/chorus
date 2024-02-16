@@ -1,5 +1,6 @@
 use super::{Id, Kind, Pubkey, Sig, Tags, Time};
 use crate::error::{ChorusError, Error};
+use crate::types::parse::json_escape::json_escape;
 use std::fmt;
 
 mod json_event;
@@ -131,14 +132,19 @@ impl<'a> Event<'a> {
         use secp256k1::schnorr::Signature;
         use secp256k1::{Message, XOnlyPublicKey};
 
+        let mut escaped_content = vec![0; self.content().len() * 2];
+        let outlen = json_escape(self.content(), &mut escaped_content[..])?;
+
         let signable = format!(
             r#"[0,"{}",{},{},{},"{}"]"#,
             self.pubkey(),
             self.created_at(),
             self.kind(),
             self.tags()?,
-            unsafe { std::str::from_utf8_unchecked(self.content()) },
+            unsafe { std::str::from_utf8_unchecked(&escaped_content[0..outlen]) },
         );
+
+        drop(escaped_content);
 
         let hash = sha256::Hash::hash(signable.as_bytes());
 
