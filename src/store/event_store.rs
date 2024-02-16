@@ -98,25 +98,28 @@ impl EventStore {
                 Ok(offset) => return Ok(offset),
                 Err(e) => {
                     if e.kind() == std::io::ErrorKind::Other {
-                        // presume it was Out of Space
-                        // Determine the new size
-                        let new_file_len = {
-                            let file_len = self.event_map_file_len.load(Ordering::Relaxed);
-                            file_len + EVENT_MAP_CHUNK
-                        };
+                        if e.to_string() == "Out of space" {
+                            // Determine the new size
+                            let new_file_len = {
+                                let file_len = self.event_map_file_len.load(Ordering::Relaxed);
+                                file_len + EVENT_MAP_CHUNK
+                            };
 
-                        // Grow the file
-                        self.event_map_file.set_len(new_file_len as u64)?;
+                            // Grow the file
+                            self.event_map_file.set_len(new_file_len as u64)?;
 
-                        // Resize the memory map
-                        self.event_map.resize(new_file_len)?;
+                            // Resize the memory map
+                            self.event_map.resize(new_file_len)?;
 
-                        // Save this new length
-                        self.event_map_file_len
-                            .store(new_file_len, Ordering::Relaxed);
+                            // Save this new length
+                            self.event_map_file_len
+                                .store(new_file_len, Ordering::Relaxed);
 
-                        // Try again
-                        continue;
+                            // Try again
+                            continue;
+                        } else {
+                            return Err(e.into());
+                        }
                     } else {
                         return Err(e.into());
                     }
