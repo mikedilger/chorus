@@ -3,8 +3,9 @@ pub use event_store::EventStore;
 
 use crate::error::{ChorusError, Error};
 use crate::types::{Event, Filter, Id, Kind, Pubkey, Time};
-use heed::types::{OwnedType, UnalignedSlice};
-use heed::{Database, Env, EnvFlags, EnvOpenOptions};
+use heed::byteorder::BigEndian;
+use heed::types::{OwnedType, UnalignedSlice, Unit, U64};
+use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use std::fs;
 use std::ops::Bound;
 
@@ -16,9 +17,11 @@ pub struct Store {
     akci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     atci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     ktci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
+    deleted: Database<U64<BigEndian>, Unit>,
 }
 
 impl Store {
+    /// Setup persistent storage
     pub fn new(data_directory: &str) -> Result<Store, Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
@@ -60,6 +63,11 @@ impl Store {
             .types::<UnalignedSlice<u8>, OwnedType<usize>>()
             .name("ktci")
             .create(&mut txn)?;
+        let deleted = env
+            .database_options()
+            .types::<U64<BigEndian>, Unit>()
+            .name("deleted")
+            .create(&mut txn)?;
         txn.commit()?;
 
         log::info!("Store is setup");
@@ -73,9 +81,19 @@ impl Store {
             akci,
             atci,
             ktci,
+            deleted,
         })
     }
 
+    /// Store an event.
+    ///
+    /// Returns the offset where the event is stored at, which can be used to fetch
+    /// the event via get_event_by_offset().
+    ///
+    /// If the event already exists, you will get a ChorusError::Duplicate
+    ///
+    /// If the event is ephemeral, it will be stored and you will get an offset, but
+    /// it will not be indexed.
     pub fn store_event(&self, event: &Event) -> Result<usize, Error> {
         // TBD: should we validate the event?
 
@@ -86,52 +104,20 @@ impl Store {
         if self.ids.get(&txn, event.id().0.as_slice())?.is_none() {
             offset = self.events.store_event(event)?;
 
-            // Do not index ephemeral events
-            if !event.kind().is_ephemeral() {
-                // Index by id
-                self.ids.put(&mut txn, event.id().0.as_slice(), &offset)?;
+            if event.kind().is_ephemeral() {
+                // Do not index ephemeral events, not even by id.
+                // But save them in the deleted table
+                let offset_u64 = offset as u64;
+                self.deleted.put(&mut txn, &offset_u64, &())?;
+            } else {
+                // Index the event
+                self.index(&mut txn, event, offset)?;
+            }
 
-                // Index by author and kind (with created_at and id)
-                self.akci.put(
-                    &mut txn,
-                    &Self::key_akci(event.pubkey(), event.kind(), event.created_at(), event.id()),
-                    &offset,
-                )?;
-
-                for mut tsi in event.tags()?.iter() {
-                    if let Some(tagname) = tsi.next() {
-                        // FIXME make sure it is a letter too
-                        if tagname.len() == 1 {
-                            if let Some(tagvalue) = tsi.next() {
-                                // Index by author and tag (with created_at and id)
-                                self.atci.put(
-                                    &mut txn,
-                                    &Self::key_atci(
-                                        event.pubkey(),
-                                        tagname[0],
-                                        tagvalue,
-                                        event.created_at(),
-                                        event.id(),
-                                    ),
-                                    &offset,
-                                )?;
-
-                                // Index by kind and tag (with created_at and id)
-                                self.ktci.put(
-                                    &mut txn,
-                                    &Self::key_ktci(
-                                        event.kind(),
-                                        tagname[0],
-                                        tagvalue,
-                                        event.created_at(),
-                                        event.id(),
-                                    ),
-                                    &offset,
-                                )?;
-                            }
-                        }
-                    }
-                }
+            // If replaceable or parameterized replaceable,
+            // find and delete all but the first one in the group
+            if event.kind().is_replaceable() || event.kind().is_parameterized_replaceable() {
+                self.delete_replaced(&mut txn, event)?;
             }
 
             txn.commit()?;
@@ -142,7 +128,7 @@ impl Store {
         Ok(offset)
     }
 
-    /// Get an event by offset
+    /// Get an event by its offset.
     pub fn get_event_by_offset(&self, offset: usize) -> Result<Option<Event>, Error> {
         self.events.get_event_by_offset(offset)
     }
@@ -157,6 +143,7 @@ impl Store {
         }
     }
 
+    /// Find all events that match the filter
     pub fn find_events(&self, filter: Filter) -> Result<Vec<Event>, Error> {
         let mut output: Vec<Event> = Vec::new();
 
@@ -309,6 +296,204 @@ impl Store {
         }
 
         Ok(output)
+    }
+
+    /// Delete an event by id
+    pub fn delete(&self, id: Id) -> Result<(), Error> {
+        let txn = self.env.read_txn()?;
+        if let Some(offset) = self.ids.get(&txn, id.0.as_slice())? {
+            drop(txn);
+            self.set_event_as_deleted(offset)?;
+        }
+        Ok(())
+    }
+
+    // Index the event
+    fn index(&self, txn: &mut RwTxn<'_>, event: &Event, offset: usize) -> Result<(), Error> {
+        // Index by id
+        self.ids.put(txn, event.id().0.as_slice(), &offset)?;
+
+        // Index by author and kind (with created_at and id)
+        self.akci.put(
+            txn,
+            &Self::key_akci(event.pubkey(), event.kind(), event.created_at(), event.id()),
+            &offset,
+        )?;
+
+        for mut tsi in event.tags()?.iter() {
+            if let Some(tagname) = tsi.next() {
+                // FIXME make sure it is a letter too
+                if tagname.len() == 1 {
+                    if let Some(tagvalue) = tsi.next() {
+                        // Index by author and tag (with created_at and id)
+                        self.atci.put(
+                            txn,
+                            &Self::key_atci(
+                                event.pubkey(),
+                                tagname[0],
+                                tagvalue,
+                                event.created_at(),
+                                event.id(),
+                            ),
+                            &offset,
+                        )?;
+
+                        // Index by kind and tag (with created_at and id)
+                        self.ktci.put(
+                            txn,
+                            &Self::key_ktci(
+                                event.kind(),
+                                tagname[0],
+                                tagvalue,
+                                event.created_at(),
+                                event.id(),
+                            ),
+                            &offset,
+                        )?;
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    // Remove the event from all indexes (except the 'id' index)
+    fn deindex(&self, txn: &mut RwTxn<'_>, event: &Event) -> Result<(), Error> {
+        for mut tsi in event.tags()?.iter() {
+            if let Some(tagname) = tsi.next() {
+                // FIXME make sure it is a letter too
+                if tagname.len() == 1 {
+                    if let Some(tagvalue) = tsi.next() {
+                        // Index by author and tag (with created_at and id)
+                        self.atci.delete(
+                            txn,
+                            &Self::key_atci(
+                                event.pubkey(),
+                                tagname[0],
+                                tagvalue,
+                                event.created_at(),
+                                event.id(),
+                            ),
+                        )?;
+
+                        // Index by kind and tag (with created_at and id)
+                        self.ktci.delete(
+                            txn,
+                            &Self::key_ktci(
+                                event.kind(),
+                                tagname[0],
+                                tagvalue,
+                                event.created_at(),
+                                event.id(),
+                            ),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        // Index by author and kind (with created_at and id)
+        self.akci.delete(
+            txn,
+            &Self::key_akci(event.pubkey(), event.kind(), event.created_at(), event.id()),
+        )?;
+
+        // We leave it in the id map. If someone wants to load the replaced event by id
+        // they can still do it.
+        // self.ids.delete(&mut txn, event.id().0.as_slice())?;
+
+        Ok(())
+    }
+
+    // Set an event as deleted
+    // This removes it from indexes (except the id index) and adds it to the deleted table
+    fn set_event_as_deleted(&self, offset: usize) -> Result<(), Error> {
+        let mut txn = self.env.write_txn()?;
+
+        let offset_u64 = offset as u64;
+
+        // Check if it is already deleted
+        if self.deleted.get(&txn, &offset_u64)?.is_some() {
+            return Ok(());
+        }
+
+        // Add to deleted database in case we need to get at it in the future.
+        self.deleted.put(&mut txn, &offset_u64, &())?;
+
+        // Get event
+        let event = match self.events.get_event_by_offset(offset)? {
+            Some(event) => event,
+            None => return Ok(()),
+        };
+
+        // Remove from indexes
+        self.deindex(&mut txn, &event)?;
+
+        txn.commit()?;
+
+        Ok(())
+    }
+
+    // If the event is replaceable or parameterized replaceable
+    // this deletes all the events in that group except the most recent one.
+    fn delete_replaced(&self, txn: &mut RwTxn<'_>, event: &Event) -> Result<(), Error> {
+        if event.kind().is_replaceable() {
+            let start_prefix = Self::key_akci(
+                event.pubkey(),
+                event.kind(),
+                Time::max(), // database is ordered in reverse time
+                Id([0; 32]),
+            );
+            let end_prefix =
+                Self::key_akci(event.pubkey(), event.kind(), Time::min(), Id([255; 32]));
+            let range = (
+                Bound::Included(&*start_prefix),
+                Bound::Excluded(&*end_prefix),
+            );
+            let iter = self.akci.range(txn, &range)?;
+            let mut first = true;
+            for result in iter {
+                // Keep the first result
+                if first {
+                    first = false;
+                    continue;
+                }
+
+                let (_key, offset) = result?;
+
+                // Delete the event
+                self.set_event_as_deleted(offset)?;
+            }
+        } else if event.kind().is_parameterized_replaceable() {
+            let tags = event.tags()?;
+            if let Some(identifier) = tags.get_value(b"d") {
+                let start_prefix =
+                    Self::key_atci(event.pubkey(), b'd', identifier, Time::max(), Id([0; 32]));
+                let end_prefix =
+                    Self::key_atci(event.pubkey(), b'd', identifier, Time::min(), Id([255; 32]));
+                let range = (
+                    Bound::Included(&*start_prefix),
+                    Bound::Excluded(&*end_prefix),
+                );
+                let iter = self.akci.range(txn, &range)?;
+                let mut first = true;
+                for result in iter {
+                    // Keep the first result
+                    if first {
+                        first = false;
+                        continue;
+                    }
+
+                    let (_key, offset) = result?;
+
+                    // Delete the event
+                    self.set_event_as_deleted(offset)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     // For looking up event by Author and Kind
