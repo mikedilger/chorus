@@ -145,6 +145,7 @@ pub fn read_tags_array(
     // Case where we have no tags
     if num_tags == 0 {
         put(output, 0, 4_u16.to_ne_bytes().as_slice())?;
+        burn_array(input, inposp)?;
         return Ok(4);
     }
 
