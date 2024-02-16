@@ -1,3 +1,6 @@
 #!/bin/bash
 
-RUST_LOG=debug cargo run ./sample/sample.config.ron
+export RUST_LOG='info,chorus=debug'
+
+cargo build --release && \
+    ./target/release/chorus ./sample/sample.config.ron
