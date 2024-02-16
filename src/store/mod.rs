@@ -176,7 +176,7 @@ impl Store {
             }
         } else if filter.num_authors() > 0 && filter.num_kinds() > 0 {
             for author in filter.authors() {
-                for kind in filter.kinds() {
+                'kind: for kind in filter.kinds() {
                     let start_prefix = Self::key_akci(
                         author,
                         kind,
@@ -201,6 +201,14 @@ impl Store {
                             // check against the rest of the filter
                             if filter.event_matches(&event)? {
                                 output.push(event);
+                                // If kind is replaceable (and not parameterized)
+                                // then don't take any more events for this author-kind
+                                // pair.
+                                // NOTE that this optimization is difficult to implement
+                                // for other replaceable event situations
+                                if kind.is_replaceable() {
+                                    continue 'kind;
+                                }
                             }
                         }
                         // Stop if limited
