@@ -34,7 +34,7 @@ pub async fn serve_nip11(peer: SocketAddr) -> Result<Response<Body>, Error> {
 
 fn build_rid(config: &Config) -> String {
     let mut rid: String = String::with_capacity(255);
-    rid.push_str("{\"supported_nips\":[11],");
+    rid.push_str("{\"supported_nips\":[1,11],");
 
     let software = env!("CARGO_PKG_NAME");
     rid.push_str("\"software\":\"");
