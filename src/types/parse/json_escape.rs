@@ -5,49 +5,38 @@ use crate::error::{ChorusError, Error};
 // ESCAPES:     \"  \\  \/  /b  /f  /n  /r  /t
 // UTF ESCAPE:  \uXXXX or \uXXXX\uXXXX
 
-#[allow(dead_code)] // FIXME
-pub fn json_escape(input: &[u8], out: &mut [u8]) -> Result<usize, Error> {
-    // Write position in the output buffer
-    let mut write_pos = 0;
-
-    // closure to output bytes
-    let mut output = |s: &[u8]| -> Result<(), Error> {
-        if out.len() < write_pos + s.len() {
-            Err(ChorusError::BufferTooSmall.into())
-        } else {
-            out[write_pos..write_pos + s.len()].copy_from_slice(s);
-            write_pos += s.len();
-            Ok(())
-        }
-    };
-
+// This escapes a string with JSON escapes. It takes an output buffer,
+// and returns it filled with the escaped string.
+// For performance you should try to pass in a buffer that is already
+// allocated big enough.
+pub fn json_escape(input: &[u8], mut out: Vec<u8>) -> Result<Vec<u8>, Error> {
     let mut read_pos: usize = 0;
     while let Some((codepoint, size)) = next_code_point(&input[read_pos..])? {
         if is_safe_char(codepoint) {
-            output(&input[read_pos..read_pos + size])?;
+            out.extend(&input[read_pos..read_pos + size]);
         } else {
             match codepoint {
-                0x08 => output("\\b".as_bytes())?,
-                0x09 => output("\\t".as_bytes())?,
-                0x0A => output("\\n".as_bytes())?,
-                0x0C => output("\\f".as_bytes())?,
-                0x0D => output("\\r".as_bytes())?,
-                0x22 => output("\\\"".as_bytes())?,
-                0x5C => output("\\\\".as_bytes())?,
+                0x08 => out.extend("\\b".as_bytes()),
+                0x09 => out.extend("\\t".as_bytes()),
+                0x0A => out.extend("\\n".as_bytes()),
+                0x0C => out.extend("\\f".as_bytes()),
+                0x0D => out.extend("\\r".as_bytes()),
+                0x22 => out.extend("\\\"".as_bytes()),
+                0x5C => out.extend("\\\\".as_bytes()),
                 _ => {
                     if codepoint > 0x20 {
                         panic!("unnecessary encoding requested");
                     }
                     // This violates NIP-01 which doesn't allow characters like 0x00
                     // even though JSON UTF-8 does.
-                    output(format!("\\u{:04x}", codepoint).as_bytes())?;
+                    out.extend(format!("\\u{:04x}", codepoint).as_bytes());
                 }
             }
         }
         read_pos += size;
     }
 
-    Ok(write_pos)
+    Ok(out)
 }
 
 macro_rules! output_slice {
@@ -165,33 +154,33 @@ mod test {
 
     #[test]
     fn test_json_escape() {
-        let mut buffer: [u8; 255] = [255; 255];
+        let mut buffer = Vec::with_capacity(255);
 
         let input = "hello\t\tworld
 !!!";
-        let _size = json_escape(input.as_bytes(), &mut buffer).unwrap();
+        let buffer = json_escape(input.as_bytes(), buffer).unwrap();
         assert_eq!(&buffer[0..19], br#"hello\t\tworld\n!!!"#);
 
         let input: [u8; 11] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-        let _size = json_escape(input.as_slice(), &mut buffer).unwrap();
+        let buffer = json_escape(input.as_slice(), buffer).unwrap();
         assert_eq!(
             &buffer[0..54],
             br#"\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n"#
         );
 
         let input: [u8; 12] = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
-        let _size = json_escape(input.as_slice(), &mut buffer).unwrap();
+        let buffer = json_escape(input.as_slice(), buffer).unwrap();
         assert_eq!(
             &buffer[0..64],
             br#"\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016"#
         );
 
         let input: [u8; 4] = [32, 33, 34, 35];
-        let _size = json_escape(input.as_slice(), &mut buffer).unwrap();
+        let buffer = json_escape(input.as_slice(), buffer).unwrap();
         assert_eq!(&buffer[0..5], br##" !\"#"##);
 
         let input: [u8; 1] = [92];
-        let _size = json_escape(input.as_slice(), &mut buffer).unwrap();
+        let buffer = json_escape(input.as_slice(), buffer).unwrap();
         assert_eq!(&buffer[0..2], br#"\\"#);
     }
 

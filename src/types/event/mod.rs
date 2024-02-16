@@ -118,13 +118,10 @@ impl<'a> Event<'a> {
         output.extend(br#","tags":"#);
         output.extend(self.tags()?.as_json());
         output.extend(br#","content":""#);
-        // FIXME: we cannot just extend with the raw content, we have to
-        // json_escape it first.
-        // BUT unfortunately that currently requires a malloc. We will fix
-        // that in the next commit
-        let mut escaped_content = vec![0; self.content().len() * 2];
-        let content_outlen = json_escape(self.content(), &mut escaped_content[..])?;
-        output.extend(&escaped_content[..content_outlen]);
+        // This is okay if it is not accurate. It generally avoids
+        // lots of little mallocs when the capacity is already allocated
+        output.reserve(self.content().len() * 7 / 6);
+        let mut output = json_escape(self.content(), output)?;
         output.extend(br#"","sig":""#);
         let pos = output.len();
         output.resize(pos + 128, 0);
@@ -138,8 +135,10 @@ impl<'a> Event<'a> {
         use secp256k1::schnorr::Signature;
         use secp256k1::{Message, XOnlyPublicKey};
 
-        let mut escaped_content = vec![0; self.content().len() * 2];
-        let outlen = json_escape(self.content(), &mut escaped_content[..])?;
+        // This is okay if it is not accurate. It generally avoids
+        // lots of little mallocs when the capacity is already allocated
+        let escaped_content = Vec::with_capacity(self.content().len() * 7 / 6);
+        let escaped_content = json_escape(self.content(), escaped_content)?;
 
         let signable = format!(
             r#"[0,"{}",{},{},{},"{}"]"#,
@@ -147,7 +146,7 @@ impl<'a> Event<'a> {
             self.created_at(),
             self.kind(),
             self.tags()?,
-            unsafe { std::str::from_utf8_unchecked(&escaped_content[0..outlen]) },
+            unsafe { std::str::from_utf8_unchecked(&escaped_content[..]) },
         );
 
         drop(escaped_content);
