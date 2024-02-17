@@ -3,10 +3,11 @@ use crate::globals::GLOBALS;
 use crate::reply::{NostrReply, NostrReplyPrefix};
 use crate::types::parse::json_escape::json_unescape;
 use crate::types::parse::json_parse::*;
-use crate::types::{Event, Filter, Kind, OwnedFilter};
+use crate::types::{Event, Filter, Kind, OwnedFilter, Time};
 use crate::WebSocketService;
 use futures::SinkExt;
 use hyper_tungstenite::tungstenite::Message;
+use url::Url;
 
 impl WebSocketService {
     pub async fn handle_nostr_message(&mut self, msg: String) -> Result<(), Error> {
@@ -182,11 +183,76 @@ impl WebSocketService {
         Ok(())
     }
 
-    pub async fn auth(&mut self, msg: String, _inpos: usize) -> Result<(), Error> {
-        let _input = msg.as_bytes();
+    pub async fn auth(&mut self, msg: String, mut inpos: usize) -> Result<(), Error> {
+        let input = msg.as_bytes();
 
-        let reply = NostrReply::Notice("AUTH is not yet supported".to_owned());
+        eat_whitespace(input, &mut inpos);
+        verify_char(input, b',', &mut inpos)?;
+        eat_whitespace(input, &mut inpos);
+
+        // Read the event into the session buffer
+        let (_incount, event) = Event::from_json(&input[inpos..], &mut self.buffer)?;
+
+        // Verify the event (even if config.verify_events is off, because this is
+        // strictly necessary for AUTH)
+        event.verify()?;
+
+        // Verify the event is the right kind
+        if event.kind() != Kind(22242) {
+            return Err(ChorusError::AuthFailure.into());
+        }
+
+        // Verify the challenge and relay tags
+        let mut challenge_ok = false;
+        let mut relay_ok = false;
+        for mut tag in event.tags()?.iter() {
+            match tag.next() {
+                Some(b"relay") => {
+                    if let Some(value) = tag.next() {
+                        // We check if the URL host matches
+                        // (when normalized, puny-encoded IDNA, etc)
+                        let utf8value = std::str::from_utf8(value)?;
+                        let url = match Url::parse(utf8value) {
+                            Ok(u) => u,
+                            Err(_) => return Err(ChorusError::AuthFailure.into()),
+                        };
+                        if let Some(h) = url.host() {
+                            let theirhost = h.to_owned();
+                            if theirhost == GLOBALS.config.read().await.hostname {
+                                relay_ok = true;
+                            }
+                        }
+                    }
+                }
+                Some(b"challenge") => {
+                    if let Some(value) = tag.next() {
+                        if value == self.challenge.as_bytes() {
+                            challenge_ok = true;
+                        }
+                    }
+                }
+                None => break,
+                _ => continue,
+            }
+        }
+
+        if !(challenge_ok && relay_ok) {
+            return Err(ChorusError::AuthFailure.into());
+        }
+
+        // Verify the created_at timestamp is within reason
+        let timediff = (Time::now().0 as i64).abs_diff(event.created_at().0 as i64);
+        if timediff < 600 {
+            return Err(ChorusError::AuthFailure.into());
+        }
+
+        // They are now authenticated
+        self.user = Some(event.pubkey());
+
+        // Confirm the AUTH
+        let reply = NostrReply::Ok(event.id(), true, NostrReplyPrefix::None, "".to_string());
         self.websocket.send(Message::text(reply.as_json())).await?;
+
         Ok(())
     }
 }

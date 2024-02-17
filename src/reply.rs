@@ -30,6 +30,7 @@ impl fmt::Display for NostrReplyPrefix {
 }
 
 pub enum NostrReply<'a> {
+    Auth(String),
     Event(&'a str, Event<'a>),
     Ok(Id, bool, NostrReplyPrefix, String),
     Eose(&'a str),
@@ -40,6 +41,7 @@ pub enum NostrReply<'a> {
 impl NostrReply<'_> {
     pub fn as_json(&self) -> String {
         match self {
+            NostrReply::Auth(challenge) => format!(r#"["AUTH", "{challenge}"]"#),
             NostrReply::Event(subid, event) => format!(r#"["EVENT", "{subid}", {}]"#, event),
             NostrReply::Ok(id, ok, prefix, msg) => format!(r#"["OK","{id}",{ok},"{prefix}{msg}"]"#),
             NostrReply::Eose(subid) => format!(r#"["EOSE","{subid}"]"#),

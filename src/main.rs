@@ -16,7 +16,7 @@ use crate::globals::GLOBALS;
 use crate::reply::NostrReply;
 use crate::store::Store;
 use crate::tls::MaybeTlsStream;
-use crate::types::OwnedFilter;
+use crate::types::{OwnedFilter, Pubkey};
 use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::service::Service;
 use hyper::upgrade::Upgraded;
@@ -31,6 +31,7 @@ use std::io::Read;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use textnonce::TextNonce;
 use tokio::net::{TcpListener, TcpStream};
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::Message;
@@ -176,6 +177,8 @@ async fn handle_http_request(
                         // We start with a 1-page buffer, and grow it if needed.
                         buffer: vec![0; 4096],
                         websocket,
+                        challenge: TextNonce::new().into_string(),
+                        user: None,
                     };
 
                     // Handle the websocket
@@ -219,12 +222,18 @@ struct WebSocketService {
     pub subscriptions: HashMap<String, Vec<OwnedFilter>>,
     pub buffer: Vec<u8>,
     pub websocket: WebSocketStream<Upgraded>,
+    pub challenge: String,
+    pub user: Option<Pubkey>,
 }
 
 impl WebSocketService {
     async fn handle_websocket_stream(&mut self) -> Result<(), Error> {
         // Subscribe to the new_events broadcast channel
         let mut new_events = GLOBALS.new_events.subscribe();
+
+        // Offer AUTH to clients right off the bat
+        let reply = NostrReply::Auth(self.challenge.clone());
+        self.websocket.send(Message::text(reply.as_json())).await?;
 
         loop {
             tokio::select! {
