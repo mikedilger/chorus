@@ -161,6 +161,7 @@ dependencies = [
  "textnonce",
  "tokio",
  "tokio-rustls",
+ "url",
 ]
 
 [[package]]
