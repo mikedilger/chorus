@@ -21,4 +21,9 @@ impl Time {
     pub fn max() -> Time {
         Time(u64::MAX)
     }
+
+    pub fn now() -> Time {
+        // Safety: unwrap() can only panic if the system time is before UNIX_EPOCH
+        Time(std::time::UNIX_EPOCH.elapsed().unwrap().as_secs())
+    }
 }
