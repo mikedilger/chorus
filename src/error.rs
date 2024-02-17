@@ -22,6 +22,9 @@ impl std::fmt::Display for Error {
 /// Errors that can occur in the chorus crate
 #[derive(Debug)]
 pub enum ChorusError {
+    // Auth failure
+    AuthFailure,
+
     // Bad event id
     BadEventId,
 
@@ -110,6 +113,7 @@ pub enum ChorusError {
 impl std::fmt::Display for ChorusError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            ChorusError::AuthFailure => write!(f, "AUTH failure"),
             ChorusError::BadEventId => write!(f, "Bad event id, does not match hash"),
             ChorusError::BadHexInput => write!(f, "Bad hex input"),
             ChorusError::BufferTooSmall => write!(f, "Output buffer too small"),
