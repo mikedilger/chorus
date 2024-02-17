@@ -34,7 +34,36 @@ pub async fn serve_nip11(peer: SocketAddr) -> Result<Response<Body>, Error> {
 
 fn build_rid(config: &Config) -> String {
     let mut rid: String = String::with_capacity(255);
-    rid.push_str("{\"supported_nips\":[1,11],");
+
+    const SUPPORTED_NIPS: [u8; 4] = [
+        1,  // nostr
+        11, // relay information document
+        42, // AUTH
+        65, // Relay List Metadata
+    ];
+    const _UNSUPPORTED_NIPS: [u8; 10] = [
+        4,  // DM
+        9,  // Event Deletion
+        26, // Delegated Event Signing
+        28, // Public Chat
+        40, // Expiration Timestamp
+        45, // Counting results
+        50, // SEARCH
+        59, // GiftWrap
+        94, // File Metadata
+        96, // HTTP File Storage Integration
+    ];
+    const _INAPPLICABLE_NIPS: [u8; 43] = [
+        2, 3, 5, 6, 7, 8, 10, 13, 14, 15, 18, 19, 21, 23, 24, 25, 27, 30, 31, 32, 36, 38, 39, 44,
+        46, 47, 48, 49, 51, 52, 53, 56, 57, 58, 72, 75, 78, 84, 89, 90, 92, 98, 99,
+    ];
+
+    let s = SUPPORTED_NIPS
+        .iter()
+        .map(|i| format!("{}", i))
+        .collect::<Vec<String>>()
+        .join(",");
+    rid.push_str(&format!("{{\"supported_nips\":[{}],", s));
 
     let software = env!("CARGO_PKG_NAME");
     rid.push_str("\"software\":\"");
