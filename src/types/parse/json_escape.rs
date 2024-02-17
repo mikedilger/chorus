@@ -154,30 +154,38 @@ mod test {
 
     #[test]
     fn test_json_escape() {
-        let mut buffer = Vec::with_capacity(255);
+        let buffer = Vec::with_capacity(255);
 
         let input = "hello\t\tworld
 !!!";
-        let buffer = json_escape(input.as_bytes(), buffer).unwrap();
+        let mut buffer = json_escape(input.as_bytes(), buffer).unwrap();
         assert_eq!(&buffer[0..19], br#"hello\t\tworld\n!!!"#);
 
+        buffer.clear();
+
         let input: [u8; 11] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-        let buffer = json_escape(input.as_slice(), buffer).unwrap();
+        let mut buffer = json_escape(input.as_slice(), buffer).unwrap();
         assert_eq!(
             &buffer[0..54],
             br#"\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n"#
         );
 
+        buffer.clear();
+
         let input: [u8; 12] = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
-        let buffer = json_escape(input.as_slice(), buffer).unwrap();
+        let mut buffer = json_escape(input.as_slice(), buffer).unwrap();
         assert_eq!(
             &buffer[0..64],
             br#"\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016"#
         );
 
+        buffer.clear();
+
         let input: [u8; 4] = [32, 33, 34, 35];
-        let buffer = json_escape(input.as_slice(), buffer).unwrap();
+        let mut buffer = json_escape(input.as_slice(), buffer).unwrap();
         assert_eq!(&buffer[0..5], br##" !\"#"##);
+
+        buffer.clear();
 
         let input: [u8; 1] = [92];
         let buffer = json_escape(input.as_slice(), buffer).unwrap();
