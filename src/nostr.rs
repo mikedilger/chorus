@@ -211,6 +211,26 @@ impl WebSocketService {
 
         // Read the event into the session buffer
         let (_incount, event) = Event::from_json(&input[inpos..], &mut self.buffer)?;
+        let id = event.id();
+
+        // Always return an OK message, based on the results of our auth_inner
+        let reply = match self.auth_inner().await {
+            Ok(()) => NostrReply::Ok(id, true, NostrReplyPrefix::None, "".to_string()),
+            Err(e) => match e.inner {
+                ChorusError::AuthFailure => {
+                    NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, "".to_string())
+                }
+                _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
+            },
+        };
+        self.websocket.send(Message::text(reply.as_json())).await?;
+
+        Ok(())
+    }
+
+    async fn auth_inner(&mut self) -> Result<(), Error> {
+        // Delineate the event back out of the session buffer
+        let event = Event::delineate(&self.buffer)?;
 
         // Verify the event (even if config.verify_events is off, because this is
         // strictly necessary for AUTH)
@@ -267,10 +287,6 @@ impl WebSocketService {
 
         // They are now authenticated
         self.user = Some(event.pubkey());
-
-        // Confirm the AUTH
-        let reply = NostrReply::Ok(event.id(), true, NostrReplyPrefix::None, "".to_string());
-        self.websocket.send(Message::text(reply.as_json())).await?;
 
         Ok(())
     }
