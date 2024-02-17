@@ -124,12 +124,31 @@ impl WebSocketService {
         // Read the event into the session buffer
         let (_incount, event) = Event::from_json(&input[inpos..], &mut self.buffer)?;
 
-        // Check if the event passes muster
-        if !validate_event(&event).await? {
+        if GLOBALS.config.read().await.verify_events {
+            // Verify the event is valid (id is hash, signature is valid)
+            if let Err(e) = event.verify() {
+                let reply = NostrReply::Ok(
+                    event.id(),
+                    false,
+                    NostrReplyPrefix::Invalid,
+                    format!("{}", e),
+                );
+                self.websocket.send(Message::text(reply.as_json())).await?;
+                return Ok(());
+            }
+        }
+
+        // Screen the event to see if we are willing to accept it
+        if !screen_event(&event).await? {
+            let prefix = if self.user.is_some() {
+                NostrReplyPrefix::Restricted
+            } else {
+                NostrReplyPrefix::AuthRequired
+            };
             let reply = NostrReply::Ok(
                 event.id(),
                 false,
-                NostrReplyPrefix::Blocked,
+                prefix,
                 "this personal relay only accepts events related to its users".to_owned(),
             );
             self.websocket.send(Message::text(reply.as_json())).await?;
@@ -257,12 +276,7 @@ impl WebSocketService {
     }
 }
 
-async fn validate_event(event: &Event<'_>) -> Result<bool, Error> {
-    // Verify event is valid
-    if GLOBALS.config.read().await.verify_events {
-        event.verify()?;
-    }
-
+async fn screen_event(event: &Event<'_>) -> Result<bool, Error> {
     // Accept relay lists from anybody
     if event.kind() == Kind(10002) {
         return Ok(true);
