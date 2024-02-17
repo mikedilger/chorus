@@ -115,6 +115,8 @@ impl WebSocketService {
     }
 
     pub async fn event(&mut self, msg: String, mut inpos: usize) -> Result<(), Error> {
+        const PERSONAL_MSG: &str = "this personal relay only accepts events related to its users";
+
         let input = msg.as_bytes();
 
         eat_whitespace(input, &mut inpos);
@@ -123,54 +125,61 @@ impl WebSocketService {
 
         // Read the event into the session buffer
         let (_incount, event) = Event::from_json(&input[inpos..], &mut self.buffer)?;
+        let id = event.id();
+
+        let reply = match self.event_inner().await {
+            Ok(()) => NostrReply::Ok(id, true, NostrReplyPrefix::None, "".to_string()),
+            Err(e) => match e.inner {
+                ChorusError::AuthRequired => NostrReply::Ok(
+                    id,
+                    false,
+                    NostrReplyPrefix::AuthRequired,
+                    PERSONAL_MSG.to_owned(),
+                ),
+                ChorusError::Duplicate => {
+                    NostrReply::Ok(id, false, NostrReplyPrefix::Duplicate, "".to_string())
+                }
+                ChorusError::EventIsInvalid(why) => {
+                    NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, why)
+                }
+                ChorusError::Restricted => NostrReply::Ok(
+                    id,
+                    false,
+                    NostrReplyPrefix::Restricted,
+                    PERSONAL_MSG.to_owned(),
+                ),
+                _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
+            },
+        };
+        self.websocket.send(Message::text(reply.as_json())).await?;
+
+        Ok(())
+    }
+
+    async fn event_inner(&mut self) -> Result<(), Error> {
+        // Delineate the event back out of the session buffer
+        let event = Event::delineate(&self.buffer)?;
 
         if GLOBALS.config.read().await.verify_events {
             // Verify the event is valid (id is hash, signature is valid)
             if let Err(e) = event.verify() {
-                let reply = NostrReply::Ok(
-                    event.id(),
-                    false,
-                    NostrReplyPrefix::Invalid,
-                    format!("{}", e),
-                );
-                self.websocket.send(Message::text(reply.as_json())).await?;
-                return Ok(());
+                return Err(ChorusError::EventIsInvalid(format!("{}", e)).into());
             }
         }
 
         // Screen the event to see if we are willing to accept it
         if !screen_event(&event, self.user).await? {
-            let prefix = if self.user.is_some() {
-                NostrReplyPrefix::Restricted
+            if self.user.is_some() {
+                return Err(ChorusError::Restricted.into());
             } else {
-                NostrReplyPrefix::AuthRequired
-            };
-            let reply = NostrReply::Ok(
-                event.id(),
-                false,
-                prefix,
-                "this personal relay only accepts events related to its users".to_owned(),
-            );
-            self.websocket.send(Message::text(reply.as_json())).await?;
-            return Ok(());
+                return Err(ChorusError::AuthRequired.into());
+            }
         }
 
         // Store and index the event
-        let reply = match GLOBALS.store.get().unwrap().store_event(&event) {
-            Ok(offset) => {
-                GLOBALS.new_events.send(offset)?; // advertise the new event
-                NostrReply::Ok(event.id(), true, NostrReplyPrefix::None, "".to_owned())
-            }
-            Err(e) => {
-                if matches!(e.inner, ChorusError::Duplicate) {
-                    NostrReply::Ok(event.id(), true, NostrReplyPrefix::Duplicate, "".to_owned())
-                } else {
-                    NostrReply::Ok(event.id(), false, NostrReplyPrefix::Error, format!("{e}"))
-                }
-            }
-        };
+        let offset = GLOBALS.store.get().unwrap().store_event(&event)?;
+        GLOBALS.new_events.send(offset)?; // advertise the new event
 
-        self.websocket.send(Message::text(reply.as_json())).await?;
         Ok(())
     }
 

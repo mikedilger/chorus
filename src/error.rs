@@ -25,6 +25,9 @@ pub enum ChorusError {
     // Auth failure
     AuthFailure,
 
+    // Auth required
+    AuthRequired,
+
     // Bad event id
     BadEventId,
 
@@ -51,6 +54,9 @@ pub enum ChorusError {
 
     // End of Input
     EndOfInput,
+
+    // Event is Invalid
+    EventIsInvalid(String),
 
     // Http
     Http(hyper::http::Error),
@@ -88,6 +94,9 @@ pub enum ChorusError {
     // No private key
     NoPrivateKey,
 
+    // Restricted
+    Restricted,
+
     // Rustls
     Rustls(tokio_rustls::rustls::Error),
 
@@ -114,6 +123,7 @@ impl std::fmt::Display for ChorusError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ChorusError::AuthFailure => write!(f, "AUTH failure"),
+            ChorusError::AuthRequired => write!(f, "AUTH required"),
             ChorusError::BadEventId => write!(f, "Bad event id, does not match hash"),
             ChorusError::BadHexInput => write!(f, "Bad hex input"),
             ChorusError::BufferTooSmall => write!(f, "Output buffer too small"),
@@ -123,6 +133,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::Crypto(e) => write!(f, "{e}"),
             ChorusError::Duplicate => write!(f, "Duplicate"),
             ChorusError::EndOfInput => write!(f, "End of input"),
+            ChorusError::EventIsInvalid(s) => write!(f, "Event is invalid: {s}"),
             ChorusError::Http(e) => write!(f, "{e}"),
             ChorusError::Hyper(e) => write!(f, "{e}"),
             ChorusError::Io(e) => write!(f, "{e}"),
@@ -147,6 +158,7 @@ impl std::fmt::Display for ChorusError {
             ),
             ChorusError::Lmdb(e) => write!(f, "{e}"),
             ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
+            ChorusError::Restricted => write!(f, "Restricted"),
             ChorusError::Rustls(e) => write!(f, "{e}"),
             ChorusError::Tungstenite(e) => write!(f, "{e}"),
             ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
