@@ -94,6 +94,9 @@ pub enum ChorusError {
     // Filter is underspecified
     Scraper,
 
+    // URL Parse
+    UrlParse(url::ParseError),
+
     // UTF-8
     Utf8(std::str::Utf8Error),
 
@@ -143,6 +146,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::Rustls(e) => write!(f, "{e}"),
             ChorusError::Tungstenite(e) => write!(f, "{e}"),
             ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
+            ChorusError::UrlParse(e) => write!(f, "{e}"),
             ChorusError::Utf8(e) => write!(f, "{e}"),
             ChorusError::Utf8Error => write!(f, "UTF-8 error"),
             ChorusError::WebsocketProtocol(e) => write!(f, "{e}"),
@@ -163,6 +167,7 @@ impl StdError for ChorusError {
             ChorusError::Lmdb(e) => Some(e),
             ChorusError::Rustls(e) => Some(e),
             ChorusError::Tungstenite(e) => Some(e),
+            ChorusError::UrlParse(e) => Some(e),
             ChorusError::Utf8(e) => Some(e),
             ChorusError::WebsocketProtocol(e) => Some(e),
             _ => None,
@@ -302,6 +307,16 @@ impl From<hyper_tungstenite::tungstenite::error::ProtocolError> for Error {
     fn from(err: hyper_tungstenite::tungstenite::error::ProtocolError) -> Self {
         Error {
             inner: ChorusError::WebsocketProtocol(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<url::ParseError> for Error {
+    #[track_caller]
+    fn from(err: url::ParseError) -> Self {
+        Error {
+            inner: ChorusError::UrlParse(err),
             location: std::panic::Location::caller(),
         }
     }
