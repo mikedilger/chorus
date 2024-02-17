@@ -32,6 +32,7 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::net::{TcpListener, TcpStream};
+use tungstenite::protocol::WebSocketConfig;
 use tungstenite::Message;
 
 #[tokio::main]
@@ -154,7 +155,14 @@ async fn handle_http_request(
     mut request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
     if hyper_tungstenite::is_upgrade_request(&request) {
-        let (response, websocket) = hyper_tungstenite::upgrade(&mut request, None)?;
+        let web_socket_config = WebSocketConfig {
+            max_write_buffer_size: 1024 * 1024,  // 1 MB
+            max_message_size: Some(1024 * 1024), // 1 MB
+            max_frame_size: Some(1024 * 1024),   // 1 MB
+            ..Default::default()
+        };
+        let (response, websocket) =
+            hyper_tungstenite::upgrade(&mut request, Some(web_socket_config))?;
         tokio::spawn(async move {
             // Await the websocket upgrade process
             match websocket.await {
