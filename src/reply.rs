@@ -3,10 +3,12 @@ use std::fmt;
 
 pub enum NostrReplyPrefix {
     None,
+    AuthRequired,
     Pow,
     Duplicate,
     Blocked,
     RateLimited,
+    Restricted,
     Invalid,
     Error,
 }
@@ -15,10 +17,12 @@ impl fmt::Display for NostrReplyPrefix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NostrReplyPrefix::None => Ok(()),
+            NostrReplyPrefix::AuthRequired => write!(f, "auth-required: "),
             NostrReplyPrefix::Pow => write!(f, "pow: "),
             NostrReplyPrefix::Duplicate => write!(f, "duplicate: "),
             NostrReplyPrefix::Blocked => write!(f, "blocked: "),
             NostrReplyPrefix::RateLimited => write!(f, "rate-limited: "),
+            NostrReplyPrefix::Restricted => write!(f, "restricted: "),
             NostrReplyPrefix::Invalid => write!(f, "invalid: "),
             NostrReplyPrefix::Error => write!(f, "error: "),
         }
