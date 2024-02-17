@@ -1,0 +1,16 @@
+FriendlyConfig(
+    data_directory: "/opt/chorus/var/chorus",
+    ip_address: "127.0.0.1",
+    port: 443,
+    use_tls: true,
+    certchain_pem_path: "/opt/chorus/etc/tls/fullchain.pem",
+    key_pem_path: "/opt/chorus/etc/tls/privkey.pem",
+    name: Some("Chorus Default"),
+    description: Some("A default config of the Chorus relay"),
+    contact: None,
+    public_key_hex: None,
+    user_hex_keys: [
+    ],
+    verify_events: true,
+    allow_scraping: false,
+)

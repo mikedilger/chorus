@@ -1,0 +1,16 @@
+[Unit]
+Description=chorus
+After=network-online.target
+
+[Service]
+Type=simple
+Environment="RUST_BACKTRACE=1"
+Environment="RUST_LOG=info"
+WorkingDirectory=/opt/chorus
+User=chorus
+ExecStart=/opt/chorus/sbin/chorus /opt/chorus/etc/chorus.ron
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
