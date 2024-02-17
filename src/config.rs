@@ -1,12 +1,14 @@
 use crate::error::Error;
 use crate::types::Pubkey;
 use serde::{Deserialize, Serialize};
+use url::Host;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriendlyConfig {
     pub data_directory: String,
     pub ip_address: String,
     pub port: u16,
+    pub hostname: String,
     pub use_tls: bool,
     pub certchain_pem_path: String,
     pub key_pem_path: String,
@@ -25,6 +27,7 @@ impl Default for FriendlyConfig {
             data_directory: "/tmp".to_string(),
             ip_address: "127.0.0.1".to_string(),
             port: 80,
+            hostname: "localhost".to_string(),
             use_tls: false,
             certchain_pem_path: "./tls/fullchain.pem".to_string(),
             key_pem_path: "./tls/privkey.pem".to_string(),
@@ -45,6 +48,7 @@ impl FriendlyConfig {
             data_directory,
             ip_address,
             port,
+            hostname,
             use_tls,
             certchain_pem_path,
             key_pem_path,
@@ -67,10 +71,13 @@ impl FriendlyConfig {
             user_keys.push(Pubkey::read_hex(pkh.as_bytes())?);
         }
 
+        let hostname = Host::parse(&hostname)?;
+
         Ok(Config {
             data_directory,
             ip_address,
             port,
+            hostname,
             use_tls,
             certchain_pem_path,
             key_pem_path,
@@ -91,6 +98,7 @@ pub struct Config {
     pub data_directory: String,
     pub ip_address: String,
     pub port: u16,
+    pub hostname: Host,
     pub use_tls: bool,
     pub certchain_pem_path: String,
     pub key_pem_path: String,
