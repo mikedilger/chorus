@@ -59,6 +59,12 @@ fn build_rid(config: &Config) -> String {
         rid.push_str(description);
         rid.push('\"');
     }
+    if let Some(contact) = &config.contact {
+        rid.push(',');
+        rid.push_str("\"contact\":\"");
+        rid.push_str(contact);
+        rid.push('\"');
+    }
     if let Some(pubkey) = &config.public_key {
         let mut pkh: [u8; 64] = [0; 64];
         pubkey.write_hex(&mut pkh).unwrap();
