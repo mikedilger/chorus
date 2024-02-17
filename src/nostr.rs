@@ -3,7 +3,7 @@ use crate::globals::GLOBALS;
 use crate::reply::{NostrReply, NostrReplyPrefix};
 use crate::types::parse::json_escape::json_unescape;
 use crate::types::parse::json_parse::*;
-use crate::types::{Event, Filter, Kind, OwnedFilter, Time};
+use crate::types::{Event, Filter, Kind, OwnedFilter, Pubkey, Time};
 use crate::WebSocketService;
 use futures::SinkExt;
 use hyper_tungstenite::tungstenite::Message;
@@ -139,7 +139,7 @@ impl WebSocketService {
         }
 
         // Screen the event to see if we are willing to accept it
-        if !screen_event(&event).await? {
+        if !screen_event(&event, self.user).await? {
             let prefix = if self.user.is_some() {
                 NostrReplyPrefix::Restricted
             } else {
@@ -276,7 +276,7 @@ impl WebSocketService {
     }
 }
 
-async fn screen_event(event: &Event<'_>) -> Result<bool, Error> {
+async fn screen_event(event: &Event<'_>, user: Option<Pubkey>) -> Result<bool, Error> {
     // Accept relay lists from anybody
     if event.kind() == Kind(10002) {
         return Ok(true);
@@ -303,6 +303,14 @@ async fn screen_event(event: &Event<'_>) -> Result<bool, Error> {
                     }
                 }
             }
+        }
+    }
+
+    // If the user is authenticated as one of our users, accept anything
+    // that they give us
+    if let Some(pk) = user {
+        if GLOBALS.config.read().await.user_keys.contains(&pk) {
+            return Ok(true);
         }
     }
 
