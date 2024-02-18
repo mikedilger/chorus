@@ -33,6 +33,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use textnonce::TextNonce;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::signal::unix::{signal, SignalKind};
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::Message;
 
@@ -76,26 +77,53 @@ async fn main() -> Result<(), Error> {
     // Store config into GLOBALS
     *GLOBALS.config.write().await = config;
 
-    // Accepts network connections and spawn a task to serve each one
-    loop {
-        let (tcp_stream, peer_addr) = listener.accept().await?;
+    let mut interrupt_signal = signal(SignalKind::interrupt())?;
+    let mut quit_signal = signal(SignalKind::quit())?;
+    let mut terminate_signal = signal(SignalKind::terminate())?;
 
-        if let Some(tls_acceptor) = &maybe_tls_acceptor {
-            let tls_acceptor_clone = tls_acceptor.clone();
-            tokio::spawn(async move {
-                match tls_acceptor_clone.accept(tcp_stream).await {
-                    Err(e) => log::error!("{}", e),
-                    Ok(tls_stream) => {
-                        if let Err(e) = serve(MaybeTlsStream::Rustls(tls_stream), peer_addr).await {
-                            log::error!("{}", e);
+    loop {
+        tokio::select! {
+            // Exits gracefully upon exit-type signals
+            v = interrupt_signal.recv() => if v.is_some() {
+                log::info!("SIGINT");
+                break;
+            },
+            v = quit_signal.recv() => if v.is_some() {
+                log::info!("SIGQUIT");
+                break;
+            },
+            v = terminate_signal.recv() => if v.is_some() {
+                log::info!("SIGTERM");
+                break;
+            },
+
+            // Accepts network connections and spawn a task to serve each one
+            v = listener.accept() => {
+                let (tcp_stream, peer_addr) = v?;
+
+                if let Some(tls_acceptor) = &maybe_tls_acceptor {
+                    let tls_acceptor_clone = tls_acceptor.clone();
+                    tokio::spawn(async move {
+                        match tls_acceptor_clone.accept(tcp_stream).await {
+                            Err(e) => log::error!("{}", e),
+                            Ok(tls_stream) => {
+                                if let Err(e) = serve(MaybeTlsStream::Rustls(tls_stream), peer_addr).await {
+                                    log::error!("{}", e);
+                                }
+                            }
                         }
-                    }
+                    });
+                } else {
+                    serve(MaybeTlsStream::Plain(tcp_stream), peer_addr).await?;
                 }
-            });
-        } else {
-            serve(MaybeTlsStream::Plain(tcp_stream), peer_addr).await?;
-        }
+            }
+        };
     }
+
+    log::info!("Syncing and shutting down.");
+    let _ = GLOBALS.store.get().unwrap().sync();
+
+    Ok(())
 }
 
 // Serve a single network connection

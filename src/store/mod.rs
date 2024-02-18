@@ -87,6 +87,13 @@ impl Store {
         })
     }
 
+    /// Sync the data to disk. This happens periodically, but sometimes it's useful to force
+    /// it.
+    pub fn sync(&self) -> Result<(), Error> {
+        self.env.force_sync()?;
+        Ok(())
+    }
+
     /// Store an event.
     ///
     /// Returns the offset where the event is stored at, which can be used to fetch
