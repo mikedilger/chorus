@@ -82,6 +82,15 @@ impl WebSocketService {
 
         let authorized_user = self.authorized_user().await;
 
+        // NOTE on private events (DMs, GiftWraps)
+        // Most relays check if you are seeking them, and of which pubkey, and if you are
+        // not AUTHed as that pubkey you get a 'auth-required', or if you are AUTHed as
+        // a different pubkey you get a 'restricted'.
+        // We take a different tack. You can ask for these events, and we even load them,
+        // but then we filter them out in screen_outgoing_event() and don't send events they
+        // aren't supposed to see. This prevents sending errors and having them ask again. It
+        // is also faster as we don't have to do any filter analysis at this point in the code.
+
         // Serve events matching subscription
         {
             let mut events: Vec<Event> = Vec::new();
@@ -99,10 +108,16 @@ impl WebSocketService {
                         .user_keys
                         .contains(&event.pubkey());
 
+                    let authored_by_requester = match self.user {
+                        None => false,
+                        Some(pk) => event.pubkey() == pk,
+                    };
+
                     if screen_outgoing_event(
                         &event,
                         authorized_user,
                         authored_by_an_authorized_user,
+                        authored_by_requester,
                     ) {
                         events.push(event);
                     }
@@ -367,17 +382,8 @@ fn screen_outgoing_event(
     event: &Event<'_>,
     authorized_user: bool,
     authored_by_an_authorized_user: bool,
+    authored_by_requester: bool,
 ) -> bool {
-    // Allow if authorized_user is asking
-    if authorized_user {
-        return true;
-    }
-
-    // Everybody can see events from our authorized users
-    if authored_by_an_authorized_user {
-        return true;
-    }
-
     // Allow Relay Lists
     if event.kind() == Kind(10002) {
         return true;
@@ -385,6 +391,23 @@ fn screen_outgoing_event(
 
     // Allow if event kind ephemeral
     if event.kind().is_ephemeral() {
+        return true;
+    }
+
+    // Forbid if it is a private event (DM or GiftWrap) and the author isn't them
+    if event.kind() == Kind(4) || event.kind() == Kind(1059) {
+        if !authored_by_requester {
+            return false;
+        }
+    }
+
+    // Allow if an authorized_user is asking
+    if authorized_user {
+        return true;
+    }
+
+    // Everybody can see events from our authorized users
+    if authored_by_an_authorized_user {
         return true;
     }
 
