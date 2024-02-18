@@ -1,7 +1,10 @@
 use crate::config::{Config, FriendlyConfig};
 use crate::store::Store;
+use crate::types::Time;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
+use std::collections::HashMap;
+use std::net::IpAddr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::OnceLock;
 use tokio::sync::broadcast::Sender as BroadcastSender;
@@ -22,6 +25,7 @@ pub struct Globals {
 
     pub num_clients: AtomicUsize,
     pub shutting_down: WatchSender<bool>,
+    pub banlist: RwLock<HashMap<IpAddr, Time>>,
 }
 
 lazy_static! {
@@ -41,6 +45,7 @@ lazy_static! {
             new_events,
             num_clients: AtomicUsize::new(0),
             shutting_down,
+            banlist: RwLock::new(HashMap::new()),
         }
     };
 }

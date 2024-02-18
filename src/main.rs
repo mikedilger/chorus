@@ -16,7 +16,7 @@ use crate::globals::GLOBALS;
 use crate::reply::NostrReply;
 use crate::store::Store;
 use crate::tls::MaybeTlsStream;
-use crate::types::{OwnedFilter, Pubkey};
+use crate::types::{OwnedFilter, Pubkey, Time};
 use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::service::Service;
 use hyper::upgrade::Upgraded;
@@ -102,6 +102,15 @@ async fn main() -> Result<(), Error> {
             // Accepts network connections and spawn a task to serve each one
             v = listener.accept() => {
                 let (tcp_stream, peer_addr) = v?;
+                let ipaddr = peer_addr.ip();
+
+                if let Some(ban_until) = GLOBALS.banlist.read().await.get(&ipaddr) {
+                    let now = Time::now();
+                    if *ban_until > now {
+                        log::debug!("{peer_addr}: Blocking reconnection until {ban_until}");
+                        continue;
+                    }
+                }
 
                 if let Some(tls_acceptor) = &maybe_tls_acceptor {
                     let tls_acceptor_clone = tls_acceptor.clone();
@@ -275,6 +284,15 @@ async fn handle_http_request(
                         peer,
                         old_num_websockets - 1
                     );
+
+                    // Everybody gets a 4 second ban on disconnect, to prevent rapid reconnection
+                    let ipaddr = peer.ip();
+                    let mut until = Time::now();
+                    until.0 += 4;
+                    if let Some(current_ban) = GLOBALS.banlist.read().await.get(&ipaddr) {
+                        until.0 = current_ban.0.max(until.0);
+                    }
+                    GLOBALS.banlist.write().await.insert(ipaddr, until);
                 }
                 Err(e) => {
                     log::error!("{}", e);
