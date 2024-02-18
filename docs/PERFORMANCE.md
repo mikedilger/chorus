@@ -5,7 +5,7 @@ profiled or optimized yet. It has only been designed for performance.
 
 Here are the design choices made in order to help achieve eventual high performance:
 
-- Rust language: low level language runs as fast as your hardware with no runtime and no overhead.
+- Rust language: system level language.
 - Asynchronous multithreading: maximizes the utilization of each and every CPU core available.
 - Memory mapped storage: Accessing persistent storage is usually just as fast as accessing main
 memory (once swapped in). This is achieved via a custom memory map for events and LMDB for indices.
