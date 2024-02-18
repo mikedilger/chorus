@@ -233,8 +233,6 @@ async fn handle_http_request(
             // Await the websocket upgrade process
             match websocket.await {
                 Ok(websocket) => {
-                    log::info!("{}: websocket started", peer);
-
                     // Build a websocket service
                     let mut ws_service = WebSocketService {
                         peer,
@@ -247,7 +245,13 @@ async fn handle_http_request(
                     };
 
                     // Increment count of active websockets
-                    let _ = GLOBALS.num_clients.fetch_add(1, Ordering::SeqCst);
+                    let old_num_websockets = GLOBALS.num_clients.fetch_add(1, Ordering::SeqCst);
+
+                    log::info!(
+                        "{}: websocket started (making {} active websockets)",
+                        peer,
+                        old_num_websockets + 1
+                    );
 
                     // Handle the websocket
                     if let Err(e) = ws_service.handle_websocket_stream().await {
@@ -264,9 +268,13 @@ async fn handle_http_request(
                     }
 
                     // DecrementIncrement count of active websockets
-                    let _ = GLOBALS.num_clients.fetch_sub(1, Ordering::SeqCst);
+                    let old_num_websockets = GLOBALS.num_clients.fetch_sub(1, Ordering::SeqCst);
 
-                    log::info!("{}: websocket ended", peer);
+                    log::info!(
+                        "{}: websocket ended (making {} active websockets)",
+                        peer,
+                        old_num_websockets - 1
+                    );
                 }
                 Err(e) => {
                     log::error!("{}", e);
