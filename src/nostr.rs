@@ -169,8 +169,14 @@ impl WebSocketService {
                     PERSONAL_MSG.to_owned(),
                 ),
                 ChorusError::Duplicate => {
-                    NostrReply::Ok(id, false, NostrReplyPrefix::Duplicate, "".to_string())
+                    NostrReply::Ok(id, true, NostrReplyPrefix::Duplicate, "".to_string())
                 }
+                ChorusError::Deleted => NostrReply::Ok(
+                    id,
+                    true,
+                    NostrReplyPrefix::None,
+                    "That event is deleted".to_string(),
+                ),
                 ChorusError::EventIsInvalid(why) => {
                     NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, why)
                 }
@@ -395,10 +401,8 @@ fn screen_outgoing_event(
     }
 
     // Forbid if it is a private event (DM or GiftWrap) and the author isn't them
-    if event.kind() == Kind(4) || event.kind() == Kind(1059) {
-        if !authored_by_requester {
-            return false;
-        }
+    if (event.kind() == Kind(4) || event.kind() == Kind(1059)) && !authored_by_requester {
+        return false;
     }
 
     // Allow if an authorized_user is asking

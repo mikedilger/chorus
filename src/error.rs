@@ -49,6 +49,9 @@ pub enum ChorusError {
     // Crypto
     Crypto(secp256k1::Error),
 
+    // Deleted event
+    Deleted,
+
     // Duplicate event
     Duplicate,
 
@@ -131,7 +134,8 @@ impl std::fmt::Display for ChorusError {
             ChorusError::ChannelSend(e) => write!(f, "{e}"),
             ChorusError::Config(e) => write!(f, "{e}"),
             ChorusError::Crypto(e) => write!(f, "{e}"),
-            ChorusError::Duplicate => write!(f, "Duplicate"),
+            ChorusError::Deleted => write!(f, "Event was previously deleted"),
+            ChorusError::Duplicate => write!(f, "Duplicate event"),
             ChorusError::EndOfInput => write!(f, "End of input"),
             ChorusError::EventIsInvalid(s) => write!(f, "Event is invalid: {s}"),
             ChorusError::Http(e) => write!(f, "{e}"),

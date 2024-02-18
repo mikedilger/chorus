@@ -17,7 +17,8 @@ pub struct Store {
     akci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     atci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     ktci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
-    deleted: Database<U64<BigEndian>, Unit>,
+    deleted_offsets: Database<U64<BigEndian>, Unit>,
+    deleted_events: Database<UnalignedSlice<u8>, Unit>,
     allow_scraping: bool,
 }
 
@@ -64,10 +65,15 @@ impl Store {
             .types::<UnalignedSlice<u8>, OwnedType<usize>>()
             .name("ktci")
             .create(&mut txn)?;
-        let deleted = env
+        let deleted_offsets = env
             .database_options()
             .types::<U64<BigEndian>, Unit>()
-            .name("deleted")
+            .name("deleted_offsets")
+            .create(&mut txn)?;
+        let deleted_events = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, Unit>()
+            .name("deleted-events")
             .create(&mut txn)?;
         txn.commit()?;
 
@@ -82,7 +88,8 @@ impl Store {
             akci,
             atci,
             ktci,
-            deleted,
+            deleted_offsets,
+            deleted_events,
             allow_scraping,
         })
     }
@@ -111,13 +118,22 @@ impl Store {
 
         // Only if it doesn't already exist
         if self.ids.get(&txn, event.id().0.as_slice())?.is_none() {
+            // Reject event if it was deleted
+            {
+                let deleted_key = Self::key_deleted_events(event.id(), event.pubkey());
+                if self.deleted_events.get(&txn, &deleted_key)?.is_some() {
+                    return Err(ChorusError::Deleted.into());
+                }
+            }
+
+            // Store the event
             offset = self.events.store_event(event)?;
 
             if event.kind().is_ephemeral() {
                 // Do not index ephemeral events, not even by id.
                 // But save them in the deleted table
                 let offset_u64 = offset as u64;
-                self.deleted.put(&mut txn, &offset_u64, &())?;
+                self.deleted_offsets.put(&mut txn, &offset_u64, &())?;
             } else {
                 // Index the event
                 self.index(&mut txn, event, offset)?;
@@ -129,12 +145,42 @@ impl Store {
                 self.delete_replaced(&mut txn, event)?;
             }
 
+            // Handle deletion events
+            if event.kind() == Kind(5) {
+                self.handle_deletion_event(&mut txn, event)?;
+            }
+
             txn.commit()?;
         } else {
             return Err(ChorusError::Duplicate.into());
         }
 
         Ok(offset)
+    }
+
+    pub fn handle_deletion_event(&self, txn: &mut RwTxn<'_>, event: &Event) -> Result<(), Error> {
+        for mut tag in event.tags()?.iter() {
+            if let Some(tagname) = tag.next() {
+                if tagname == b"e" {
+                    if let Some(id_hex) = tag.next() {
+                        if let Ok(id) = Id::read_hex(id_hex) {
+                            // Add deletion pair to the event_deleted table
+                            let deleted_key = Self::key_deleted_events(id, event.pubkey());
+                            self.deleted_events.put(txn, &deleted_key, &())?;
+
+                            // Delete pair
+                            if let Some(target) = self.get_event_by_id(id)? {
+                                if target.pubkey() == event.pubkey() {
+                                    self.delete(txn, id)?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Get an event by its offset.
@@ -322,11 +368,12 @@ impl Store {
     }
 
     /// Delete an event by id
-    pub fn delete(&self, id: Id) -> Result<(), Error> {
-        let txn = self.env.read_txn()?;
-        if let Some(offset) = self.ids.get(&txn, id.0.as_slice())? {
-            drop(txn);
-            self.set_event_as_deleted(offset)?;
+    fn delete(&self, txn: &mut RwTxn<'_>, id: Id) -> Result<(), Error> {
+        if let Some(offset) = self.ids.get(txn, id.0.as_slice())? {
+            self.set_offset_as_deleted(offset)?;
+
+            // Also remove from the id index
+            self.ids.delete(txn, id.0.as_slice())?;
         }
         Ok(())
     }
@@ -431,18 +478,18 @@ impl Store {
 
     // Set an event as deleted
     // This removes it from indexes (except the id index) and adds it to the deleted table
-    fn set_event_as_deleted(&self, offset: usize) -> Result<(), Error> {
+    fn set_offset_as_deleted(&self, offset: usize) -> Result<(), Error> {
         let mut txn = self.env.write_txn()?;
 
         let offset_u64 = offset as u64;
 
         // Check if it is already deleted
-        if self.deleted.get(&txn, &offset_u64)?.is_some() {
+        if self.deleted_offsets.get(&txn, &offset_u64)?.is_some() {
             return Ok(());
         }
 
         // Add to deleted database in case we need to get at it in the future.
-        self.deleted.put(&mut txn, &offset_u64, &())?;
+        self.deleted_offsets.put(&mut txn, &offset_u64, &())?;
 
         // Get event
         let event = match self.events.get_event_by_offset(offset)? {
@@ -486,7 +533,7 @@ impl Store {
                 let (_key, offset) = result?;
 
                 // Delete the event
-                self.set_event_as_deleted(offset)?;
+                self.set_offset_as_deleted(offset)?;
             }
         } else if event.kind().is_parameterized_replaceable() {
             let tags = event.tags()?;
@@ -511,7 +558,7 @@ impl Store {
                     let (_key, offset) = result?;
 
                     // Delete the event
-                    self.set_event_as_deleted(offset)?;
+                    self.set_offset_as_deleted(offset)?;
                 }
             }
         }
@@ -581,6 +628,14 @@ impl Store {
         }
         key.extend((u64::MAX - created_at.0).to_be_bytes().as_slice());
         key.extend(id.as_slice());
+        key
+    }
+
+    fn key_deleted_events(id: Id, pubkey: Pubkey) -> Vec<u8> {
+        let mut key: Vec<u8> =
+            Vec::with_capacity(std::mem::size_of::<Id>() + std::mem::size_of::<Pubkey>());
+        key.extend(id.as_slice());
+        key.extend(pubkey.as_slice());
         key
     }
 }
