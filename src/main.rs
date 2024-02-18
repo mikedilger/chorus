@@ -30,7 +30,9 @@ use std::future::Future;
 use std::io::Read;
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::sync::atomic::Ordering;
 use std::task::{Context, Poll};
+use std::time::Duration;
 use textnonce::TextNonce;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::signal::unix::{signal, SignalKind};
@@ -118,6 +120,41 @@ async fn main() -> Result<(), Error> {
                 }
             }
         };
+    }
+
+    // Pre-sync in case something below hangs up
+    let _ = GLOBALS.store.get().unwrap().sync();
+
+    // Set the shutting down signal
+    let _ = GLOBALS.shutting_down.send(true);
+
+    // Wait for active websockets to shutdown gracefully
+    let mut num_clients = GLOBALS.num_clients.load(Ordering::Relaxed);
+    if num_clients != 0 {
+        log::info!("Waiting for {num_clients} websockets to shutdown...");
+
+        // We will check if all clients have shutdown every 25ms
+        let sleep = tokio::time::sleep(Duration::from_millis(25));
+        tokio::pin!(sleep);
+
+        while num_clients != 0 {
+            // If we get another shutdown signal, stop waiting for websockets
+            tokio::select! {
+                v = interrupt_signal.recv() => if v.is_some() {
+                    break;
+                },
+                v = quit_signal.recv() => if v.is_some() {
+                    break;
+                },
+                v = terminate_signal.recv() => if v.is_some() {
+                    break;
+                },
+                () = &mut sleep => {
+                    num_clients = GLOBALS.num_clients.load(Ordering::Relaxed);
+                    continue;
+                }
+            }
+        }
     }
 
     log::info!("Syncing and shutting down.");
@@ -209,6 +246,9 @@ async fn handle_http_request(
                         user: None,
                     };
 
+                    // Increment count of active websockets
+                    let _ = GLOBALS.num_clients.fetch_add(1, Ordering::SeqCst);
+
                     // Handle the websocket
                     if let Err(e) = ws_service.handle_websocket_stream().await {
                         if matches!(
@@ -222,6 +262,9 @@ async fn handle_http_request(
                             log::error!("{}: {}", peer, e);
                         }
                     }
+
+                    // DecrementIncrement count of active websockets
+                    let _ = GLOBALS.num_clients.fetch_sub(1, Ordering::SeqCst);
 
                     log::info!("{}: websocket ended", peer);
                 }
@@ -263,6 +306,9 @@ impl WebSocketService {
     }
 
     async fn handle_websocket_stream(&mut self) -> Result<(), Error> {
+        // Subscribe to the shutting down channel
+        let mut shutting_down = GLOBALS.shutting_down.subscribe();
+
         // Subscribe to the new_events broadcast channel
         let mut new_events = GLOBALS.new_events.subscribe();
 
@@ -278,12 +324,17 @@ impl WebSocketService {
                             let message = message?;
                             self.handle_websocket_message(message).await?;
                         },
-                        None => break, // websocket must be closed
+                        None => break, // the websocket is closed
                     }
                 },
                 offset_result = new_events.recv() => {
                     let offset = offset_result?;
                     self.handle_new_event(offset).await?;
+                },
+                _r = shutting_down.changed() => {
+                    // Shutdown the websocket gracefully
+                    self.websocket.send(Message::Close(None)).await?;
+                    break;
                 },
             }
         }

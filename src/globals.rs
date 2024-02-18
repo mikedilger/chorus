@@ -2,8 +2,10 @@ use crate::config::{Config, FriendlyConfig};
 use crate::store::Store;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
+use std::sync::atomic::AtomicUsize;
 use std::sync::OnceLock;
-use tokio::sync::broadcast::Sender;
+use tokio::sync::broadcast::Sender as BroadcastSender;
+use tokio::sync::watch::Sender as WatchSender;
 use tokio::sync::RwLock;
 
 pub struct Globals {
@@ -16,7 +18,10 @@ pub struct Globals {
     /// Every handler needs to listen to it and check if the incoming event matches any
     /// subscribed fitlers for their client, and if so, send the event to their client under
     /// that subscription.
-    pub new_events: Sender<usize>,
+    pub new_events: BroadcastSender<usize>,
+
+    pub num_clients: AtomicUsize,
+    pub shutting_down: WatchSender<bool>,
 }
 
 lazy_static! {
@@ -25,14 +30,17 @@ lazy_static! {
         http_server.http1_only(true);
         http_server.http1_keep_alive(true);
 
-        let (sender, _) = tokio::sync::broadcast::channel(512);
+        let (new_events, _) = tokio::sync::broadcast::channel(512);
+        let (shutting_down, _) = tokio::sync::watch::channel(false);
 
         Globals {
             config: RwLock::new(FriendlyConfig::default().into_config().unwrap()),
             store: OnceLock::new(),
             http_server,
             rid: OnceLock::new(),
-            new_events: sender,
+            new_events,
+            num_clients: AtomicUsize::new(0),
+            shutting_down,
         }
     };
 }
