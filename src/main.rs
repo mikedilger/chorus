@@ -227,6 +227,13 @@ struct WebSocketService {
 }
 
 impl WebSocketService {
+    async fn authorized_user(&mut self) -> bool {
+        match self.user {
+            None => false,
+            Some(pk) => GLOBALS.config.read().await.user_keys.contains(&pk),
+        }
+    }
+
     async fn handle_websocket_stream(&mut self) -> Result<(), Error> {
         // Subscribe to the new_events broadcast channel
         let mut new_events = GLOBALS.new_events.subscribe();

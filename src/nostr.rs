@@ -3,7 +3,7 @@ use crate::globals::GLOBALS;
 use crate::reply::{NostrReply, NostrReplyPrefix};
 use crate::types::parse::json_escape::json_unescape;
 use crate::types::parse::json_parse::*;
-use crate::types::{Event, Filter, Kind, OwnedFilter, Pubkey, Time};
+use crate::types::{Event, Filter, Kind, OwnedFilter, Time};
 use crate::WebSocketService;
 use futures::SinkExt;
 use hyper_tungstenite::tungstenite::Message;
@@ -80,16 +80,33 @@ impl WebSocketService {
             filters.push(OwnedFilter(filterbytes));
         }
 
+        let authorized_user = self.authorized_user().await;
+
         // Serve events matching subscription
         {
             let mut events: Vec<Event> = Vec::new();
             for filter in filters.iter() {
-                let filter_events = GLOBALS
+                let mut filter_events = GLOBALS
                     .store
                     .get()
                     .unwrap()
                     .find_events(filter.as_filter()?)?;
-                events.extend(filter_events)
+                for event in filter_events.drain(..) {
+                    let authored_by_an_authorized_user = GLOBALS
+                        .config
+                        .read()
+                        .await
+                        .user_keys
+                        .contains(&event.pubkey());
+
+                    if screen_outgoing_event(
+                        &event,
+                        authorized_user,
+                        authored_by_an_authorized_user,
+                    ) {
+                        events.push(event);
+                    }
+                }
             }
 
             // sort
@@ -157,6 +174,8 @@ impl WebSocketService {
     }
 
     async fn event_inner(&mut self) -> Result<(), Error> {
+        let authorized_user = self.authorized_user().await;
+
         // Delineate the event back out of the session buffer
         let event = Event::delineate(&self.buffer)?;
 
@@ -168,7 +187,7 @@ impl WebSocketService {
         }
 
         // Screen the event to see if we are willing to accept it
-        if !screen_event(&event, self.user).await? {
+        if !screen_incoming_event(&event, authorized_user).await? {
             if self.user.is_some() {
                 return Err(ChorusError::Restricted.into());
             } else {
@@ -301,9 +320,19 @@ impl WebSocketService {
     }
 }
 
-async fn screen_event(event: &Event<'_>, user: Option<Pubkey>) -> Result<bool, Error> {
+async fn screen_incoming_event(event: &Event<'_>, authorized_user: bool) -> Result<bool, Error> {
+    // Accept anything from authenticated authorized users
+    if authorized_user {
+        return Ok(true);
+    }
+
     // Accept relay lists from anybody
     if event.kind() == Kind(10002) {
+        return Ok(true);
+    }
+
+    // Allow if event kind ephemeral
+    if event.kind().is_ephemeral() {
         return Ok(true);
     }
 
@@ -331,14 +360,34 @@ async fn screen_event(event: &Event<'_>, user: Option<Pubkey>) -> Result<bool, E
         }
     }
 
-    // If the user is authenticated as one of our users, accept anything
-    // that they give us
-    if let Some(pk) = user {
-        if GLOBALS.config.read().await.user_keys.contains(&pk) {
-            return Ok(true);
-        }
+    Ok(false)
+}
+
+fn screen_outgoing_event(
+    event: &Event<'_>,
+    authorized_user: bool,
+    authored_by_an_authorized_user: bool,
+) -> bool {
+    // Allow if authorized_user is asking
+    if authorized_user {
+        return true;
     }
 
-    // Reject everything else
-    Ok(false)
+    // Everybody can see events from our authorized users
+    if authored_by_an_authorized_user {
+        return true;
+    }
+
+    // Allow Relay Lists
+    if event.kind() == Kind(10002) {
+        return true;
+    }
+
+    // Allow if event kind ephemeral
+    if event.kind().is_ephemeral() {
+        return true;
+    }
+
+    // Do not allow the rest
+    false
 }
