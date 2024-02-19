@@ -23,8 +23,3 @@ they will need to setup SSL connections to far too many relays.
 It may be better for others if people were to use a smaller number of larger relay services.
 
 But who am I to say? You are the sovereign. Here is your personal relay.
-
-## Incompleteness
-
-At the time of this writing, chorus is not yet complete. It doesn't even do AUTH, and it
-accepts and serves events from and to anybody.
