@@ -191,7 +191,7 @@ impl WebSocketService {
                         NostrReplyPrefix::Restricted,
                         PERSONAL_MSG.to_owned(),
                     )
-                },
+                }
                 _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
             },
         };

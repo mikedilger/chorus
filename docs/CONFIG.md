@@ -111,6 +111,7 @@ This is a boolean indicating whether or not scraping is allowed. Scraping is any
 - A non-empty `authors` list is set and a non-empty `kinds` list is set
 - A non-empty `authors` list is set and at least one tag is set.
 - A non-empty `kinds` list is set and at least one tag is set.
+- Has a limit <= 10
 
 Filter that fail to match these conditions will be rejected if `allow_scraping` is false.
 

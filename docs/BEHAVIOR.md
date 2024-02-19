@@ -34,6 +34,7 @@ Filters which are broad are considered scrapers and are not serviced. Filters mu
 - A non-empty `authors` list is set and a non-empty `kinds` list is set
 - A non-empty `authors` list is set and at least one tag is set.
 - A non-empty `kinds` list is set and at least one tag is set.
+- Has a limit <= 10.
 
 If you wish to change these rules, change the source code at `nostr.rs:screen_outgoing_event()`
 

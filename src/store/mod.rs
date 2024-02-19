@@ -354,7 +354,7 @@ impl Store {
                     }
                 }
             }
-        } else if self.allow_scraping {
+        } else if self.allow_scraping || filter.limit() <= 10 {
             // This is INEFFICIENT as it scans through EVERY EVENT
             // but the filter is a scraper and we don't have a lot of support
             // for scrapers.
