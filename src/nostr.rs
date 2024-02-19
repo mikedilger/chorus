@@ -188,7 +188,7 @@ impl WebSocketService {
 
         let event_flags = event_flags(&event, &user).await;
 
-        if GLOBALS.config.read().await.verify_events {
+        if !event_flags.author_is_an_authorized_user || GLOBALS.config.read().await.verify_events {
             // Verify the event is valid (id is hash, signature is valid)
             if let Err(e) = event.verify() {
                 return Err(ChorusError::EventIsInvalid(format!("{}", e)).into());
