@@ -109,7 +109,7 @@ impl WebSocketService {
             for filter in filters.iter() {
                 let screen = |event: &Event| {
                     let event_flags = event_flags(event, &user);
-                    screen_outgoing_event(event, event_flags, authorized_user)
+                    screen_outgoing_event(event, &event_flags, authorized_user)
                 };
                 let filter_events = GLOBALS
                     .store
@@ -402,9 +402,9 @@ async fn screen_incoming_event(
     Ok(false)
 }
 
-fn screen_outgoing_event(
+pub fn screen_outgoing_event(
     event: &Event<'_>,
-    event_flags: EventFlags,
+    event_flags: &EventFlags,
     authorized_user: bool,
 ) -> bool {
     // Allow Relay Lists
@@ -437,7 +437,7 @@ fn screen_outgoing_event(
     false
 }
 
-async fn authorized_user(user: &Option<Pubkey>) -> bool {
+pub async fn authorized_user(user: &Option<Pubkey>) -> bool {
     match user {
         None => false,
         Some(pk) => GLOBALS.config.get().unwrap().user_keys.contains(pk),
@@ -451,7 +451,7 @@ pub struct EventFlags {
     pub tags_current_user: bool,
 }
 
-fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
+pub fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
     let author_is_an_authorized_user = GLOBALS
         .config
         .get()
