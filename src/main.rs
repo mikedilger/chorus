@@ -267,7 +267,7 @@ async fn handle_http_request(
                         }
                     }
 
-                    // DecrementIncrement count of active websockets
+                    // Decrement count of active websockets
                     let old_num_websockets = GLOBALS.num_clients.fetch_sub(1, Ordering::SeqCst);
 
                     log::info!(

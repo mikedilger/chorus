@@ -62,6 +62,19 @@ impl WebSocketService {
 
         log::info!("SUBID={}", subid);
 
+        let max_subscriptions = GLOBALS.config.read().await.max_subscriptions;
+        if self.subscriptions.len() >= max_subscriptions {
+            let reply = NostrReply::Closed(
+                &subid,
+                NostrReplyPrefix::RateLimited,
+                format!(
+                    "No more than {max_subscriptions} subscriptions are allowed at any one time"
+                ),
+            );
+            self.websocket.send(Message::text(reply.as_json())).await?;
+            return Ok(());
+        }
+
         // Read the filter into the session buffer
         let mut filters: Vec<OwnedFilter> = Vec::new();
         loop {
