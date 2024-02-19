@@ -1,3 +1,8 @@
+use super::{
+    ARRAYS_OFFSET, ID_SIZE, KIND_SIZE, LIMIT_OFFSET, NUM_AUTHORS_OFFSET, NUM_IDS_OFFSET,
+    NUM_KINDS_OFFSET, PUBKEY_SIZE, SINCE_OFFSET, UNTIL_OFFSET,
+};
+
 use crate::error::{ChorusError, Error};
 use crate::types::parse::json_escape::json_unescape;
 use crate::types::parse::json_parse::*;
@@ -40,18 +45,18 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
         output,
         0,
         &[
-            0, 0, // length (we will fill it in later)
+            0, 0, 0, 0, // length (we will fill it in later)
             0, 0, // 0 ids
             0, 0, // 0 authors
             0, 0, // 0 kinds
+            0, 0, // padding
             255, 255, 255, 255, // max limit
-            0, 0, 0, 0, // padding
             0, 0, 0, 0, 0, 0, 0, 0, // since 1970
             255, 255, 255, 255, 255, 255, 255, 255, // until max unixtime
         ],
     )?;
 
-    let mut end: usize = 32;
+    let mut end: usize = ARRAYS_OFFSET;
 
     // We just store the position of ids, authors, kinds, and tags
     // and come back to parse them properly again at the end,
@@ -148,7 +153,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
 
             eat_colon_with_whitespace(input, &mut inpos)?;
             let since = read_u64(input, &mut inpos)?;
-            put(output, 16, since.to_ne_bytes().as_slice())?;
+            put(output, SINCE_OFFSET, since.to_ne_bytes().as_slice())?;
 
             found |= HAVE_SINCE;
         } else if inpos + 6 <= input.len() && &input[inpos..inpos + 6] == b"until\"" {
@@ -160,7 +165,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
 
             eat_colon_with_whitespace(input, &mut inpos)?;
             let until = read_u64(input, &mut inpos)?;
-            put(output, 24, until.to_ne_bytes().as_slice())?;
+            put(output, UNTIL_OFFSET, until.to_ne_bytes().as_slice())?;
 
             found |= HAVE_UNTIL;
         } else if inpos + 6 <= input.len() && &input[inpos..inpos + 6] == b"limit\"" {
@@ -173,7 +178,7 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
             eat_colon_with_whitespace(input, &mut inpos)?;
             let limit = read_u64(input, &mut inpos)?;
             let limit: u32 = limit as u32;
-            put(output, 8, limit.to_ne_bytes().as_slice())?;
+            put(output, LIMIT_OFFSET, limit.to_ne_bytes().as_slice())?;
 
             found |= HAVE_LIMIT;
         } else if inpos + 3 <= input.len()
@@ -219,11 +224,11 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
             }
             read_id(input, &mut inpos, &mut output[end..])?;
             num_ids += 1;
-            end += 32;
+            end += ID_SIZE;
         }
 
         // Write num_ids
-        put(output, 2, num_ids.to_ne_bytes().as_slice())?;
+        put(output, NUM_IDS_OFFSET, num_ids.to_ne_bytes().as_slice())?;
     }
 
     // Copy authors
@@ -237,11 +242,15 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
             }
             read_pubkey(input, &mut inpos, &mut output[end..])?;
             num_authors += 1;
-            end += 32;
+            end += PUBKEY_SIZE;
         }
 
         // write num_authors
-        put(output, 4, num_authors.to_ne_bytes().as_slice())?;
+        put(
+            output,
+            NUM_AUTHORS_OFFSET,
+            num_authors.to_ne_bytes().as_slice(),
+        )?;
     }
 
     // Copy kinds
@@ -261,11 +270,11 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
             }
             put(output, end, (u as u16).to_ne_bytes().as_slice())?;
             num_kinds += 1;
-            end += 2;
+            end += KIND_SIZE;
         }
 
         // write num_kinds
-        put(output, 6, num_kinds.to_ne_bytes().as_slice())?;
+        put(output, NUM_KINDS_OFFSET, num_kinds.to_ne_bytes().as_slice())?;
     }
 
     // Copy tags
@@ -337,12 +346,12 @@ pub fn parse_json_filter(input: &[u8], output: &mut [u8]) -> Result<(usize, usiz
         )?;
     }
 
-    if end > 65535 {
+    if end > u32::MAX as usize {
         return Err(ChorusError::JsonBadFilter("Filter is too long", end).into());
     }
 
     // Write length of filter
-    put(output, 0, (end as u16).to_ne_bytes().as_slice())?;
+    put(output, 0, (end as u32).to_ne_bytes().as_slice())?;
 
     Ok((inpos, end))
 }
@@ -363,12 +372,12 @@ mod test {
         assert_eq!(
             &buffer[0..size],
             &[
-                36, 0, // length
+                36, 0, 0, 0, // length
                 0, 0, // 0 ids
                 0, 0, // 0 authors
                 0, 0, // 0 kinds
+                0, 0, // padding
                 255, 255, 255, 255, // max limit
-                0, 0, 0, 0, // padding
                 0, 0, 0, 0, 0, 0, 0, 0, // since 1970
                 255, 255, 255, 255, 255, 255, 255, 255, // until max unixtime
                 4, 0, 0, 0, // empty tags section
@@ -388,12 +397,12 @@ mod test {
         assert_eq!(
             &buffer[0..size],
             &[
-                136, 0, // length
+                136, 0, 0, 0, // length
                 1, 0, // 0 ids
                 2, 0, // 0 authors
                 2, 0, // 0 kinds
+                0, 0, // padding
                 10, 0, 0, 0, // max limit 10
-                0, 0, 0, 0, // padding
                 102, 232, 61, 100, 0, 0, 0, 0, // since 1681778790
                 116, 156, 148, 101, 0, 0, 0, 0, // until 1704238196
                 // First ID:
@@ -423,12 +432,12 @@ mod test {
         assert_eq!(
             &buffer[0..size],
             &[
-                209, 0, // length
+                209, 0, 0, 0, // length
                 1, 0, // 0 ids
                 2, 0, // 0 authors
                 2, 0, // 0 kinds
+                0, 0, // padding
                 10, 0, 0, 0, // max limit 10
-                0, 0, 0, 0, // padding
                 102, 232, 61, 100, 0, 0, 0, 0, // since 1681778790
                 116, 156, 148, 101, 0, 0, 0, 0, // until 1704238196
                 // First ID:

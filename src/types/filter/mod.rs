@@ -6,12 +6,12 @@ mod json_filter;
 use json_filter::parse_json_filter;
 
 /*
- *  0 [2 bytes] length of entire structure
- *  2 [2 bytes] num_ids
- *  4 [2 bytes] num_authors
- *  6 [2 bytes] num_kinds
- *  8 [4 bytes] limit				u32.   Set to u32::max if limit was not set.
- *  12 [4 bytes] PADDING
+ *  0 [4 bytes] length of entire structure
+ *  4 [2 bytes] num_ids
+ *  6 [2 bytes] num_authors
+ *  8 [2 bytes] num_kinds
+ *  10 [2 bytes] PADDING
+ *  12 [4 bytes] limit				u32.   Set to u32::max if limit was not set.
  *  16 [8 bytes] since				u64.   Set to 0 if since was not set.
  *  24 [8 bytes] until				u64.   Set to u64::max if until was not set.
  *  32 [ID] array
@@ -20,10 +20,10 @@ use json_filter::parse_json_filter;
  *  [Tags] object                   starts at 32 + num_ids*32 + num_authors*32 * num_kinds*2
  */
 
-const NUM_IDS_OFFSET: usize = 2;
-const NUM_AUTHORS_OFFSET: usize = 4;
-const NUM_KINDS_OFFSET: usize = 6;
-const LIMIT_OFFSET: usize = 8;
+const NUM_IDS_OFFSET: usize = 4;
+const NUM_AUTHORS_OFFSET: usize = 6;
+const NUM_KINDS_OFFSET: usize = 8;
+const LIMIT_OFFSET: usize = 12;
 const SINCE_OFFSET: usize = 16;
 const UNTIL_OFFSET: usize = 24;
 const ARRAYS_OFFSET: usize = 32;
@@ -463,12 +463,12 @@ mod test {
                 .unwrap();
 
         let data: Vec<u8> = vec![
-            211, 0, // length of structure
+            211, 0, 0, 0, // length of structure
             2, 0, // number of IDs
             2, 0, // number of authors
             3, 0, // number of kinds
+            0, 0, // padding
             255, 255, 255, 255, // limit
-            0, 0, 0, 0, // padding
             0xC1, 0xEB, 0x74, 0x65, 0, 0, 0, 0, // since
             255, 255, 255, 255, 255, 255, 255, 255, // until
             0x6b, 0x43, 0xbc, 0x2e, 0x37, 0x3b, 0x6d, 0x93, 0x30, 0xff, 0x57, 0x1f, 0x3f, 0x4e,
