@@ -113,11 +113,32 @@ impl WebSocketService {
                         Some(pk) => event.pubkey() == pk,
                     };
 
+                    let user_is_tagged = match self.user {
+                        None => false,
+                        Some(pk) => {
+                            let mut user_is_tagged = false;
+                            for mut tag in event.tags()?.iter() {
+                                if let Some(b"p") = tag.next() {
+                                    if let Some(value) = tag.next() {
+                                        let mut bytes: [u8; 64] = [0; 64];
+                                        pk.write_hex(&mut bytes).unwrap();
+                                        if value == bytes {
+                                            user_is_tagged = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            user_is_tagged
+                        }
+                    };
+
                     if screen_outgoing_event(
                         &event,
                         authorized_user,
                         authored_by_an_authorized_user,
                         authored_by_requester,
+                        user_is_tagged
                     ) {
                         events.push(event);
                     }
@@ -389,6 +410,7 @@ fn screen_outgoing_event(
     authorized_user: bool,
     authored_by_an_authorized_user: bool,
     authored_by_requester: bool,
+    user_is_tagged: bool,
 ) -> bool {
     // Allow Relay Lists
     if event.kind() == Kind(10002) {
@@ -400,9 +422,16 @@ fn screen_outgoing_event(
         return true;
     }
 
-    // Forbid if it is a private event (DM or GiftWrap) and the author isn't them
-    if (event.kind() == Kind(4) || event.kind() == Kind(1059)) && !authored_by_requester {
-        return false;
+    // Forbid if it is a private event (DM or GiftWrap) and theey are neither the recipient
+    // nor the author
+    if event.kind() == Kind(4) || event.kind() == Kind(1059) {
+        if authored_by_requester {
+            return true;
+        } else if user_is_tagged {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     // Allow if an authorized_user is asking
