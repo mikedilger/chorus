@@ -1,4 +1,4 @@
-use crate::config::{Config, FriendlyConfig};
+use crate::config::Config;
 use crate::store::Store;
 use crate::types::Time;
 use hyper::server::conn::Http;
@@ -12,7 +12,7 @@ use tokio::sync::watch::Sender as WatchSender;
 use tokio::sync::RwLock;
 
 pub struct Globals {
-    pub config: RwLock<Config>,
+    pub config: OnceLock<Config>,
     pub store: OnceLock<Store>,
     pub http_server: Http,
     pub rid: OnceLock<String>,
@@ -38,7 +38,7 @@ lazy_static! {
         let (shutting_down, _) = tokio::sync::watch::channel(false);
 
         Globals {
-            config: RwLock::new(FriendlyConfig::default().into_config().unwrap()),
+            config: OnceLock::new(),
             store: OnceLock::new(),
             http_server,
             rid: OnceLock::new(),

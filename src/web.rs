@@ -18,8 +18,8 @@ pub async fn serve_http(peer: SocketAddr, request: Request<Body>) -> Result<Resp
 pub async fn serve_nip11(peer: SocketAddr) -> Result<Response<Body>, Error> {
     log::debug!("{}: sent NIP-11", peer);
     let rid = {
-        let config = GLOBALS.config.read().await;
-        GLOBALS.rid.get_or_init(|| build_rid(&config))
+        let config = GLOBALS.config.get().unwrap();
+        GLOBALS.rid.get_or_init(|| build_rid(config))
     };
 
     let response = Response::builder()

@@ -77,7 +77,7 @@ async fn main() -> Result<(), Error> {
     log::info!("Running on {}:{}", config.ip_address, config.port);
 
     // Store config into GLOBALS
-    *GLOBALS.config.write().await = config;
+    let _ = GLOBALS.config.set(config);
 
     let mut interrupt_signal = signal(SignalKind::interrupt())?;
     let mut quit_signal = signal(SignalKind::quit())?;

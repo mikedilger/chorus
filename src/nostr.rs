@@ -60,7 +60,7 @@ impl WebSocketService {
         outpos += outlen;
         verify_char(input, b'"', &mut inpos)?; // FIXME: json_unescape should eat the closing quote
 
-        let max_subscriptions = GLOBALS.config.read().await.max_subscriptions;
+        let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;
         if self.subscriptions.len() >= max_subscriptions {
             let reply = NostrReply::Closed(
                 &subid,
@@ -209,7 +209,8 @@ impl WebSocketService {
 
         let event_flags = event_flags(&event, &user).await;
 
-        if !event_flags.author_is_an_authorized_user || GLOBALS.config.read().await.verify_events {
+        if !event_flags.author_is_an_authorized_user || GLOBALS.config.get().unwrap().verify_events
+        {
             // Verify the event is valid (id is hash, signature is valid)
             if let Err(e) = event.verify() {
                 return Err(ChorusError::EventIsInvalid(format!("{}", e)).into());
@@ -315,7 +316,7 @@ impl WebSocketService {
                         };
                         if let Some(h) = url.host() {
                             let theirhost = h.to_owned();
-                            if theirhost == GLOBALS.config.read().await.hostname {
+                            if theirhost == GLOBALS.config.get().unwrap().hostname {
                                 relay_ok = true;
                             }
                         }
@@ -378,8 +379,8 @@ async fn screen_incoming_event(
     // If the author is one of our users, always accept it
     if GLOBALS
         .config
-        .read()
-        .await
+        .get()
+        .unwrap()
         .user_keys
         .contains(&event.pubkey())
     {
@@ -390,7 +391,7 @@ async fn screen_incoming_event(
     for mut tag in event.tags()?.iter() {
         if tag.next() == Some(b"p") {
             if let Some(value) = tag.next() {
-                for ukhex in &GLOBALS.config.read().await.user_hex_keys {
+                for ukhex in &GLOBALS.config.get().unwrap().user_hex_keys {
                     if value == ukhex.as_bytes() {
                         return Ok(true);
                     }
@@ -440,7 +441,7 @@ fn screen_outgoing_event(
 async fn authorized_user(user: &Option<Pubkey>) -> bool {
     match user {
         None => false,
-        Some(pk) => GLOBALS.config.read().await.user_keys.contains(pk),
+        Some(pk) => GLOBALS.config.get().unwrap().user_keys.contains(pk),
     }
 }
 
@@ -454,8 +455,8 @@ pub struct EventFlags {
 async fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
     let author_is_an_authorized_user = GLOBALS
         .config
-        .read()
-        .await
+        .get()
+        .unwrap()
         .user_keys
         .contains(&event.pubkey());
 
@@ -478,7 +479,7 @@ async fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
                             }
                         }
 
-                        if GLOBALS.config.read().await.user_keys.contains(&tagged_pk) {
+                        if GLOBALS.config.get().unwrap().user_keys.contains(&tagged_pk) {
                             tags_an_authorized_user = true;
                         }
                     }
