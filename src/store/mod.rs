@@ -99,7 +99,6 @@ impl Store {
         txn.commit()?;
 
         let event_map_file = format!("{}/event.map", data_directory);
-
         let events = EventStore::new(event_map_file)?;
 
         let store = Store {
@@ -378,13 +377,18 @@ impl Store {
             // This is INEFFICIENT as it scans through EVERY EVENT
             // but the filter is a scraper and we don't have a lot of support
             // for scrapers.
+            let mut count = 0;
             let txn = self.env.read_txn()?;
-            let iter = self.ids.iter(&txn)?;
+            let iter = self.ci.iter(&txn)?;
             for result in iter {
                 let (_key, offset) = result?;
                 if let Some(event) = self.events.get_event_by_offset(offset)? {
                     if filter.event_matches(&event)? {
                         output.push(event);
+                        count += 1;
+                        if count >= filter.limit() {
+                            break;
+                        }
                     }
                 }
             }
