@@ -12,7 +12,7 @@ pub mod web;
 
 use crate::config::{Config, FriendlyConfig};
 use crate::error::{ChorusError, Error};
-use crate::globals::GLOBALS;
+use crate::globals::{Globals, GLOBALS};
 use crate::reply::NostrReply;
 use crate::store::Store;
 use crate::tls::MaybeTlsStream;
@@ -251,6 +251,7 @@ async fn handle_http_request(
                         websocket,
                         challenge: TextNonce::new().into_string(),
                         user: None,
+                        errcount: 0,
                     };
 
                     // Increment count of active websockets
@@ -262,17 +263,26 @@ async fn handle_http_request(
                         old_num_websockets + 1
                     );
 
+                    // Everybody gets a 4-second ban on disconnect to prevent
+                    // rapid reconnection
+                    let mut ban_seconds: u64 = 4;
+
                     // Handle the websocket
                     if let Err(e) = ws_service.handle_websocket_stream().await {
-                        if matches!(
-                            e.inner,
+                        match e.inner {
                             ChorusError::Tungstenite(tungstenite::error::Error::Protocol(
-                                tungstenite::error::ProtocolError::ResetWithoutClosingHandshake
-                            ))
-                        ) {
-                            // Swallow the boring error
-                        } else {
-                            log::error!("{}: {}", peer, e);
+                                tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
+                            )) => {
+                                // So they disconnected ungracefully.
+                                // No big deal, no extra ban for that.
+                            }
+                            ChorusError::TooManyErrors => {
+                                ban_seconds = 60;
+                            }
+                            _ => {
+                                log::error!("{}: {}", peer, e);
+                                ban_seconds = 15;
+                            }
                         }
                     }
 
@@ -285,14 +295,8 @@ async fn handle_http_request(
                         old_num_websockets - 1
                     );
 
-                    // Everybody gets a 4 second ban on disconnect, to prevent rapid reconnection
-                    let ipaddr = peer.ip();
-                    let mut until = Time::now();
-                    until.0 += 4;
-                    if let Some(current_ban) = GLOBALS.banlist.read().await.get(&ipaddr) {
-                        until.0 = current_ban.0.max(until.0);
-                    }
-                    GLOBALS.banlist.write().await.insert(ipaddr, until);
+                    // Ban for the appropriate duration
+                    Globals::ban(peer.ip(), ban_seconds).await;
                 }
                 Err(e) => {
                     log::error!("{}", e);
@@ -321,6 +325,7 @@ struct WebSocketService {
     pub websocket: WebSocketStream<Upgraded>,
     pub challenge: String,
     pub user: Option<Pubkey>,
+    pub errcount: usize,
 }
 
 impl WebSocketService {
@@ -392,13 +397,21 @@ impl WebSocketService {
     async fn handle_websocket_message(&mut self, message: Message) -> Result<(), Error> {
         match message {
             Message::Text(msg) => {
-                log::debug!("{}: <= {}", self.peer, msg);
+                log::trace!("{}: <= {}", self.peer, msg);
                 // This is defined in nostr.rs
                 if let Err(e) = self.handle_nostr_message(&msg).await {
-                    log::error!("{e}");
-                    log::error!("msg was {}", msg);
+                    self.errcount += 1;
+                    log::error!("{}: {e}", self.peer);
+                    log::error!("{}: msg was {}", self.peer, msg);
                     let reply = NostrReply::Notice(format!("error: {}", e));
                     self.websocket.send(Message::text(reply.as_json())).await?;
+                    if self.errcount > 3 {
+                        let reply = NostrReply::Notice(
+                            "Too many errors (3). Banned for 60 seconds.".into(),
+                        );
+                        self.websocket.send(Message::text(reply.as_json())).await?;
+                        return Err(ChorusError::TooManyErrors.into());
+                    }
                 }
             }
             Message::Binary(msg) => {

@@ -49,3 +49,14 @@ lazy_static! {
         }
     };
 }
+
+impl Globals {
+    pub async fn ban(ipaddr: std::net::IpAddr, seconds: u64) {
+        let mut until = Time::now();
+        until.0 += seconds;
+        if let Some(current_ban) = GLOBALS.banlist.read().await.get(&ipaddr) {
+            until.0 = current_ban.0.max(until.0);
+        }
+        GLOBALS.banlist.write().await.insert(ipaddr, until);
+    }
+}
