@@ -75,14 +75,19 @@ impl Store {
             .types::<UnalignedSlice<u8>, Unit>()
             .name("deleted-events")
             .create(&mut txn)?;
-        txn.commit()?;
 
-        log::info!("Store is setup");
+        if let Ok(count) = ids.len(&txn) {
+            log::info!("{count} events in storage");
+        }
+
+        txn.commit()?;
 
         let event_map_file = format!("{}/event.map", data_directory);
 
+        let events = EventStore::new(event_map_file)?;
+
         Ok(Store {
-            events: EventStore::new(event_map_file)?,
+            events,
             env,
             ids,
             akci,
