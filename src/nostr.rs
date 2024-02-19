@@ -267,8 +267,8 @@ impl WebSocketService {
         let reply = match self.auth_inner().await {
             Ok(()) => NostrReply::Ok(id, true, NostrReplyPrefix::None, "".to_string()),
             Err(e) => match e.inner {
-                ChorusError::AuthFailure => {
-                    NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, "".to_string())
+                ChorusError::AuthFailure(s) => {
+                    NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, s)
                 }
                 _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
             },
@@ -288,7 +288,7 @@ impl WebSocketService {
 
         // Verify the event is the right kind
         if event.kind() != Kind(22242) {
-            return Err(ChorusError::AuthFailure.into());
+            return Err(ChorusError::AuthFailure("Wrong event kind".to_string()).into());
         }
 
         // Verify the challenge and relay tags
@@ -303,7 +303,7 @@ impl WebSocketService {
                         let utf8value = std::str::from_utf8(value)?;
                         let url = match Url::parse(utf8value) {
                             Ok(u) => u,
-                            Err(_) => return Err(ChorusError::AuthFailure.into()),
+                            Err(e) => return Err(ChorusError::AuthFailure(format!("{e}")).into()),
                         };
                         if let Some(h) = url.host() {
                             let theirhost = h.to_owned();
@@ -325,14 +325,19 @@ impl WebSocketService {
             }
         }
 
-        if !(challenge_ok && relay_ok) {
-            return Err(ChorusError::AuthFailure.into());
+        if !challenge_ok {
+            return Err(ChorusError::AuthFailure("challenge is wrong".to_string()).into());
+        }
+        if !relay_ok {
+            return Err(ChorusError::AuthFailure("relay is wrong".to_string()).into());
         }
 
         // Verify the created_at timestamp is within reason
         let timediff = (Time::now().0 as i64).abs_diff(event.created_at().0 as i64);
         if timediff < 600 {
-            return Err(ChorusError::AuthFailure.into());
+            return Err(
+                ChorusError::AuthFailure("Time is more than 10 minutes off".to_string()).into(),
+            );
         }
 
         // They are now authenticated

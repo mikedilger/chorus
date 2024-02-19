@@ -23,7 +23,7 @@ impl std::fmt::Display for Error {
 #[derive(Debug)]
 pub enum ChorusError {
     // Auth failure
-    AuthFailure,
+    AuthFailure(String),
 
     // Auth required
     AuthRequired,
@@ -125,7 +125,7 @@ pub enum ChorusError {
 impl std::fmt::Display for ChorusError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ChorusError::AuthFailure => write!(f, "AUTH failure"),
+            ChorusError::AuthFailure(s) => write!(f, "AUTH failure: {s}"),
             ChorusError::AuthRequired => write!(f, "AUTH required"),
             ChorusError::BadEventId => write!(f, "Bad event id, does not match hash"),
             ChorusError::BadHexInput => write!(f, "Bad hex input"),
