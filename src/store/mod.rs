@@ -226,7 +226,10 @@ impl Store {
     }
 
     /// Find all events that match the filter
-    pub fn find_events(&self, filter: Filter) -> Result<Vec<Event>, Error> {
+    pub fn find_events<F>(&self, filter: Filter, screen: F) -> Result<Vec<Event>, Error>
+    where
+        F: Fn(&Event) -> bool,
+    {
         let mut output: Vec<Event> = Vec::new();
 
         if filter.num_ids() > 0 {
@@ -234,7 +237,7 @@ impl Store {
             for id in filter.ids() {
                 if let Some(event) = self.get_event_by_id(id)? {
                     // and check each against the rest of the filter
-                    if filter.event_matches(&event)? {
+                    if filter.event_matches(&event)? && screen(&event) {
                         output.push(event);
                     }
                 }
@@ -268,7 +271,7 @@ impl Store {
                         let (_key, offset) = result?;
                         if let Some(event) = self.events.get_event_by_offset(offset)? {
                             // check against the rest of the filter
-                            if filter.event_matches(&event)? {
+                            if filter.event_matches(&event)? && screen(&event) {
                                 output.push(event);
                                 // If kind is replaceable (and not parameterized)
                                 // then don't take any more events for this author-kind
@@ -317,7 +320,7 @@ impl Store {
                                 let (_key, offset) = result?;
                                 if let Some(event) = self.events.get_event_by_offset(offset)? {
                                     // check against the rest of the filter
-                                    if filter.event_matches(&event)? {
+                                    if filter.event_matches(&event)? && screen(&event) {
                                         output.push(event);
                                     }
                                 }
@@ -360,7 +363,7 @@ impl Store {
                                 let (_key, offset) = result?;
                                 if let Some(event) = self.events.get_event_by_offset(offset)? {
                                     // check against the rest of the filter
-                                    if filter.event_matches(&event)? {
+                                    if filter.event_matches(&event)? && screen(&event) {
                                         output.push(event);
                                     }
                                 }
@@ -383,7 +386,7 @@ impl Store {
             for result in iter {
                 let (_key, offset) = result?;
                 if let Some(event) = self.events.get_event_by_offset(offset)? {
-                    if filter.event_matches(&event)? {
+                    if filter.event_matches(&event)? && screen(&event) {
                         output.push(event);
                         count += 1;
                         if count >= filter.limit() {

@@ -107,17 +107,16 @@ impl WebSocketService {
         {
             let mut events: Vec<Event> = Vec::new();
             for filter in filters.iter() {
-                let mut filter_events = GLOBALS
+                let screen = |event: &Event| {
+                    let event_flags = event_flags(event, &user);
+                    screen_outgoing_event(event, event_flags, authorized_user)
+                };
+                let filter_events = GLOBALS
                     .store
                     .get()
                     .unwrap()
-                    .find_events(filter.as_filter()?)?;
-                for event in filter_events.drain(..) {
-                    let event_flags = event_flags(&event, &user);
-                    if screen_outgoing_event(&event, event_flags, authorized_user) {
-                        events.push(event);
-                    }
-                }
+                    .find_events(filter.as_filter()?, screen)?;
+                events.extend(filter_events);
             }
 
             // sort
