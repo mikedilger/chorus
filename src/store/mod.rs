@@ -17,6 +17,7 @@ pub struct Store {
     events: EventStore,
     env: Env,
     ids: Database<UnalignedSlice<u8>, OwnedType<usize>>,
+    ci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     akci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     atci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     ktci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
@@ -56,6 +57,11 @@ impl Store {
             .database_options()
             .types::<UnalignedSlice<u8>, OwnedType<usize>>()
             .name("ids")
+            .create(&mut txn)?;
+        let ci = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, OwnedType<usize>>()
+            .name("ci")
             .create(&mut txn)?;
         let akci = env
             .database_options()
@@ -101,6 +107,7 @@ impl Store {
             events,
             env,
             ids,
+            ci,
             akci,
             atci,
             ktci,
@@ -404,6 +411,10 @@ impl Store {
         // Index by id
         self.ids.put(txn, event.id().0.as_slice(), &offset)?;
 
+        // Index by created_at and id
+        self.ci
+            .put(txn, &Self::key_ci(event.created_at(), event.id()), &offset)?;
+
         // Index by author and kind (with created_at and id)
         self.akci.put(
             txn,
@@ -484,7 +495,9 @@ impl Store {
             }
         }
 
-        // Index by author and kind (with created_at and id)
+        self.ci
+            .delete(txn, &Self::key_ci(event.created_at(), event.id()))?;
+
         self.akci.delete(
             txn,
             &Self::key_akci(event.pubkey(), event.kind(), event.created_at(), event.id()),
@@ -583,6 +596,14 @@ impl Store {
         }
 
         Ok(())
+    }
+
+    fn key_ci(created_at: Time, id: Id) -> Vec<u8> {
+        let mut key: Vec<u8> =
+            Vec::with_capacity(std::mem::size_of::<Time>() + std::mem::size_of::<Id>());
+        key.extend((u64::MAX - created_at.0).to_be_bytes().as_slice());
+        key.extend(id.as_slice());
+        key
     }
 
     // For looking up event by Author and Kind
