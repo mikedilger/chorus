@@ -346,7 +346,12 @@ impl WebSocketService {
                     match message_option {
                         Some(message) => {
                             let message = message?;
-                            self.handle_websocket_message(message).await?;
+                            if let Err(e) = self.handle_websocket_message(message).await {
+                                if let Err(e) = self.websocket.close(None).await {
+                                    log::info!("Err on websocket close: {e}");
+                                }
+                                return Err(e);
+                            }
                         },
                         None => break, // the websocket is closed
                     }
