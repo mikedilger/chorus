@@ -179,15 +179,19 @@ impl WebSocketService {
                     NostrReplyPrefix::None,
                     "That event is deleted".to_string(),
                 ),
-                ChorusError::EventIsInvalid(why) => {
-                    NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, why)
+                ChorusError::EventIsInvalid(ref why) => {
+                    log::error!("{}: {}", self.peer, e);
+                    NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, why.to_string())
                 }
-                ChorusError::Restricted => NostrReply::Ok(
-                    id,
-                    false,
-                    NostrReplyPrefix::Restricted,
-                    PERSONAL_MSG.to_owned(),
-                ),
+                ChorusError::Restricted => {
+                    log::error!("{}: {}", self.peer, e);
+                    NostrReply::Ok(
+                        id,
+                        false,
+                        NostrReplyPrefix::Restricted,
+                        PERSONAL_MSG.to_owned(),
+                    )
+                },
                 _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
             },
         };
