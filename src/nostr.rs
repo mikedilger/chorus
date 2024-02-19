@@ -60,8 +60,6 @@ impl WebSocketService {
         outpos += outlen;
         verify_char(input, b'"', &mut inpos)?; // FIXME: json_unescape should eat the closing quote
 
-        log::info!("SUBID={}", subid);
-
         let max_subscriptions = GLOBALS.config.read().await.max_subscriptions;
         if self.subscriptions.len() >= max_subscriptions {
             let reply = NostrReply::Closed(
@@ -137,6 +135,9 @@ impl WebSocketService {
             let reply = NostrReply::Eose(&subid);
             self.websocket.send(Message::text(reply.as_json())).await?;
         }
+
+        let num_subs = self.subscriptions.len() + 1; // since we are about to add 1
+        log::info!("new subscription \"{subid}\", {num_subs} total");
 
         // Store subscription
         self.subscriptions.insert(subid, filters);
