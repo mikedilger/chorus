@@ -334,7 +334,7 @@ impl WebSocketService {
 
         // Verify the created_at timestamp is within reason
         let timediff = (Time::now().0 as i64).abs_diff(event.created_at().0 as i64);
-        if timediff < 600 {
+        if timediff > 600 {
             return Err(
                 ChorusError::AuthFailure("Time is more than 10 minutes off".to_string()).into(),
             );
