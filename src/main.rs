@@ -394,8 +394,9 @@ impl WebSocketService {
             Message::Text(msg) => {
                 log::debug!("{}: <= {}", self.peer, msg);
                 // This is defined in nostr.rs
-                if let Err(e) = self.handle_nostr_message(msg).await {
+                if let Err(e) = self.handle_nostr_message(&msg).await {
                     log::error!("{e}");
+                    log::error!("msg was {}", msg);
                     let reply = NostrReply::Notice(format!("error: {}", e));
                     self.websocket.send(Message::text(reply.as_json())).await?;
                 }

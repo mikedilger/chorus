@@ -10,7 +10,7 @@ use hyper_tungstenite::tungstenite::Message;
 use url::Url;
 
 impl WebSocketService {
-    pub async fn handle_nostr_message(&mut self, msg: String) -> Result<(), Error> {
+    pub async fn handle_nostr_message(&mut self, msg: &str) -> Result<(), Error> {
         // If the msg is large, grow the session buffer
         // (it will be freed when they disconnect)
         if msg.len() > 4096 {
@@ -41,7 +41,7 @@ impl WebSocketService {
         Ok(())
     }
 
-    pub async fn req(&mut self, msg: String, mut inpos: usize) -> Result<(), Error> {
+    pub async fn req(&mut self, msg: &str, mut inpos: usize) -> Result<(), Error> {
         let input = msg.as_bytes();
 
         // ["REQ", <subid>, json-filter, json-filter, ... ]
@@ -148,7 +148,7 @@ impl WebSocketService {
         Ok(())
     }
 
-    pub async fn event(&mut self, msg: String, mut inpos: usize) -> Result<(), Error> {
+    pub async fn event(&mut self, msg: &str, mut inpos: usize) -> Result<(), Error> {
         const PERSONAL_MSG: &str = "this personal relay only accepts events related to its users";
 
         let input = msg.as_bytes();
@@ -228,7 +228,7 @@ impl WebSocketService {
         Ok(())
     }
 
-    pub async fn close(&mut self, msg: String, mut inpos: usize) -> Result<(), Error> {
+    pub async fn close(&mut self, msg: &str, mut inpos: usize) -> Result<(), Error> {
         let input = msg.as_bytes();
 
         // ["CLOSE", <subid>]
@@ -256,7 +256,7 @@ impl WebSocketService {
         Ok(())
     }
 
-    pub async fn auth(&mut self, msg: String, mut inpos: usize) -> Result<(), Error> {
+    pub async fn auth(&mut self, msg: &str, mut inpos: usize) -> Result<(), Error> {
         let input = msg.as_bytes();
 
         eat_whitespace(input, &mut inpos);
