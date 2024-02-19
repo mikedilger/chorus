@@ -79,6 +79,9 @@ impl Store {
         if let Ok(count) = ids.len(&txn) {
             log::info!("{count} events in storage");
         }
+        if let Ok(count) = deleted_offsets.len(&txn) {
+            log::info!("{count} deleted events in the map");
+        }
 
         txn.commit()?;
 
