@@ -36,6 +36,7 @@ use std::time::Duration;
 use textnonce::TextNonce;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::signal::unix::{signal, SignalKind};
+use tokio::time::Instant;
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::Message;
 
@@ -340,9 +341,25 @@ impl WebSocketService {
         let reply = NostrReply::Auth(self.challenge.clone());
         self.websocket.send(Message::text(reply.as_json())).await?;
 
+        let mut last_message_at = Instant::now();
+
         loop {
+            let interval = tokio::time::interval(Duration::from_secs(5));
+            tokio::pin!(interval);
+
             tokio::select! {
+                instant = interval.tick() => {
+                    // Drop them if they have no subscriptions
+                    if self.subscriptions.is_empty() {
+                        // And they are idle for 5 seconds with no subscriptions
+                        if last_message_at + Duration::from_secs(5) < instant {
+                            self.websocket.send(Message::Close(None)).await?;
+                            break;
+                        }
+                    }
+                }
                 message_option = self.websocket.next() => {
+                    last_message_at = Instant::now();
                     match message_option {
                         Some(message) => {
                             let message = message?;
