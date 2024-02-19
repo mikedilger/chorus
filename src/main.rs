@@ -405,7 +405,7 @@ impl WebSocketService {
                     log::error!("{}: msg was {}", self.peer, msg);
                     let reply = NostrReply::Notice(format!("error: {}", e));
                     self.websocket.send(Message::text(reply.as_json())).await?;
-                    if self.errcount > 3 {
+                    if self.errcount >= 3 {
                         let reply = NostrReply::Notice(
                             "Too many errors (3). Banned for 60 seconds.".into(),
                         );
