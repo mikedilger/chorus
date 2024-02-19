@@ -175,7 +175,7 @@ impl WebSocketService {
                 ChorusError::Deleted => NostrReply::Ok(
                     id,
                     true,
-                    NostrReplyPrefix::None,
+                    NostrReplyPrefix::Blocked,
                     "That event is deleted".to_string(),
                 ),
                 ChorusError::EventIsInvalid(ref why) => {
