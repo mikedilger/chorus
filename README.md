@@ -6,11 +6,13 @@ It is pretty fast: [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 It can work as your personal relay: [docs/PERSONAL_RELAY.md](docs/PERSONAL_RELAY.md).
 
-It does not have any provisions for charging users.
+To deploy chorus, read [docs/DEPLOYING.md](docs/DEPLOYING.md)
 
-## Deploying chorus
+To configure chorus read [docs/CONFIG.md](docs/CONFIG.md)
 
-Read [contrib/README.md](contrib/README.md)
+To undertand the relay's behavior, read [docs/BEHAVIOR.md](docs/BEHAVIOR.md)
+
+Chorus does not have any provisions for charging users.
 
 ## Status
 
