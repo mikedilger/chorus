@@ -375,7 +375,7 @@ impl Store {
     /// Delete an event by id
     fn delete(&self, txn: &mut RwTxn<'_>, id: Id) -> Result<(), Error> {
         if let Some(offset) = self.ids.get(txn, id.0.as_slice())? {
-            self.set_offset_as_deleted(offset)?;
+            self.set_offset_as_deleted(txn, offset)?;
 
             // Also remove from the id index
             self.ids.delete(txn, id.0.as_slice())?;
@@ -483,18 +483,16 @@ impl Store {
 
     // Set an event as deleted
     // This removes it from indexes (except the id index) and adds it to the deleted table
-    fn set_offset_as_deleted(&self, offset: usize) -> Result<(), Error> {
-        let mut txn = self.env.write_txn()?;
-
+    fn set_offset_as_deleted(&self, txn: &mut RwTxn<'_>, offset: usize) -> Result<(), Error> {
         let offset_u64 = offset as u64;
 
         // Check if it is already deleted
-        if self.deleted_offsets.get(&txn, &offset_u64)?.is_some() {
+        if self.deleted_offsets.get(txn, &offset_u64)?.is_some() {
             return Ok(());
         }
 
         // Add to deleted database in case we need to get at it in the future.
-        self.deleted_offsets.put(&mut txn, &offset_u64, &())?;
+        self.deleted_offsets.put(txn, &offset_u64, &())?;
 
         // Get event
         let event = match self.events.get_event_by_offset(offset)? {
@@ -503,9 +501,7 @@ impl Store {
         };
 
         // Remove from indexes
-        self.deindex(&mut txn, &event)?;
-
-        txn.commit()?;
+        self.deindex(txn, &event)?;
 
         Ok(())
     }
@@ -526,7 +522,8 @@ impl Store {
                 Bound::Included(&*start_prefix),
                 Bound::Excluded(&*end_prefix),
             );
-            let iter = self.akci.range(txn, &range)?;
+            let loop_txn = self.env.read_txn()?;
+            let iter = self.akci.range(&loop_txn, &range)?;
             let mut first = true;
             for result in iter {
                 // Keep the first result
@@ -538,7 +535,7 @@ impl Store {
                 let (_key, offset) = result?;
 
                 // Delete the event
-                self.set_offset_as_deleted(offset)?;
+                self.set_offset_as_deleted(txn, offset)?;
             }
         } else if event.kind().is_parameterized_replaceable() {
             let tags = event.tags()?;
@@ -551,7 +548,8 @@ impl Store {
                     Bound::Included(&*start_prefix),
                     Bound::Excluded(&*end_prefix),
                 );
-                let iter = self.akci.range(txn, &range)?;
+                let loop_txn = self.env.read_txn()?;
+                let iter = self.akci.range(&loop_txn, &range)?;
                 let mut first = true;
                 for result in iter {
                     // Keep the first result
@@ -563,7 +561,7 @@ impl Store {
                     let (_key, offset) = result?;
 
                     // Delete the event
-                    self.set_offset_as_deleted(offset)?;
+                    self.set_offset_as_deleted(txn, offset)?;
                 }
             }
         }
