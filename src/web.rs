@@ -102,6 +102,23 @@ fn build_rid(config: &Config) -> String {
         rid.push_str(unsafe { std::str::from_utf8_unchecked(pkh.as_slice()) });
         rid.push('\"');
     }
+
+    // Limitation
+    rid.push(',');
+    rid.push_str("\"limitation\":{");
+    {
+        rid.push_str("\"payment_required\":false,\"auth_required\":false,\"restricted_writes\":true,\"max_message_length\":1048576");
+        rid.push_str(&format!(
+            ",\"max_subscriptions\":{}",
+            config.max_subscriptions
+        ));
+    }
+    rid.push('}');
+
+    // Retention
+    rid.push(',');
+    rid.push_str("\"retention\":[{\"time\": null}]");
+
     rid.push('}');
 
     rid
