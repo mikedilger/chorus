@@ -113,7 +113,7 @@ impl WebSocketService {
                     .unwrap()
                     .find_events(filter.as_filter()?)?;
                 for event in filter_events.drain(..) {
-                    let event_flags = event_flags(&event, &user).await;
+                    let event_flags = event_flags(&event, &user);
                     if screen_outgoing_event(&event, event_flags, authorized_user) {
                         events.push(event);
                     }
@@ -207,7 +207,7 @@ impl WebSocketService {
         // Delineate the event back out of the session buffer
         let event = Event::delineate(&self.buffer)?;
 
-        let event_flags = event_flags(&event, &user).await;
+        let event_flags = event_flags(&event, &user);
 
         if !event_flags.author_is_an_authorized_user || GLOBALS.config.get().unwrap().verify_events
         {
@@ -452,7 +452,7 @@ pub struct EventFlags {
     pub tags_current_user: bool,
 }
 
-async fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
+fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
     let author_is_an_authorized_user = GLOBALS
         .config
         .get()
