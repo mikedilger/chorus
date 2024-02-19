@@ -1,6 +1,8 @@
 pub mod event_store;
 pub use event_store::EventStore;
 
+mod migrations;
+
 use crate::error::{ChorusError, Error};
 use crate::types::{Event, Filter, Id, Kind, Pubkey, Time};
 use heed::byteorder::BigEndian;
@@ -94,7 +96,7 @@ impl Store {
 
         let events = EventStore::new(event_map_file)?;
 
-        Ok(Store {
+        let store = Store {
             general,
             events,
             env,
@@ -105,7 +107,12 @@ impl Store {
             deleted_offsets,
             deleted_events,
             allow_scraping,
-        })
+        };
+
+        // This is in migrations.rs
+        store.migrate()?;
+
+        Ok(store)
     }
 
     /// Sync the data to disk. This happens periodically, but sometimes it's useful to force
