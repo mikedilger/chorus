@@ -612,7 +612,6 @@ impl Store {
 
     // For looking up event by Author and Kind
     // author(32) + kind(2) + reversecreatedat(8) + id(32)
-    #[allow(dead_code)]
     fn key_akci(author: Pubkey, kind: Kind, created_at: Time, id: Id) -> Vec<u8> {
         let mut key: Vec<u8> = Vec::with_capacity(
             std::mem::size_of::<Pubkey>()
@@ -629,7 +628,6 @@ impl Store {
 
     // For looking up event by Author and Tag
     // author(32) + tagletter(1) + fixlentag(182) + reversecreatedat(8) + id(32)
-    #[allow(dead_code)]
     fn key_atci(author: Pubkey, letter: u8, tag_value: &[u8], created_at: Time, id: Id) -> Vec<u8> {
         const PADLEN: usize = 182;
         let mut key: Vec<u8> = Vec::with_capacity(
@@ -653,7 +651,6 @@ impl Store {
 
     // For looking up event by Kind and Tag
     // kind(2) + tagletter(1) + fixlentag(182) + reversecreatedat(8) + id(32)
-    #[allow(dead_code)]
     fn key_ktci(kind: Kind, letter: u8, tag_value: &[u8], created_at: Time, id: Id) -> Vec<u8> {
         const PADLEN: usize = 182;
         let mut key: Vec<u8> = Vec::with_capacity(
