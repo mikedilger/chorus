@@ -136,11 +136,11 @@ impl WebSocketService {
             self.websocket.send(Message::text(reply.as_json())).await?;
         }
 
-        let num_subs = self.subscriptions.len() + 1; // since we are about to add 1
-        log::info!("new subscription \"{subid}\", {num_subs} total");
-
         // Store subscription
-        self.subscriptions.insert(subid, filters);
+        self.subscriptions.insert(subid.to_owned(), filters);
+
+        let num_subs = self.subscriptions.len();
+        log::info!("new subscription \"{subid}\", {num_subs} total");
 
         Ok(())
     }
