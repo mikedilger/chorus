@@ -306,13 +306,6 @@ struct WebSocketService {
 }
 
 impl WebSocketService {
-    async fn authorized_user(&mut self) -> bool {
-        match self.user {
-            None => false,
-            Some(pk) => GLOBALS.config.read().await.user_keys.contains(&pk),
-        }
-    }
-
     async fn handle_websocket_stream(&mut self) -> Result<(), Error> {
         // Subscribe to the shutting down channel
         let mut shutting_down = GLOBALS.shutting_down.subscribe();

@@ -3,7 +3,7 @@ use crate::globals::GLOBALS;
 use crate::reply::{NostrReply, NostrReplyPrefix};
 use crate::types::parse::json_escape::json_unescape;
 use crate::types::parse::json_parse::*;
-use crate::types::{Event, Filter, Kind, OwnedFilter, Time};
+use crate::types::{Event, Filter, Kind, OwnedFilter, Pubkey, Time};
 use crate::WebSocketService;
 use futures::SinkExt;
 use hyper_tungstenite::tungstenite::Message;
@@ -80,7 +80,8 @@ impl WebSocketService {
             filters.push(OwnedFilter(filterbytes));
         }
 
-        let authorized_user = self.authorized_user().await;
+        let user = self.user;
+        let authorized_user = authorized_user(&user).await;
 
         // NOTE on private events (DMs, GiftWraps)
         // Most relays check if you are seeking them, and of which pubkey, and if you are
@@ -101,45 +102,8 @@ impl WebSocketService {
                     .unwrap()
                     .find_events(filter.as_filter()?)?;
                 for event in filter_events.drain(..) {
-                    let authored_by_an_authorized_user = GLOBALS
-                        .config
-                        .read()
-                        .await
-                        .user_keys
-                        .contains(&event.pubkey());
-
-                    let authored_by_requester = match self.user {
-                        None => false,
-                        Some(pk) => event.pubkey() == pk,
-                    };
-
-                    let user_is_tagged = match self.user {
-                        None => false,
-                        Some(pk) => {
-                            let mut user_is_tagged = false;
-                            for mut tag in event.tags()?.iter() {
-                                if let Some(b"p") = tag.next() {
-                                    if let Some(value) = tag.next() {
-                                        let mut bytes: [u8; 64] = [0; 64];
-                                        pk.write_hex(&mut bytes).unwrap();
-                                        if value == bytes {
-                                            user_is_tagged = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            user_is_tagged
-                        }
-                    };
-
-                    if screen_outgoing_event(
-                        &event,
-                        authorized_user,
-                        authored_by_an_authorized_user,
-                        authored_by_requester,
-                        user_is_tagged
-                    ) {
+                    let event_flags = event_flags(&event, &user).await;
+                    if screen_outgoing_event(&event, event_flags, authorized_user) {
                         events.push(event);
                     }
                 }
@@ -216,10 +180,13 @@ impl WebSocketService {
     }
 
     async fn event_inner(&mut self) -> Result<(), Error> {
-        let authorized_user = self.authorized_user().await;
+        let user = self.user;
+        let authorized_user = authorized_user(&user).await;
 
         // Delineate the event back out of the session buffer
         let event = Event::delineate(&self.buffer)?;
+
+        let event_flags = event_flags(&event, &user).await;
 
         if GLOBALS.config.read().await.verify_events {
             // Verify the event is valid (id is hash, signature is valid)
@@ -229,7 +196,7 @@ impl WebSocketService {
         }
 
         // Screen the event to see if we are willing to accept it
-        if !screen_incoming_event(&event, authorized_user).await? {
+        if !screen_incoming_event(&event, event_flags, authorized_user).await? {
             if self.user.is_some() {
                 return Err(ChorusError::Restricted.into());
             } else {
@@ -362,7 +329,11 @@ impl WebSocketService {
     }
 }
 
-async fn screen_incoming_event(event: &Event<'_>, authorized_user: bool) -> Result<bool, Error> {
+async fn screen_incoming_event(
+    event: &Event<'_>,
+    _event_flags: EventFlags,
+    authorized_user: bool,
+) -> Result<bool, Error> {
     // Accept anything from authenticated authorized users
     if authorized_user {
         return Ok(true);
@@ -407,10 +378,8 @@ async fn screen_incoming_event(event: &Event<'_>, authorized_user: bool) -> Resu
 
 fn screen_outgoing_event(
     event: &Event<'_>,
+    event_flags: EventFlags,
     authorized_user: bool,
-    authored_by_an_authorized_user: bool,
-    authored_by_requester: bool,
-    user_is_tagged: bool,
 ) -> bool {
     // Allow Relay Lists
     if event.kind() == Kind(10002) {
@@ -425,13 +394,7 @@ fn screen_outgoing_event(
     // Forbid if it is a private event (DM or GiftWrap) and theey are neither the recipient
     // nor the author
     if event.kind() == Kind(4) || event.kind() == Kind(1059) {
-        if authored_by_requester {
-            return true;
-        } else if user_is_tagged {
-            return true;
-        } else {
-            return false;
-        }
+        return event_flags.tags_current_user || event_flags.author_is_current_user;
     }
 
     // Allow if an authorized_user is asking
@@ -440,10 +403,68 @@ fn screen_outgoing_event(
     }
 
     // Everybody can see events from our authorized users
-    if authored_by_an_authorized_user {
+    if event_flags.author_is_an_authorized_user {
         return true;
     }
 
     // Do not allow the rest
     false
+}
+
+async fn authorized_user(user: &Option<Pubkey>) -> bool {
+    match user {
+        None => false,
+        Some(pk) => GLOBALS.config.read().await.user_keys.contains(pk),
+    }
+}
+
+pub struct EventFlags {
+    pub author_is_an_authorized_user: bool,
+    pub author_is_current_user: bool,
+    pub tags_an_authorized_user: bool,
+    pub tags_current_user: bool,
+}
+
+async fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
+    let author_is_an_authorized_user = GLOBALS
+        .config
+        .read()
+        .await
+        .user_keys
+        .contains(&event.pubkey());
+
+    let author_is_current_user = match user {
+        None => false,
+        Some(pk) => event.pubkey() == *pk,
+    };
+
+    let mut tags_an_authorized_user = false;
+    let mut tags_current_user = false;
+
+    if let Ok(tags) = event.tags() {
+        for mut tag in tags.iter() {
+            if let Some(b"p") = tag.next() {
+                if let Some(value) = tag.next() {
+                    if let Ok(tagged_pk) = Pubkey::read_hex(value) {
+                        if let Some(current_user) = user {
+                            if *current_user == tagged_pk {
+                                tags_current_user = true;
+                            }
+                        }
+
+                        if GLOBALS.config.read().await.user_keys.contains(&tagged_pk) {
+                            tags_an_authorized_user = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    EventFlags {
+        author_is_an_authorized_user,
+        author_is_current_user,
+        tags_an_authorized_user,
+        tags_current_user,
+    }
 }
