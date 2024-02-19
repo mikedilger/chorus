@@ -139,8 +139,11 @@ impl WebSocketService {
         // Store subscription
         self.subscriptions.insert(subid.to_owned(), filters);
 
-        let num_subs = self.subscriptions.len();
-        log::info!("new subscription \"{subid}\", {num_subs} total");
+        log::debug!(
+            "{}, new subscription \"{subid}\", {} total",
+            self.peer,
+            self.subscriptions.len()
+        );
 
         Ok(())
     }
