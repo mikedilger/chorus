@@ -2,7 +2,7 @@ use super::Store;
 use crate::error::Error;
 use heed::RwTxn;
 
-pub const CURRENT_MIGRATION_LEVEL: u32 = 0;
+pub const CURRENT_MIGRATION_LEVEL: u32 = 1;
 
 impl Store {
     pub fn migrate(&self) -> Result<(), Error> {
@@ -34,11 +34,27 @@ impl Store {
         Ok(())
     }
 
-    #[allow(unreachable_code)]
-    fn migrate_to(&self, _txn: &mut RwTxn<'_>, level: u32) -> Result<(), Error> {
+    fn migrate_to(&self, txn: &mut RwTxn<'_>, level: u32) -> Result<(), Error> {
         log::info!("Migrating database to {}", level);
         match level {
+            1 => self.migrate_to_1(txn)?,
             _ => panic!("Unknown migration level {level}"),
+        }
+
+        Ok(())
+    }
+
+    fn migrate_to_1(&self, txn: &mut RwTxn<'_>) -> Result<(), Error> {
+        // Build ci database
+        let loop_txn = self.env.read_txn()?;
+        let iter = self.ids.iter(&loop_txn)?;
+        for result in iter {
+            let (_key, offset) = result?;
+            if let Some(event) = self.events.get_event_by_offset(offset)? {
+                // Index in ci
+                self.ci
+                    .put(txn, &Self::key_ci(event.created_at(), event.id()), &offset)?;
+            }
         }
 
         Ok(())
