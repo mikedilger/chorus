@@ -429,7 +429,11 @@ impl WebSocketService {
                 if let Err(e) = self.handle_nostr_message(&msg).await {
                     self.errcount += 1;
                     log::error!("{}: {e}", self.peer);
-                    log::error!("{}: msg was {}", self.peer, msg);
+                    if msg.len() < 2048 {
+                        log::error!("{}: msg was {}", self.peer, msg);
+                    } else {
+                        log::error!("{}: msg was {} ...", self.peer, &msg[..2048]);
+                    }
                     let reply = NostrReply::Notice(format!("error: {}", e));
                     self.websocket.send(Message::text(reply.as_json())).await?;
                     if self.errcount >= 3 {
