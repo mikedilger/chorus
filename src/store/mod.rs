@@ -11,6 +11,7 @@ use std::ops::Bound;
 
 #[derive(Debug)]
 pub struct Store {
+    general: Database<UnalignedSlice<u8>, UnalignedSlice<u8>>,
     events: EventStore,
     env: Env,
     ids: Database<UnalignedSlice<u8>, OwnedType<usize>>,
@@ -45,6 +46,10 @@ impl Store {
 
         // Open/Create maps
         let mut txn = env.write_txn()?;
+        let general = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+            .create(&mut txn)?;
         let ids = env
             .database_options()
             .types::<UnalignedSlice<u8>, OwnedType<usize>>()
@@ -90,6 +95,7 @@ impl Store {
         let events = EventStore::new(event_map_file)?;
 
         Ok(Store {
+            general,
             events,
             env,
             ids,
