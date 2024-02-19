@@ -16,4 +16,4 @@ Chorus does not have any provisions for charging users.
 
 ## Status
 
-Chorus isn't quite finished, but we hope to release in February 2024.
+Chorus is now released.
