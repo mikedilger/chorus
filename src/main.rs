@@ -117,10 +117,10 @@ async fn main() -> Result<(), Error> {
                     let tls_acceptor_clone = tls_acceptor.clone();
                     tokio::spawn(async move {
                         match tls_acceptor_clone.accept(tcp_stream).await {
-                            Err(e) => log::error!("{}", e),
+                            Err(e) => log::error!("{}: {}", peer_addr, e),
                             Ok(tls_stream) => {
                                 if let Err(e) = serve(MaybeTlsStream::Rustls(tls_stream), peer_addr).await {
-                                    log::error!("{}", e);
+                                    log::error!("{}: {}", peer_addr, e);
                                 }
                             }
                         }
@@ -191,12 +191,12 @@ async fn serve(stream: MaybeTlsStream<TcpStream>, peer_addr: SocketAddr) -> Resu
                     // do nothing
                 } else {
                     // Print in detail
-                    log::error!("{:?}", src);
+                    log::error!("{}: {:?}", peer_addr, src);
                 }
             } else {
                 // Print in less detail
                 let e: Error = he.into();
-                log::error!("{}", e);
+                log::error!("{}: {}", peer_addr, e);
             }
         }
     });
@@ -302,7 +302,7 @@ async fn handle_http_request(
                     Globals::ban(peer.ip(), ban_seconds).await;
                 }
                 Err(e) => {
-                    log::error!("{}", e);
+                    log::error!("{}: {}", peer, e);
                 }
             }
         });
@@ -368,7 +368,7 @@ impl WebSocketService {
                             let message = message?;
                             if let Err(e) = self.handle_websocket_message(message).await {
                                 if let Err(e) = self.websocket.close(None).await {
-                                    log::info!("Err on websocket close: {e}");
+                                    log::info!("{}: Err on websocket close: {e}", self.peer);
                                 }
                                 return Err(e);
                             }
