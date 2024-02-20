@@ -65,10 +65,11 @@ Now let's continue by building chorus:
 cargo build --release
 ```
 
-Ok now let's install that:
+Ok now let's install that (along with the dump utility):
 
 ```bash
 sudo install --mode=0700 --owner=chorus ./target/release/chorus /opt/chorus/sbin/chorus
+sudo install --mode=0700 --owner=chorus ./target/release/dump /opt/chorus/sbin/dump
 ```
 
 Now let's create our config file
