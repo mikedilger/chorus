@@ -8,6 +8,7 @@ repository = "https://github.com/mikedilger/chorus"
 edition = "2021"
 
 [dependencies]
+dashmap = "5.5"
 env_logger = "0.10"
 futures = "0.3"
 heed = { git = "https://github.com/meilisearch/heed", rev = "64fd6fec293c0dee94855b8267557ce03e7ce5d8" }
