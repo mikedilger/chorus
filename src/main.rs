@@ -44,7 +44,11 @@ use tungstenite::Message;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    env_logger::init();
+    env_logger::builder()
+        .format_target(false)
+        .format_module_path(false)
+        .format_timestamp_millis()
+        .init();
 
     // Get args (config path)
     let mut args = env::args();
