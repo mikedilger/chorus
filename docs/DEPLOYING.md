@@ -8,6 +8,15 @@ Generally these are servers in data centres, but you might be able to make a por
 to the Internet on a home machine if your ISP doesn't use CGNAT and you know how to
 configure your firewall/router for this. We leave this up to you.
 
+## Operating System
+
+Chorus was developed on and for linux. It might work on other operating systems, but I
+won't spend any time getting it working on non-linux systems.
+
+In particular, I wrote [mmap-append](https://github.com/mikedilger/mmap-append) to use
+linux specific mmap functionality. Ashkan Kiani came later and generalized the code but
+I haven't tried it elsewhere and so I can't vouch for it elsewhere.
+
 ## Deploying the files
 
 You'll want to create a `chorus` user. Here is an example for debian based systems:
