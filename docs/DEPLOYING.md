@@ -95,7 +95,7 @@ for this if necessary.
 Copy the systemd service file from the source code to the install location:
 
 ```bash
-sudo -u chorus cp /opt/chorus/src/chorus/contrib/chorus-direct.service /opt/chorus/lib/systemd/system/chorus.service
+sudo -u chorus cp /opt/chorus/contrib/chorus-direct.service /opt/chorus/lib/systemd/system/chorus.service
 ```
 
 Edit this file to change the `letsencrypt` paths to include your actual domain (replace the
