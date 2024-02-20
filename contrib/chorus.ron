@@ -1,6 +1,7 @@
 FriendlyConfig(
     data_directory: "/opt/chorus/var/chorus",
     ip_address: "127.0.0.1",
+    hostname: "localhost",
     port: 443,
     use_tls: true,
     certchain_pem_path: "/opt/chorus/etc/tls/fullchain.pem",
@@ -13,4 +14,5 @@ FriendlyConfig(
     ],
     verify_events: true,
     allow_scraping: false,
+    max_subscriptions: 4,
 )
