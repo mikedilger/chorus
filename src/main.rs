@@ -14,6 +14,7 @@ pub mod web;
 use crate::config::{Config, FriendlyConfig};
 use crate::error::{ChorusError, Error};
 use crate::globals::{Globals, GLOBALS};
+use crate::ip::Ban;
 use crate::reply::NostrReply;
 use crate::store::Store;
 use crate::tls::MaybeTlsStream;
@@ -274,8 +275,7 @@ async fn handle_http_request(
 
                     // Everybody gets a 4-second ban on disconnect to prevent
                     // rapid reconnection
-                    let mut ban_seconds: u64 = 4;
-                    let mut is_an_error_ban: bool = false;
+                    let mut bankind: Ban = Ban::General;
                     let mut msg = "Closed";
 
                     // Handle the websocket
@@ -289,35 +289,17 @@ async fn handle_http_request(
                                 msg = "Reset";
                             }
                             ChorusError::TooManyErrors => {
-                                is_an_error_ban = true;
-
-                                let number_of_error_bans = match GLOBALS.ip_data.get(&peer.ip()) {
-                                    Some(ipdata) => ipdata.number_of_error_bans,
-                                    None => 0,
-                                };
-
-                                // Ban for longer if they've had error-based bans already
-                                ban_seconds = 60 + 60 * number_of_error_bans as u64;
-
-                                msg = "Errored Out, temporarily banned (long and growing)";
+                                bankind = Ban::TooManyErrors;
+                                msg = "Errored Out (too many)";
                             }
                             ChorusError::TimedOut => {
-                                is_an_error_ban = true;
-
-                                let number_of_error_bans = match GLOBALS.ip_data.get(&peer.ip()) {
-                                    Some(ipdata) => ipdata.number_of_error_bans,
-                                    None => 0,
-                                };
-
-                                // Ban for longer if they've had error-based bans already
-                                ban_seconds = 60 + 60 * number_of_error_bans as u64;
-
-                                msg = "Timed Out, temporarily banned (long and growing)";
+                                bankind = Ban::Timeout;
+                                msg = "Timed Out (with no subscriptions)";
                             }
                             _ => {
                                 log::error!("{}: {}", peer, e);
-                                ban_seconds = 15;
-                                msg = "Errored, temporarily banned (short, fixed)";
+                                bankind = Ban::ErrorExit;
+                                msg = "Error Exited";
                             }
                         }
                     }
@@ -328,7 +310,7 @@ async fn handle_http_request(
                     log::info!("{}: TOTAL={}, {}", peer, old_num_websockets - 1, msg);
 
                     // Ban for the appropriate duration
-                    Globals::ban(peer.ip(), ban_seconds, is_an_error_ban).await;
+                    Globals::ban(peer.ip(), bankind).await;
                 }
                 Err(e) => {
                     log::error!("{}: {}", peer, e);

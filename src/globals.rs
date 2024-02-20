@@ -1,7 +1,6 @@
 use crate::config::Config;
-use crate::ip::IpData;
+use crate::ip::{Ban, IpData};
 use crate::store::Store;
-use crate::types::Time;
 use dashmap::DashMap;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
@@ -52,22 +51,11 @@ lazy_static! {
 }
 
 impl Globals {
-    pub async fn ban(ipaddr: std::net::IpAddr, seconds: u64, is_an_error_ban: bool) {
-        let mut until = Time::now();
-        until.0 += seconds;
-
+    pub async fn ban(ipaddr: std::net::IpAddr, bankind: Ban) {
         GLOBALS
             .ip_data
             .entry(ipaddr)
-            .and_modify(|ipdata| {
-                ipdata.ban_until = Time(ipdata.ban_until.0.max(until.0));
-                if is_an_error_ban {
-                    ipdata.number_of_error_bans += 1;
-                }
-            })
-            .or_insert(IpData {
-                ban_until: until,
-                number_of_error_bans: if is_an_error_ban { 1 } else { 0 },
-            });
+            .and_modify(|ipdata| ipdata.ban(bankind))
+            .or_insert(IpData::new(bankind));
     }
 }
