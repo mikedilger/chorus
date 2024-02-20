@@ -12,7 +12,7 @@ AmbientCapabilities=CAP_NET_BIND_SERVICE
 ExecStartPre=+cp -H /etc/letsencrypt/live/chorus.example.com/fullchain.pem /opt/chorus/etc/tls/
 ExecStartPre=+cp -H /etc/letsencrypt/live/chorus.example.com/privkey.pem /opt/chorus/etc/tls/
 ExecStartPre=+chown chorus /opt/chorus/etc/tls/fullchain.pem /opt/chorus/etc/tls/privkey.pem
-ExecStart=/opt/chorus/sbin/chorus /opt/chorus/etc/chorus.ron
+ExecStart=/opt/chorus/sbin/chorus /opt/chorus/etc/chorus.toml
 Restart=always
 RestartSec=5
 

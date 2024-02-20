@@ -1,0 +1,27 @@
+data_directory = "/opt/chorus/var/chorus"
+
+ip_address = "127.0.0.1"
+port = 443
+hostname = "localhost"
+
+use_tls = true
+certchain_pem_path = "/opt/chorus/etc/tls/fullchain.pem"
+key_pem_path = "/opt/chorus/etc/tls/privkey.pem"
+
+name = "Chorus Default"
+description = "A default config of the Chorus relay"
+# contact =
+# public_key_hex =
+
+user_hex_keys = []
+
+verify_events = true
+
+# This is a bad idea in production, but useful for testing or for dumping
+# your entire relay
+allow_scraping = false
+
+max_subscriptions = 32
+
+serve_ephemeral = true
+serve_relay_lists = true

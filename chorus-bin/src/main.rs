@@ -54,7 +54,7 @@ async fn main() -> Result<(), Error> {
     let mut file = OpenOptions::new().read(true).open(config_path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let friendly_config: FriendlyConfig = ron::from_str(&contents)?;
+    let friendly_config: FriendlyConfig = toml::from_str(&contents)?;
     let config: Config = friendly_config.into_config()?;
     log::debug!("Loaded config file.");
 

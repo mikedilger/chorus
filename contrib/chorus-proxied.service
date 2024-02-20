@@ -8,7 +8,7 @@ Environment="RUST_BACKTRACE=1"
 Environment="RUST_LOG=info"
 WorkingDirectory=/opt/chorus
 User=chorus
-ExecStart=/opt/chorus/sbin/chorus /opt/chorus/etc/chorus.ron
+ExecStart=/opt/chorus/sbin/chorus /opt/chorus/etc/chorus.toml
 Restart=always
 RestartSec=5
 

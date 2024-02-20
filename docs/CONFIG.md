@@ -2,7 +2,7 @@
 
 The chorus binary requires one command line parameter which specifies the config file path.
 
-The config file must be in RON format. See the [RON documentation](https://docs.rs/ron/latest/ron/)
+The config file must be in TOML format. See the [TOML documentation](https://github.com/toml-lang/toml)
 
 ## Configuration Variables
 

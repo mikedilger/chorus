@@ -18,13 +18,13 @@ hyper-tungstenite = "0.11"
 lazy_static = "1.4"
 log = "0.4"
 mmap-append = { git = "https://github.com/mikedilger/mmap-append", rev = "0d20e193e7f13a442865a4a40a5da9a120e87411" }
-ron = "0.8"
 rustls-pemfile = "1.0"
 secp256k1 = { version = "0.28", features = [ "hashes", "global-context", "rand-std" ] }
 serde = { version = "1.0", features = ["derive"] }
 textnonce = "1"
 tokio = { version = "1", features = [ "full" ] }
 tokio-rustls = "0.24"
+toml = "0.8"
 url = "2.5"
 
 [dev-dependencies]

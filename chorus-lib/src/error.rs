@@ -44,7 +44,7 @@ pub enum ChorusError {
     ChannelSend(tokio::sync::broadcast::error::SendError<usize>),
 
     // Config
-    Config(ron::error::SpannedError),
+    Config(toml::de::Error),
 
     // Crypto
     Crypto(secp256k1::Error),
@@ -292,9 +292,9 @@ impl From<tokio::sync::broadcast::error::SendError<usize>> for Error {
     }
 }
 
-impl From<ron::error::SpannedError> for Error {
+impl From<toml::de::Error> for Error {
     #[track_caller]
-    fn from(err: ron::error::SpannedError) -> Self {
+    fn from(err: toml::de::Error) -> Self {
         Error {
             inner: ChorusError::Config(err),
             location: std::panic::Location::caller(),
