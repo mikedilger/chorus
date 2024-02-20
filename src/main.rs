@@ -230,6 +230,11 @@ async fn handle_http_request(
     peer: SocketAddr,
     mut request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
+    let ua = match request.headers().get("user-agent") {
+        Some(ua) => ua.to_str().unwrap_or("NON-UTF8-HEADER").to_owned(),
+        None => "".to_owned(),
+    };
+
     if hyper_tungstenite::is_upgrade_request(&request) {
         let web_socket_config = WebSocketConfig {
             max_write_buffer_size: 1024 * 1024,  // 1 MB
@@ -259,9 +264,10 @@ async fn handle_http_request(
                     let old_num_websockets = GLOBALS.num_clients.fetch_add(1, Ordering::SeqCst);
 
                     log::info!(
-                        "{}: websocket started (making {} active websockets)",
+                        "{}: TOTAL={}, Connection: {}",
                         peer,
-                        old_num_websockets + 1
+                        old_num_websockets + 1,
+                        ua
                     );
 
                     // Everybody gets a 4-second ban on disconnect to prevent
@@ -290,11 +296,7 @@ async fn handle_http_request(
                     // Decrement count of active websockets
                     let old_num_websockets = GLOBALS.num_clients.fetch_sub(1, Ordering::SeqCst);
 
-                    log::info!(
-                        "{}: websocket ended (making {} active websockets)",
-                        peer,
-                        old_num_websockets - 1
-                    );
+                    log::info!("{}: TOTAL={}, Disconnection", peer, old_num_websockets - 1);
 
                     // Ban for the appropriate duration
                     Globals::ban(peer.ip(), ban_seconds).await;
