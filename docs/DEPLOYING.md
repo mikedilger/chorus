@@ -125,13 +125,13 @@ sudo systemctl start chorus.service
 Copy the systemd service file from the source code to the install location:
 
 ```bash
-sudo -u chorus cp /opt/chorus/src/chorus/contrib/chorus-proxied.service /opt/chorus/lib/systemd/system/chorus.service
+sudo -u chorus cp /opt/chorus/contrib/chorus-proxied.service /opt/chorus/lib/systemd/system/chorus.service
 ```
 
 Copy the nginx config file to the install location:
 
 ```bash
-sudo -u chorus cp /opt/chorus/src/chorus/contrib/chorus.nginx.conf /opt/chorus/etc/chorus.nginx.conf
+sudo -u chorus cp /opt/chorus/contrib/chorus.nginx.conf /opt/chorus/etc/chorus.nginx.conf
 ```
 
 Change the port on the `proxy_pass` line if you are running chorus on a different port.
