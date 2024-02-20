@@ -65,7 +65,7 @@ sudo install --mode=0700 --owner=chorus ./target/release/chorus /opt/chorus/sbin
 Now let's create our config file
 
 ```bash
-sudo -u chorus cp /opt/chorus/src/chorus/contrib/chorus.ron /opt/chorus/etc/
+sudo -u chorus cp /opt/chorus/contrib/chorus.ron /opt/chorus/etc/
 ```
 
 Go ahead and edit that file to your liking. In particular:
