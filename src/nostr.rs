@@ -80,6 +80,11 @@ impl WebSocketService {
 
         if let Err(e) = self.req_inner(&subid, filters).await {
             log::error!("{}: {e}", self.peer);
+            if msg.len() < 2048 {
+                log::error!("{}:   msg was {}", self.peer, msg);
+            } else {
+                log::error!("{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
+            }
             let reply = match e.inner {
                 ChorusError::TooManySubscriptions => {
                     let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;

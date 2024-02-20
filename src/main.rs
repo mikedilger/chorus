@@ -464,9 +464,9 @@ impl WebSocketService {
                     self.errcount += 1;
                     log::error!("{}: {e}", self.peer);
                     if msg.len() < 2048 {
-                        log::error!("{}: msg was {}", self.peer, msg);
+                        log::error!("{}:   msg was {}", self.peer, msg);
                     } else {
-                        log::error!("{}: msg was {} ...", self.peer, &msg[..2048]);
+                        log::error!("{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
                     }
                     let reply = NostrReply::Notice(format!("error: {}", e));
                     self.websocket.send(Message::text(reply.as_json())).await?;
