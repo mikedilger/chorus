@@ -56,7 +56,7 @@ impl EventStore {
         // Memory map it
         let event_map = unsafe { MmapAppend::new(&event_map_file, new)? };
 
-        log::info!(
+        tracing::info!(
             "Event Store: new={:?} end={} len={}",
             new,
             event_map.get_end(),

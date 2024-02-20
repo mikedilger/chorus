@@ -17,7 +17,7 @@ impl Store {
             u32::from_be_bytes(migration_level_bytes[..4].try_into().unwrap())
         };
 
-        log::info!("Storage migration level = {}", migration_level);
+        tracing::info!("Storage migration level = {}", migration_level);
 
         while migration_level < CURRENT_MIGRATION_LEVEL {
             self.migrate_to(&mut txn, migration_level + 1)?;
@@ -35,7 +35,7 @@ impl Store {
     }
 
     fn migrate_to(&self, txn: &mut RwTxn<'_>, level: u32) -> Result<(), Error> {
-        log::info!("Migrating database to {}", level);
+        tracing::info!("Migrating database to {}", level);
         match level {
             1 => self.migrate_to_1(txn)?,
             _ => panic!("Unknown migration level {level}"),

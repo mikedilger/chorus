@@ -103,6 +103,9 @@ pub enum ChorusError {
     // Rustls
     Rustls(tokio_rustls::rustls::Error),
 
+    // Tracing Setup error
+    TracingSetupError(tracing::subscriber::SetGlobalDefaultError),
+
     // Tungstenite
     Tungstenite(hyper_tungstenite::tungstenite::error::Error),
 
@@ -167,6 +170,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
             ChorusError::Restricted => write!(f, "Restricted"),
             ChorusError::Rustls(e) => write!(f, "{e}"),
+            ChorusError::TracingSetupError(e) => write!(f, "{e}"),
             ChorusError::Tungstenite(e) => write!(f, "{e}"),
             ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
             ChorusError::TooManyErrors => write!(f, "Too many errors"),
@@ -190,6 +194,7 @@ impl StdError for ChorusError {
             ChorusError::Io(e) => Some(e),
             ChorusError::Lmdb(e) => Some(e),
             ChorusError::Rustls(e) => Some(e),
+            ChorusError::TracingSetupError(e) => Some(e),
             ChorusError::Tungstenite(e) => Some(e),
             ChorusError::UrlParse(e) => Some(e),
             ChorusError::Utf8(e) => Some(e),
@@ -341,6 +346,16 @@ impl From<url::ParseError> for Error {
     fn from(err: url::ParseError) -> Self {
         Error {
             inner: ChorusError::UrlParse(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<tracing::subscriber::SetGlobalDefaultError> for Error {
+    #[track_caller]
+    fn from(err: tracing::subscriber::SetGlobalDefaultError) -> Self {
+        Error {
+            inner: ChorusError::TracingSetupError(err),
             location: std::panic::Location::caller(),
         }
     }

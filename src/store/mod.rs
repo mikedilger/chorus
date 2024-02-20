@@ -10,6 +10,7 @@ use heed::types::{OwnedType, UnalignedSlice, Unit, U64};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use std::fs;
 use std::ops::Bound;
+use tracing::instrument;
 
 #[derive(Debug)]
 pub struct Store {
@@ -42,7 +43,7 @@ impl Store {
         let env = match builder.open(&dir) {
             Ok(env) => env,
             Err(e) => {
-                log::error!("Unable to open LMDB at {}", dir);
+                tracing::error!("Unable to open LMDB at {}", dir);
                 return Err(e.into());
             }
         };
@@ -90,10 +91,10 @@ impl Store {
             .create(&mut txn)?;
 
         if let Ok(count) = ids.len(&txn) {
-            log::info!("{count} events in storage");
+            tracing::info!("{count} events in storage");
         }
         if let Ok(count) = deleted_offsets.len(&txn) {
-            log::info!("{count} deleted events in the map");
+            tracing::info!("{count} deleted events in the map");
         }
 
         txn.commit()?;
@@ -226,9 +227,10 @@ impl Store {
     }
 
     /// Find all events that match the filter
+    #[instrument(skip(self, screen))]
     pub fn find_events<F>(&self, filter: Filter, screen: F) -> Result<Vec<Event>, Error>
     where
-        F: Fn(&Event) -> bool,
+        F: Fn(&Event) -> bool
     {
         let mut output: Vec<Event> = Vec::new();
 

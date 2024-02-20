@@ -10,6 +10,7 @@ use hyper_tungstenite::tungstenite::Message;
 use url::Url;
 
 impl WebSocketService {
+    #[tracing::instrument(skip(self))]
     pub async fn handle_nostr_message(&mut self, msg: &str) -> Result<(), Error> {
         // If the msg is large, grow the session buffer
         // (it will be freed when they disconnect)
@@ -33,7 +34,7 @@ impl WebSocketService {
         } else if &input[inpos..inpos + 5] == b"AUTH\"" {
             self.auth(msg, inpos + 5).await?;
         } else {
-            log::warn!("{}: Received unhandled text message: {}", self.peer, msg);
+            tracing::warn!("{}: Received unhandled text message: {}", self.peer, msg);
             let reply = NostrReply::Notice("Command unrecognized".to_owned());
             self.websocket.send(Message::text(reply.as_json())).await?;
         }
@@ -138,7 +139,7 @@ impl WebSocketService {
         // Store subscription
         self.subscriptions.insert(subid.to_owned(), filters);
 
-        log::debug!(
+        tracing::debug!(
             "{}, new subscription \"{subid}\", {} total",
             self.peer,
             self.subscriptions.len()
@@ -179,11 +180,11 @@ impl WebSocketService {
                     "That event is deleted".to_string(),
                 ),
                 ChorusError::EventIsInvalid(ref why) => {
-                    log::error!("{}: {}", self.peer, e);
+                    tracing::error!("{}: {}", self.peer, e);
                     NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, why.to_string())
                 }
                 ChorusError::Restricted => {
-                    log::error!("{}: {}", self.peer, e);
+                    tracing::error!("{}: {}", self.peer, e);
                     NostrReply::Ok(
                         id,
                         false,
