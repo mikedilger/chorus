@@ -61,6 +61,8 @@ impl WebSocketService {
         outpos += outlen;
         verify_char(input, b'"', &mut inpos)?; // FIXME: json_unescape should eat the closing quote
 
+        log::info!("{}: REQ[\"{}\",..]", self.peer, subid);
+
         // Read the filter into the session buffer
         let mut filters: Vec<OwnedFilter> = Vec::new();
         loop {
