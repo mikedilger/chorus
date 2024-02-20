@@ -79,6 +79,7 @@ impl WebSocketService {
         }
 
         if let Err(e) = self.req_inner(&subid, filters).await {
+            log::error!("{}: {e}", self.peer);
             let reply = match e.inner {
                 ChorusError::TooManySubscriptions => {
                     let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;
@@ -156,7 +157,7 @@ impl WebSocketService {
         self.subscriptions.insert(subid.to_owned(), filters);
 
         log::debug!(
-            "{}, new subscription \"{subid}\", {} total",
+            "{}: new subscription \"{subid}\", {} total",
             self.peer,
             self.subscriptions.len()
         );
