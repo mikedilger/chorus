@@ -299,12 +299,25 @@ async fn handle_http_request(
                                 // Ban for longer if they've had error-based bans already
                                 ban_seconds = 60 + 60 * number_of_error_bans as u64;
 
-                                msg = "Banned (temporary)";
+                                msg = "Errored Out, temporarily banned (long and growing)";
+                            }
+                            ChorusError::TimedOut => {
+                                is_an_error_ban = true;
+
+                                let number_of_error_bans = match GLOBALS.ip_data.get(&peer.ip()) {
+                                    Some(ipdata) => ipdata.number_of_error_bans,
+                                    None => 0,
+                                };
+
+                                // Ban for longer if they've had error-based bans already
+                                ban_seconds = 60 + 60 * number_of_error_bans as u64;
+
+                                msg = "Timed Out, temporarily banned (long and growing)";
                             }
                             _ => {
                                 log::error!("{}: {}", peer, e);
                                 ban_seconds = 15;
-                                msg = "Banned (short, temporary)";
+                                msg = "Errored, temporarily banned (short, fixed)";
                             }
                         }
                     }
@@ -373,7 +386,7 @@ impl WebSocketService {
                         // And they are idle for 5 seconds with no subscriptions
                         if last_message_at + Duration::from_secs(5) < instant {
                             self.websocket.send(Message::Close(None)).await?;
-                            break;
+                            return Err(ChorusError::TimedOut.into());
                         }
                     }
                 }

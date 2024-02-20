@@ -103,6 +103,9 @@ pub enum ChorusError {
     // Rustls
     Rustls(tokio_rustls::rustls::Error),
 
+    // Timed Out
+    TimedOut,
+
     // Tungstenite
     Tungstenite(hyper_tungstenite::tungstenite::error::Error),
 
@@ -167,6 +170,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
             ChorusError::Restricted => write!(f, "Restricted"),
             ChorusError::Rustls(e) => write!(f, "{e}"),
+            ChorusError::TimedOut => write!(f, "Timed out"),
             ChorusError::Tungstenite(e) => write!(f, "{e}"),
             ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
             ChorusError::TooManyErrors => write!(f, "Too many errors"),
