@@ -343,10 +343,11 @@ impl WebSocketService {
 
         let mut last_message_at = Instant::now();
 
-        loop {
-            let interval = tokio::time::interval(Duration::from_secs(5));
-            tokio::pin!(interval);
+        let mut interval = tokio::time::interval(Duration::from_secs(5));
+        let _ = interval.tick().await; // consume the first tick
+        tokio::pin!(interval);
 
+        loop {
             tokio::select! {
                 instant = interval.tick() => {
                     // Drop them if they have no subscriptions
