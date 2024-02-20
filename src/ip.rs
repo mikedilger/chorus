@@ -17,17 +17,13 @@ pub struct IpData {
 }
 
 impl IpData {
-    pub fn new(ban: Ban) -> (IpData, u64) {
-        let mut ipdata = IpData {
+    pub fn new() -> IpData {
+        IpData {
             ban_until: Time::now(),
             number_of_error_exits: 0,
             number_of_too_many_error_bans: 0,
             number_of_timeouts: 0,
-        };
-
-        let seconds = ipdata.ban(ban);
-
-        (ipdata, seconds)
+        }
     }
 
     pub fn ban(&mut self, ban: Ban) -> u64 {

@@ -52,16 +52,13 @@ lazy_static! {
 
 impl Globals {
     pub fn ban(ipaddr: std::net::IpAddr, bankind: Ban) -> u64 {
-        let mut ban_seconds: u64 = 0;
-        GLOBALS
-            .ip_data
-            .entry(ipaddr)
-            .and_modify(|ipdata| ban_seconds = ipdata.ban(bankind))
-            .or_insert({
-                let (ipdata, seconds) = IpData::new(bankind);
-                ban_seconds = seconds;
-                ipdata
-            });
-        ban_seconds
+        if let Some(mut ipdata) = GLOBALS.ip_data.get_mut(&ipaddr) {
+            ipdata.ban(bankind)
+        } else {
+            let mut ipdata = IpData::new();
+            let seconds = ipdata.ban(bankind);
+            GLOBALS.ip_data.insert(ipaddr, ipdata);
+            seconds
+        }
     }
 }
