@@ -17,7 +17,7 @@ FriendlyConfig(
 
     // This is a bad idea in production, but useful for testing or for dumping
     // your entire relay
-    allow_scraping: true,
+    allow_scraping: false,
     max_subscriptions: 32,
     serve_ephemeral: true,
     serve_relay_lists: true,

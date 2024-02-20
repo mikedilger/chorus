@@ -115,6 +115,9 @@ pub enum ChorusError {
     // Too many errors
     TooManyErrors,
 
+    // Too many subscriptions
+    TooManySubscriptions,
+
     // URL Parse
     UrlParse(url::ParseError),
 
@@ -174,6 +177,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::Tungstenite(e) => write!(f, "{e}"),
             ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
             ChorusError::TooManyErrors => write!(f, "Too many errors"),
+            ChorusError::TooManySubscriptions => write!(f, "Too many subscriptions"),
             ChorusError::UrlParse(e) => write!(f, "{e}"),
             ChorusError::Utf8(e) => write!(f, "{e}"),
             ChorusError::Utf8Error => write!(f, "UTF-8 error"),

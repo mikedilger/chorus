@@ -60,19 +60,6 @@ impl WebSocketService {
         outpos += outlen;
         verify_char(input, b'"', &mut inpos)?; // FIXME: json_unescape should eat the closing quote
 
-        let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;
-        if self.subscriptions.len() >= max_subscriptions {
-            let reply = NostrReply::Closed(
-                &subid,
-                NostrReplyPrefix::RateLimited,
-                format!(
-                    "No more than {max_subscriptions} subscriptions are allowed at any one time"
-                ),
-            );
-            self.websocket.send(Message::text(reply.as_json())).await?;
-            return Ok(());
-        }
-
         // Read the filter into the session buffer
         let mut filters: Vec<OwnedFilter> = Vec::new();
         loop {
@@ -89,6 +76,36 @@ impl WebSocketService {
 
             let filterbytes = filter.as_bytes().to_owned();
             filters.push(OwnedFilter(filterbytes));
+        }
+
+        if let Err(e) = self.req_inner(&subid, filters).await {
+            let reply = match e.inner {
+                ChorusError::TooManySubscriptions => {
+                    let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;
+                    NostrReply::Closed(
+                        &subid,
+                        NostrReplyPrefix::Blocked,
+                        format!(
+                            "No more than {max_subscriptions} subscriptions are allowed at any one time"
+                        ),
+                    )
+                }
+                ChorusError::Scraper => {
+                    NostrReply::Closed(&subid, NostrReplyPrefix::Invalid, format!("{e}"))
+                }
+                _ => NostrReply::Closed(&subid, NostrReplyPrefix::Error, format!("{e}")),
+            };
+
+            self.websocket.send(Message::text(reply.as_json())).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn req_inner(&mut self, subid: &String, filters: Vec<OwnedFilter>) -> Result<(), Error> {
+        let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;
+        if self.subscriptions.len() >= max_subscriptions {
+            return Err(ChorusError::TooManySubscriptions.into());
         }
 
         let user = self.user;
@@ -126,12 +143,12 @@ impl WebSocketService {
             events.dedup();
 
             for event in events.drain(..) {
-                let reply = NostrReply::Event(&subid, event);
+                let reply = NostrReply::Event(subid, event);
                 self.websocket.send(Message::text(reply.as_json())).await?;
             }
 
             // eose
-            let reply = NostrReply::Eose(&subid);
+            let reply = NostrReply::Eose(subid);
             self.websocket.send(Message::text(reply.as_json())).await?;
         }
 
