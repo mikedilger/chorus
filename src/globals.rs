@@ -1,15 +1,15 @@
 use crate::config::Config;
+use crate::ip::IpData;
 use crate::store::Store;
 use crate::types::Time;
+use dashmap::DashMap;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
-use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::OnceLock;
 use tokio::sync::broadcast::Sender as BroadcastSender;
 use tokio::sync::watch::Sender as WatchSender;
-use tokio::sync::RwLock;
 
 pub struct Globals {
     pub config: OnceLock<Config>,
@@ -25,7 +25,8 @@ pub struct Globals {
 
     pub num_clients: AtomicUsize,
     pub shutting_down: WatchSender<bool>,
-    pub banlist: RwLock<HashMap<IpAddr, Time>>,
+
+    pub ip_data: DashMap<IpAddr, IpData>,
 }
 
 lazy_static! {
@@ -45,18 +46,28 @@ lazy_static! {
             new_events,
             num_clients: AtomicUsize::new(0),
             shutting_down,
-            banlist: RwLock::new(HashMap::new()),
+            ip_data: DashMap::new(),
         }
     };
 }
 
 impl Globals {
-    pub async fn ban(ipaddr: std::net::IpAddr, seconds: u64) {
+    pub async fn ban(ipaddr: std::net::IpAddr, seconds: u64, is_an_error_ban: bool) {
         let mut until = Time::now();
         until.0 += seconds;
-        if let Some(current_ban) = GLOBALS.banlist.read().await.get(&ipaddr) {
-            until.0 = current_ban.0.max(until.0);
-        }
-        GLOBALS.banlist.write().await.insert(ipaddr, until);
+
+        GLOBALS
+            .ip_data
+            .entry(ipaddr)
+            .and_modify(|ipdata| {
+                ipdata.ban_until = Time(ipdata.ban_until.0.max(until.0));
+                if is_an_error_ban {
+                    ipdata.number_of_error_bans += 1;
+                }
+            })
+            .or_insert(IpData {
+                ban_until: until,
+                number_of_error_bans: if is_an_error_ban { 1 } else { 0 },
+            });
     }
 }

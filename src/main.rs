@@ -3,6 +3,7 @@ include!("macros.rs");
 pub mod config;
 pub mod error;
 pub mod globals;
+pub mod ip;
 pub mod nostr;
 pub mod reply;
 pub mod store;
@@ -105,10 +106,11 @@ async fn main() -> Result<(), Error> {
                 let (tcp_stream, peer_addr) = v?;
                 let ipaddr = peer_addr.ip();
 
-                if let Some(ban_until) = GLOBALS.banlist.read().await.get(&ipaddr) {
+                if let Some(ip_data) = GLOBALS.ip_data.get(&ipaddr) {
                     let now = Time::now();
-                    if *ban_until > now {
-                        log::debug!("{peer_addr}: Blocking reconnection until {ban_until}");
+                    if ip_data.ban_until > now {
+                        log::debug!("{peer_addr}: Blocking reconnection until {}",
+                                    ip_data.ban_until);
                         continue;
                     }
                 }
@@ -273,6 +275,7 @@ async fn handle_http_request(
                     // Everybody gets a 4-second ban on disconnect to prevent
                     // rapid reconnection
                     let mut ban_seconds: u64 = 4;
+                    let mut is_an_error_ban: bool = false;
 
                     // Handle the websocket
                     if let Err(e) = ws_service.handle_websocket_stream().await {
@@ -284,7 +287,15 @@ async fn handle_http_request(
                                 // No big deal, no extra ban for that.
                             }
                             ChorusError::TooManyErrors => {
-                                ban_seconds = 60;
+                                is_an_error_ban = true;
+
+                                let number_of_error_bans = match GLOBALS.ip_data.get(&peer.ip()) {
+                                    Some(ipdata) => ipdata.number_of_error_bans,
+                                    None => 0,
+                                };
+
+                                // Ban for longer if they've had error-based bans already
+                                ban_seconds = 60 + 60 * number_of_error_bans as u64;
                             }
                             _ => {
                                 log::error!("{}: {}", peer, e);
@@ -299,7 +310,7 @@ async fn handle_http_request(
                     log::info!("{}: TOTAL={}, Disconnection", peer, old_num_websockets - 1);
 
                     // Ban for the appropriate duration
-                    Globals::ban(peer.ip(), ban_seconds).await;
+                    Globals::ban(peer.ip(), ban_seconds, is_an_error_ban).await;
                 }
                 Err(e) => {
                     log::error!("{}: {}", peer, e);
