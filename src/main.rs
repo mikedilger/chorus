@@ -307,10 +307,16 @@ async fn handle_http_request(
                     // Decrement count of active websockets
                     let old_num_websockets = GLOBALS.num_clients.fetch_sub(1, Ordering::SeqCst);
 
-                    log::info!("{}: TOTAL={}, {}", peer, old_num_websockets - 1, msg);
-
                     // Ban for the appropriate duration
-                    Globals::ban(peer.ip(), bankind).await;
+                    let ban_seconds = Globals::ban(peer.ip(), bankind);
+
+                    log::info!(
+                        "{}: TOTAL={}, {}, ban={}s",
+                        peer,
+                        old_num_websockets - 1,
+                        msg,
+                        ban_seconds
+                    );
                 }
                 Err(e) => {
                     log::error!("{}: {}", peer, e);

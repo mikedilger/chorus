@@ -17,7 +17,7 @@ pub struct IpData {
 }
 
 impl IpData {
-    pub fn new(ban: Ban) -> IpData {
+    pub fn new(ban: Ban) -> (IpData, u64) {
         let mut ipdata = IpData {
             ban_until: Time::now(),
             number_of_error_exits: 0,
@@ -25,12 +25,12 @@ impl IpData {
             number_of_timeouts: 0,
         };
 
-        ipdata.ban(ban);
+        let seconds = ipdata.ban(ban);
 
-        ipdata
+        (ipdata, seconds)
     }
 
-    pub fn ban(&mut self, ban: Ban) {
+    pub fn ban(&mut self, ban: Ban) -> u64 {
         // Update numbers
         match ban {
             Ban::ErrorExit => self.number_of_error_exits += 1,
@@ -41,17 +41,20 @@ impl IpData {
 
         // Compute ban_until
         let mut until = Time::now();
-        until.0 += self.ban_seconds(ban);
+        let seconds = self.ban_seconds(ban);
+        until.0 += seconds;
 
         self.ban_until = Time(self.ban_until.0.max(until.0));
+
+        seconds
     }
 
     fn ban_seconds(&self, thisban: Ban) -> u64 {
         match thisban {
-            Ban::General => 3,
-            Ban::ErrorExit => 3 + self.number_of_error_exits * 10,
-            Ban::TooManyErrors => 3 + self.number_of_too_many_error_bans * 15,
-            Ban::Timeout => 3 + self.number_of_timeouts * 5,
+            Ban::General => 2,
+            Ban::ErrorExit => 2 + self.number_of_error_exits * 10,
+            Ban::TooManyErrors => 2 + self.number_of_too_many_error_bans * 15,
+            Ban::Timeout => 2 + self.number_of_timeouts * 5,
         }
     }
 }
