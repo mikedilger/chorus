@@ -366,12 +366,12 @@ async fn screen_incoming_event(
     }
 
     // Accept relay lists from anybody
-    if event.kind() == Kind(10002) {
+    if event.kind() == Kind(10002) && GLOBALS.config.get().unwrap().serve_relay_lists {
         return Ok(true);
     }
 
     // Allow if event kind ephemeral
-    if event.kind().is_ephemeral() {
+    if event.kind().is_ephemeral() && GLOBALS.config.get().unwrap().serve_ephemeral {
         return Ok(true);
     }
 
@@ -408,12 +408,12 @@ pub fn screen_outgoing_event(
     authorized_user: bool,
 ) -> bool {
     // Allow Relay Lists
-    if event.kind() == Kind(10002) {
+    if event.kind() == Kind(10002) && GLOBALS.config.get().unwrap().serve_relay_lists {
         return true;
     }
 
     // Allow if event kind ephemeral
-    if event.kind().is_ephemeral() {
+    if event.kind().is_ephemeral() && GLOBALS.config.get().unwrap().serve_ephemeral {
         return true;
     }
 

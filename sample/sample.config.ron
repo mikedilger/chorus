@@ -19,4 +19,6 @@ FriendlyConfig(
     // your entire relay
     allow_scraping: true,
     max_subscriptions: 32,
+    serve_ephemeral: true,
+    serve_relay_lists: true,
 )
