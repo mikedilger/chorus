@@ -20,6 +20,8 @@ pub struct FriendlyConfig {
     pub verify_events: bool,
     pub allow_scraping: bool,
     pub max_subscriptions: usize,
+    pub serve_ephemeral: bool,
+    pub serve_relay_lists: bool,
 }
 
 impl Default for FriendlyConfig {
@@ -40,6 +42,8 @@ impl Default for FriendlyConfig {
             verify_events: true,
             allow_scraping: false,
             max_subscriptions: 32,
+            serve_ephemeral: true,
+            serve_relay_lists: true,
         }
     }
 }
@@ -62,6 +66,8 @@ impl FriendlyConfig {
             verify_events,
             allow_scraping,
             max_subscriptions,
+            serve_ephemeral,
+            serve_relay_lists,
         } = self;
 
         let mut public_key: Option<Pubkey> = None;
@@ -93,6 +99,8 @@ impl FriendlyConfig {
             verify_events,
             allow_scraping,
             max_subscriptions,
+            serve_ephemeral,
+            serve_relay_lists,
         })
     }
 }
@@ -115,4 +123,6 @@ pub struct Config {
     pub verify_events: bool,
     pub allow_scraping: bool,
     pub max_subscriptions: usize,
+    pub serve_ephemeral: bool,
+    pub serve_relay_lists: bool,
 }

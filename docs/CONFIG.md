@@ -130,3 +130,15 @@ If you set this too low, clients will be incentivised to resubmit updated subscr
 It is strongly recommended to not go below 16.
 
 Default is 32.
+
+### serve_ephemeral
+
+Accept and serve all ephemeral events to everybody.
+
+Default is true.
+
+### serve_relay_lists
+
+Accept and serve kind 10002 events to everybody.
+
+Default is true.

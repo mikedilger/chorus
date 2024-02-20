@@ -60,19 +60,6 @@ impl WebSocketService {
         outpos += outlen;
         verify_char(input, b'"', &mut inpos)?; // FIXME: json_unescape should eat the closing quote
 
-        let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;
-        if self.subscriptions.len() >= max_subscriptions {
-            let reply = NostrReply::Closed(
-                &subid,
-                NostrReplyPrefix::RateLimited,
-                format!(
-                    "No more than {max_subscriptions} subscriptions are allowed at any one time"
-                ),
-            );
-            self.websocket.send(Message::text(reply.as_json())).await?;
-            return Ok(());
-        }
-
         // Read the filter into the session buffer
         let mut filters: Vec<OwnedFilter> = Vec::new();
         loop {
@@ -89,6 +76,42 @@ impl WebSocketService {
 
             let filterbytes = filter.as_bytes().to_owned();
             filters.push(OwnedFilter(filterbytes));
+        }
+
+        if let Err(e) = self.req_inner(&subid, filters).await {
+            log::error!("{}: {e}", self.peer);
+            if msg.len() < 2048 {
+                log::error!("{}:   msg was {}", self.peer, msg);
+            } else {
+                log::error!("{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
+            }
+            let reply = match e.inner {
+                ChorusError::TooManySubscriptions => {
+                    let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;
+                    NostrReply::Closed(
+                        &subid,
+                        NostrReplyPrefix::Blocked,
+                        format!(
+                            "No more than {max_subscriptions} subscriptions are allowed at any one time"
+                        ),
+                    )
+                }
+                ChorusError::Scraper => {
+                    NostrReply::Closed(&subid, NostrReplyPrefix::Invalid, format!("{e}"))
+                }
+                _ => NostrReply::Closed(&subid, NostrReplyPrefix::Error, format!("{e}")),
+            };
+
+            self.websocket.send(Message::text(reply.as_json())).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn req_inner(&mut self, subid: &String, filters: Vec<OwnedFilter>) -> Result<(), Error> {
+        let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;
+        if self.subscriptions.len() >= max_subscriptions {
+            return Err(ChorusError::TooManySubscriptions.into());
         }
 
         let user = self.user;
@@ -126,12 +149,12 @@ impl WebSocketService {
             events.dedup();
 
             for event in events.drain(..) {
-                let reply = NostrReply::Event(&subid, event);
+                let reply = NostrReply::Event(subid, event);
                 self.websocket.send(Message::text(reply.as_json())).await?;
             }
 
             // eose
-            let reply = NostrReply::Eose(&subid);
+            let reply = NostrReply::Eose(subid);
             self.websocket.send(Message::text(reply.as_json())).await?;
         }
 
@@ -139,7 +162,7 @@ impl WebSocketService {
         self.subscriptions.insert(subid.to_owned(), filters);
 
         log::debug!(
-            "{}, new subscription \"{subid}\", {} total",
+            "{}: new subscription \"{subid}\", {} total",
             self.peer,
             self.subscriptions.len()
         );
@@ -366,12 +389,12 @@ async fn screen_incoming_event(
     }
 
     // Accept relay lists from anybody
-    if event.kind() == Kind(10002) {
+    if event.kind() == Kind(10002) && GLOBALS.config.get().unwrap().serve_relay_lists {
         return Ok(true);
     }
 
     // Allow if event kind ephemeral
-    if event.kind().is_ephemeral() {
+    if event.kind().is_ephemeral() && GLOBALS.config.get().unwrap().serve_ephemeral {
         return Ok(true);
     }
 
@@ -408,12 +431,12 @@ pub fn screen_outgoing_event(
     authorized_user: bool,
 ) -> bool {
     // Allow Relay Lists
-    if event.kind() == Kind(10002) {
+    if event.kind() == Kind(10002) && GLOBALS.config.get().unwrap().serve_relay_lists {
         return true;
     }
 
     // Allow if event kind ephemeral
-    if event.kind().is_ephemeral() {
+    if event.kind().is_ephemeral() && GLOBALS.config.get().unwrap().serve_ephemeral {
         return true;
     }
 

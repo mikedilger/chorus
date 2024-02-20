@@ -16,6 +16,12 @@ pub struct IpData {
     pub number_of_timeouts: u64,
 }
 
+impl Default for IpData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IpData {
     pub fn new() -> IpData {
         IpData {

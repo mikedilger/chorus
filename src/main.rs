@@ -30,7 +30,7 @@ use std::error::Error as StdError;
 use std::fs::OpenOptions;
 use std::future::Future;
 use std::io::Read;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::pin::Pin;
 use std::sync::atomic::Ordering;
 use std::task::{Context, Poll};
@@ -44,7 +44,11 @@ use tungstenite::Message;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    env_logger::init();
+    env_logger::builder()
+        .format_target(false)
+        .format_module_path(false)
+        .format_timestamp_millis()
+        .init();
 
     // Get args (config path)
     let mut args = env::args();
@@ -224,7 +228,21 @@ impl Service<Request<Body>> for HttpService {
     // This is called for each HTTP request made by the client
     // NOTE: it is not called for each websocket message once upgraded.
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        let peer = self.peer;
+        let mut peer = self.peer;
+
+        // If chorus is behind a proxy that sets an "X-Real-Ip" header, we use
+        // that ip address instead (otherwise their log file will just say "127.0.0.1"
+        // for every peer)
+        if peer.ip().is_loopback() {
+            if let Some(rip) = req.headers().get("x-real-ip") {
+                if let Ok(ripstr) = rip.to_str() {
+                    if let Ok(ipaddr) = ripstr.parse::<IpAddr>() {
+                        peer.set_ip(ipaddr);
+                    }
+                }
+            }
+        }
+
         Box::pin(async move { handle_http_request(peer, req).await })
     }
 }
@@ -450,9 +468,9 @@ impl WebSocketService {
                     self.errcount += 1;
                     log::error!("{}: {e}", self.peer);
                     if msg.len() < 2048 {
-                        log::error!("{}: msg was {}", self.peer, msg);
+                        log::error!("{}:   msg was {}", self.peer, msg);
                     } else {
-                        log::error!("{}: msg was {} ...", self.peer, &msg[..2048]);
+                        log::error!("{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
                     }
                     let reply = NostrReply::Notice(format!("error: {}", e));
                     self.websocket.send(Message::text(reply.as_json())).await?;
