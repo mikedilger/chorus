@@ -97,6 +97,9 @@ pub enum ChorusError {
     // No private key
     NoPrivateKey,
 
+    // No such subscription
+    NoSuchSubscription,
+
     // Restricted
     Restricted,
 
@@ -171,6 +174,7 @@ impl std::fmt::Display for ChorusError {
             ),
             ChorusError::Lmdb(e) => write!(f, "{e}"),
             ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
+            ChorusError::NoSuchSubscription => write!(f, "No such subscription"),
             ChorusError::Restricted => write!(f, "Restricted"),
             ChorusError::Rustls(e) => write!(f, "{e}"),
             ChorusError::TimedOut => write!(f, "Timed out"),

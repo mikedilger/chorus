@@ -279,6 +279,7 @@ async fn handle_http_request(
                         challenge: TextNonce::new().into_string(),
                         user: None,
                         errcount: 0,
+                        replied: false,
                     };
 
                     // Increment count of active websockets
@@ -364,6 +365,7 @@ struct WebSocketService {
     pub challenge: String,
     pub user: Option<Pubkey>,
     pub errcount: usize,
+    pub replied: bool,
 }
 
 impl WebSocketService {
@@ -463,6 +465,7 @@ impl WebSocketService {
         match message {
             Message::Text(msg) => {
                 log::trace!("{}: <= {}", self.peer, msg);
+                self.replied = false;
                 // This is defined in nostr.rs
                 if let Err(e) = self.handle_nostr_message(&msg).await {
                     self.errcount += 1;
@@ -472,8 +475,10 @@ impl WebSocketService {
                     } else {
                         log::error!("{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
                     }
-                    let reply = NostrReply::Notice(format!("error: {}", e));
-                    self.websocket.send(Message::text(reply.as_json())).await?;
+                    if !self.replied {
+                        let reply = NostrReply::Notice(format!("error: {}", e));
+                        self.websocket.send(Message::text(reply.as_json())).await?;
+                    }
                     if self.errcount >= 3 {
                         let reply = NostrReply::Notice(
                             "Too many errors (3). Banned for 60 seconds.".into(),

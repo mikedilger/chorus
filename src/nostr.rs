@@ -36,6 +36,7 @@ impl WebSocketService {
             log::warn!("{}: Received unhandled text message: {}", self.peer, msg);
             let reply = NostrReply::Notice("Command unrecognized".to_owned());
             self.websocket.send(Message::text(reply.as_json())).await?;
+            self.replied = true;
         }
 
         Ok(())
@@ -79,12 +80,6 @@ impl WebSocketService {
         }
 
         if let Err(e) = self.req_inner(&subid, filters).await {
-            log::error!("{}: {e}", self.peer);
-            if msg.len() < 2048 {
-                log::error!("{}:   msg was {}", self.peer, msg);
-            } else {
-                log::error!("{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
-            }
             let reply = match e.inner {
                 ChorusError::TooManySubscriptions => {
                     let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;
@@ -101,11 +96,12 @@ impl WebSocketService {
                 }
                 _ => NostrReply::Closed(&subid, NostrReplyPrefix::Error, format!("{e}")),
             };
-
             self.websocket.send(Message::text(reply.as_json())).await?;
+            self.replied = true;
+            Err(e)
+        } else {
+            Ok(())
         }
-
-        Ok(())
     }
 
     async fn req_inner(&mut self, subid: &String, filters: Vec<OwnedFilter>) -> Result<(), Error> {
@@ -161,6 +157,8 @@ impl WebSocketService {
         // Store subscription
         self.subscriptions.insert(subid.to_owned(), filters);
 
+        self.replied = true;
+
         log::debug!(
             "{}: new subscription \"{subid}\", {} total",
             self.peer,
@@ -183,9 +181,8 @@ impl WebSocketService {
         let (_incount, event) = Event::from_json(&input[inpos..], &mut self.buffer)?;
         let id = event.id();
 
-        let reply = match self.event_inner().await {
-            Ok(()) => NostrReply::Ok(id, true, NostrReplyPrefix::None, "".to_string()),
-            Err(e) => match e.inner {
+        if let Err(e) = self.event_inner().await {
+            let reply = match e.inner {
                 ChorusError::AuthRequired => NostrReply::Ok(
                     id,
                     false,
@@ -215,11 +212,16 @@ impl WebSocketService {
                     )
                 }
                 _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
-            },
-        };
-        self.websocket.send(Message::text(reply.as_json())).await?;
-
-        Ok(())
+            };
+            self.websocket.send(Message::text(reply.as_json())).await?;
+            self.replied = true;
+            Err(e)
+        } else {
+            let reply = NostrReply::Ok(id, true, NostrReplyPrefix::None, "".to_string());
+            self.websocket.send(Message::text(reply.as_json())).await?;
+            self.replied = true;
+            Ok(())
+        }
     }
 
     async fn event_inner(&mut self) -> Result<(), Error> {
@@ -272,15 +274,16 @@ impl WebSocketService {
         let subid = unsafe { std::str::from_utf8_unchecked(&self.buffer[..outlen]) };
 
         // If we have that subscription
-        let reply = if self.subscriptions.contains_key(subid) {
+        if self.subscriptions.contains_key(subid) {
             // Remove it, and let them know
             self.subscriptions.remove(subid);
-            NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned())
+            let reply = NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned());
+            self.websocket.send(Message::text(reply.as_json())).await?;
+            self.replied = true;
+            Ok(())
         } else {
-            NostrReply::Notice(format!("no such subscription id: {}", subid))
-        };
-        self.websocket.send(Message::text(reply.as_json())).await?;
-        Ok(())
+            Err(ChorusError::NoSuchSubscription.into())
+        }
     }
 
     pub async fn auth(&mut self, msg: &str, mut inpos: usize) -> Result<(), Error> {
@@ -295,18 +298,22 @@ impl WebSocketService {
         let id = event.id();
 
         // Always return an OK message, based on the results of our auth_inner
-        let reply = match self.auth_inner().await {
-            Ok(()) => NostrReply::Ok(id, true, NostrReplyPrefix::None, "".to_string()),
-            Err(e) => match e.inner {
-                ChorusError::AuthFailure(s) => {
-                    NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, s)
+        if let Err(e) = self.auth_inner().await {
+            let reply = match e.inner {
+                ChorusError::AuthFailure(_) => {
+                    NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, format!("{e}"))
                 }
-                _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
-            },
-        };
-        self.websocket.send(Message::text(reply.as_json())).await?;
-
-        Ok(())
+                _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{e}")),
+            };
+            self.websocket.send(Message::text(reply.as_json())).await?;
+            self.replied = true;
+            Err(e)
+        } else {
+            let reply = NostrReply::Ok(id, true, NostrReplyPrefix::None, "".to_string());
+            self.websocket.send(Message::text(reply.as_json())).await?;
+            self.replied = true;
+            Ok(())
+        }
     }
 
     async fn auth_inner(&mut self) -> Result<(), Error> {
