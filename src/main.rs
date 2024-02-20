@@ -266,7 +266,7 @@ async fn handle_http_request(
                     let old_num_websockets = GLOBALS.num_clients.fetch_add(1, Ordering::SeqCst);
 
                     log::info!(
-                        "{}: TOTAL={}, Connection: {}",
+                        "{}: TOTAL={}, New Connection: {}",
                         peer,
                         old_num_websockets + 1,
                         ua
@@ -276,6 +276,7 @@ async fn handle_http_request(
                     // rapid reconnection
                     let mut ban_seconds: u64 = 4;
                     let mut is_an_error_ban: bool = false;
+                    let mut msg = "Closed";
 
                     // Handle the websocket
                     if let Err(e) = ws_service.handle_websocket_stream().await {
@@ -285,6 +286,7 @@ async fn handle_http_request(
                             )) => {
                                 // So they disconnected ungracefully.
                                 // No big deal, no extra ban for that.
+                                msg = "Reset";
                             }
                             ChorusError::TooManyErrors => {
                                 is_an_error_ban = true;
@@ -296,10 +298,13 @@ async fn handle_http_request(
 
                                 // Ban for longer if they've had error-based bans already
                                 ban_seconds = 60 + 60 * number_of_error_bans as u64;
+
+                                msg = "Banned (temporary)";
                             }
                             _ => {
                                 log::error!("{}: {}", peer, e);
                                 ban_seconds = 15;
+                                msg = "Banned (short, temporary)";
                             }
                         }
                     }
@@ -307,7 +312,7 @@ async fn handle_http_request(
                     // Decrement count of active websockets
                     let old_num_websockets = GLOBALS.num_clients.fetch_sub(1, Ordering::SeqCst);
 
-                    log::info!("{}: TOTAL={}, Disconnection", peer, old_num_websockets - 1);
+                    log::info!("{}: TOTAL={}, {}", peer, old_num_websockets - 1, msg);
 
                     // Ban for the appropriate duration
                     Globals::ban(peer.ip(), ban_seconds, is_an_error_ban).await;
