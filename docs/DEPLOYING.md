@@ -173,3 +173,13 @@ You can watch the logs with a command like this
 sudo journalctl -f -u chorus.service
 ```
 
+## Uninstalling
+
+```bash
+sudo systemctl disable chorus.service
+sudo rm -f /etc/nginx/sites-available/chorus.nginx.conf
+sudo rm -f /etc/nginx/sites-enabled/chorus.nginx.conf
+sudo systemctl restart nginx.service
+sudo rm -rf /opt/chorus
+sudo userdel chorus
+```
