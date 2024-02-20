@@ -1,10 +1,10 @@
-use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
-use crate::reply::{NostrReply, NostrReplyPrefix};
-use crate::types::parse::json_escape::json_unescape;
-use crate::types::parse::json_parse::*;
-use crate::types::{Event, Filter, Kind, OwnedFilter, Pubkey, Time};
 use crate::WebSocketService;
+use chorus_lib::error::{ChorusError, Error};
+use chorus_lib::reply::{NostrReply, NostrReplyPrefix};
+use chorus_lib::types::parse::json_escape::json_unescape;
+use chorus_lib::types::parse::json_parse::*;
+use chorus_lib::types::{Event, Filter, Kind, OwnedFilter, Pubkey, Time};
 use futures::SinkExt;
 use hyper_tungstenite::tungstenite::Message;
 use url::Url;

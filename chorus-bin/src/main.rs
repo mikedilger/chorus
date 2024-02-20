@@ -1,24 +1,16 @@
-include!("macros.rs");
-
-pub mod config;
-pub mod error;
 pub mod globals;
-pub mod ip;
 pub mod nostr;
-pub mod reply;
-pub mod store;
 pub mod tls;
-pub mod types;
 pub mod web;
 
-use crate::config::{Config, FriendlyConfig};
-use crate::error::{ChorusError, Error};
 use crate::globals::{Globals, GLOBALS};
-use crate::ip::Ban;
-use crate::reply::NostrReply;
-use crate::store::Store;
 use crate::tls::MaybeTlsStream;
-use crate::types::{OwnedFilter, Pubkey, Time};
+use chorus_lib::config::{Config, FriendlyConfig};
+use chorus_lib::error::{ChorusError, Error};
+use chorus_lib::ip::Ban;
+use chorus_lib::reply::NostrReply;
+use chorus_lib::store::Store;
+use chorus_lib::types::{OwnedFilter, Pubkey, Time};
 use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::service::Service;
 use hyper::upgrade::Upgraded;

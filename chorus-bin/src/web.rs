@@ -1,6 +1,6 @@
-use crate::config::Config;
-use crate::error::Error;
 use crate::globals::GLOBALS;
+use chorus_lib::config::Config;
+use chorus_lib::error::Error;
 use hyper::{Body, Request, Response, StatusCode};
 use std::net::SocketAddr;
 

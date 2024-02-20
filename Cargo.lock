@@ -145,6 +145,31 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 name = "chorus"
 version = "1.0.6"
 dependencies = [
+ "chorus-lib",
+ "dashmap",
+ "env_logger",
+ "futures",
+ "heed",
+ "hyper",
+ "hyper-tungstenite",
+ "lazy_static",
+ "log",
+ "mmap-append",
+ "ron",
+ "rustls-pemfile",
+ "secp256k1",
+ "serde",
+ "tempfile",
+ "textnonce",
+ "tokio",
+ "tokio-rustls",
+ "url",
+]
+
+[[package]]
+name = "chorus-lib"
+version = "1.0.6"
+dependencies = [
  "dashmap",
  "env_logger",
  "futures",

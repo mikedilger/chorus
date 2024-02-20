@@ -1,6 +1,6 @@
-use crate::config::Config;
-use crate::ip::{Ban, IpData};
-use crate::store::Store;
+use chorus_lib::config::Config;
+use chorus_lib::ip::{Ban, IpData};
+use chorus_lib::store::Store;
 use dashmap::DashMap;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
