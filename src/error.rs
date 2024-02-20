@@ -211,6 +211,50 @@ impl StdError for ChorusError {
     }
 }
 
+impl ChorusError {
+    pub fn punishment(&self) -> f32 {
+        match self {
+            ChorusError::AuthFailure(_) => 0.25,
+            ChorusError::AuthRequired => 0.0,
+            ChorusError::BadEventId => 0.1,
+            ChorusError::BadHexInput => 0.25,
+            ChorusError::BufferTooSmall => 0.0,
+            ChorusError::ChannelRecv(_) => 0.0,
+            ChorusError::ChannelSend(_) => 0.0,
+            ChorusError::Config(_) => 0.0,
+            ChorusError::Crypto(_) => 0.1,
+            ChorusError::Deleted => 0.1,
+            ChorusError::Duplicate => 0.01,
+            ChorusError::EndOfInput => 0.2,
+            ChorusError::EventIsInvalid(_) => 0.2,
+            ChorusError::Http(_) => 0.0,
+            ChorusError::Hyper(_) => 0.0,
+            ChorusError::Io(_) => 0.0,
+            ChorusError::JsonBad(_, _) => 0.2,
+            ChorusError::JsonBadCharacter(_, _, _) => 0.2,
+            ChorusError::JsonBadEvent(_, _) => 0.2,
+            ChorusError::JsonBadFilter(_, _) => 0.2,
+            ChorusError::JsonBadStringChar(_) => 0.2,
+            ChorusError::JsonEscape => 0.2,
+            ChorusError::JsonEscapeSurrogate => 0.05,
+            ChorusError::Lmdb(_) => 0.0,
+            ChorusError::NoPrivateKey => 0.0,
+            ChorusError::NoSuchSubscription => 0.05,
+            ChorusError::Restricted => 0.1,
+            ChorusError::Rustls(_) => 0.0,
+            ChorusError::TimedOut => 0.1,
+            ChorusError::Tungstenite(_) => 0.0,
+            ChorusError::Scraper => 0.5,
+            ChorusError::TooManyErrors => 1.0,
+            ChorusError::TooManySubscriptions => 0.1,
+            ChorusError::UrlParse(_) => 0.1,
+            ChorusError::Utf8(_) => 0.1,
+            ChorusError::Utf8Error => 0.1,
+            ChorusError::WebsocketProtocol(_) => 0.1,
+        }
+    }
+}
+
 // Note: we impl Into because our typical pattern is ChorusError::Variant.into()
 //       when we tried implementing From, the location was deep in rust code's
 //       blanket into implementation, which wasn't the line number we wanted.

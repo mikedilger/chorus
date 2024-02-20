@@ -278,7 +278,7 @@ async fn handle_http_request(
                         websocket,
                         challenge: TextNonce::new().into_string(),
                         user: None,
-                        errcount: 0,
+                        error_punishment: 0.0,
                         replied: false,
                     };
 
@@ -364,7 +364,7 @@ struct WebSocketService {
     pub websocket: WebSocketStream<Upgraded>,
     pub challenge: String,
     pub user: Option<Pubkey>,
-    pub errcount: usize,
+    pub error_punishment: f32,
     pub replied: bool,
 }
 
@@ -468,7 +468,7 @@ impl WebSocketService {
                 self.replied = false;
                 // This is defined in nostr.rs
                 if let Err(e) = self.handle_nostr_message(&msg).await {
-                    self.errcount += 1;
+                    self.error_punishment += e.inner.punishment();
                     log::error!("{}: {e}", self.peer);
                     if msg.len() < 2048 {
                         log::error!("{}:   msg was {}", self.peer, msg);
@@ -479,10 +479,8 @@ impl WebSocketService {
                         let reply = NostrReply::Notice(format!("error: {}", e));
                         self.websocket.send(Message::text(reply.as_json())).await?;
                     }
-                    if self.errcount >= 3 {
-                        let reply = NostrReply::Notice(
-                            "Too many errors (3). Banned for 60 seconds.".into(),
-                        );
+                    if self.error_punishment > 1.0 {
+                        let reply = NostrReply::Notice("Too many errors".into());
                         self.websocket.send(Message::text(reply.as_json())).await?;
                         return Err(ChorusError::TooManyErrors.into());
                     }
