@@ -3,14 +3,14 @@ pub mod nostr;
 pub mod tls;
 pub mod web;
 
-use crate::globals::{Globals, GLOBALS};
+use crate::globals::GLOBALS;
 use crate::tls::MaybeTlsStream;
 use chorus_lib::config::{Config, FriendlyConfig};
 use chorus_lib::error::{ChorusError, Error};
-use chorus_lib::ip::Ban;
+use chorus_lib::ip::SessionExit;
 use chorus_lib::reply::NostrReply;
 use chorus_lib::store::Store;
-use chorus_lib::types::{OwnedFilter, Pubkey, Time};
+use chorus_lib::types::{OwnedFilter, Pubkey};
 use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::service::Service;
 use hyper::upgrade::Upgraded;
@@ -107,14 +107,12 @@ async fn main() -> Result<(), Error> {
                 let (tcp_stream, peer_addr) = v?;
                 let ipaddr = peer_addr.ip();
 
-                if let Some(ip_data) = GLOBALS.ip_data.get(&ipaddr) {
-                    let now = Time::now();
-                    if ip_data.ban_until > now {
-                        log::debug!(target: "Client",
-                                    "{peer_addr}: Blocking reconnection until {}",
-                                    ip_data.ban_until);
-                        continue;
-                    }
+                let ip_data = GLOBALS.store.get().unwrap().get_ip_data(ipaddr)?;
+                if ip_data.is_banned() {
+                    log::debug!(target: "Client",
+                                "{peer_addr}: Blocking reconnection until {}",
+                                ip_data.ban_until);
+                    continue;
                 }
 
                 if let Some(tls_acceptor) = &maybe_tls_acceptor {
@@ -300,7 +298,7 @@ async fn handle_http_request(
 
                     // Everybody gets a 4-second ban on disconnect to prevent
                     // rapid reconnection
-                    let mut bankind: Ban = Ban::General;
+                    let mut session_exit: SessionExit = SessionExit::Ok;
                     let mut msg = "Closed";
 
                     // Handle the websocket
@@ -310,20 +308,20 @@ async fn handle_http_request(
                                 tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
                             )) => {
                                 // So they disconnected ungracefully.
-                                // No big deal, no extra ban for that.
+                                // No big deal, still SessionExit::Ok
                                 msg = "Reset";
                             }
-                            ChorusError::TooManyErrors => {
-                                bankind = Ban::TooManyErrors;
-                                msg = "Errored Out (too many)";
+                            ChorusError::ErrorClose => {
+                                session_exit = SessionExit::TooManyErrors;
+                                msg = "Errored Out";
                             }
                             ChorusError::TimedOut => {
-                                bankind = Ban::Timeout;
+                                session_exit = SessionExit::Timeout;
                                 msg = "Timed Out (with no subscriptions)";
                             }
                             _ => {
                                 log::error!(target: "Client", "{}: {}", peer, e);
-                                bankind = Ban::ErrorExit;
+                                session_exit = SessionExit::ErrorExit;
                                 msg = "Error Exited";
                             }
                         }
@@ -332,8 +330,16 @@ async fn handle_http_request(
                     // Decrement count of active websockets
                     let old_num_websockets = GLOBALS.num_clients.fetch_sub(1, Ordering::SeqCst);
 
-                    // Ban for the appropriate duration
-                    let ban_seconds = Globals::ban(peer.ip(), bankind);
+                    // Update ip data (including ban time)
+                    let mut ban_seconds = 0;
+                    if let Ok(mut ip_data) = GLOBALS.store.get().unwrap().get_ip_data(peer.ip()) {
+                        ban_seconds = ip_data.update_on_session_close(session_exit);
+                        let _ = GLOBALS
+                            .store
+                            .get()
+                            .unwrap()
+                            .update_ip_data(peer.ip(), &ip_data);
+                    }
 
                     // we cheat somewhat and log these websocket open and close messages
                     // as server messages
@@ -488,10 +494,10 @@ impl WebSocketService {
                         let reply = NostrReply::Notice(format!("error: {}", e));
                         self.websocket.send(Message::text(reply.as_json())).await?;
                     }
-                    if self.error_punishment > 1.0 {
-                        let reply = NostrReply::Notice("Too many errors".into());
+                    if self.error_punishment >= 1.0 {
+                        let reply = NostrReply::Notice("Closing due to error(s)".into());
                         self.websocket.send(Message::text(reply.as_json())).await?;
-                        return Err(ChorusError::TooManyErrors.into());
+                        return Err(ChorusError::ErrorClose.into());
                     }
                 }
             }

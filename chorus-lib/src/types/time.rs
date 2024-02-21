@@ -1,7 +1,14 @@
+use speedy::{Readable, Writable};
 use std::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Readable, Writable)]
 pub struct Time(pub u64);
+
+impl Default for Time {
+    fn default() -> Time {
+        Time::now()
+    }
+}
 
 impl fmt::Display for Time {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

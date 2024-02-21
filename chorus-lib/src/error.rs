@@ -58,6 +58,9 @@ pub enum ChorusError {
     // End of Input
     EndOfInput,
 
+    // Closing on error(s)
+    ErrorClose,
+
     // Event is Invalid
     EventIsInvalid(String),
 
@@ -121,9 +124,6 @@ pub enum ChorusError {
     // Speedy
     Speedy(speedy::Error),
 
-    // Too many errors
-    TooManyErrors,
-
     // Too many subscriptions
     TooManySubscriptions,
 
@@ -155,6 +155,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::Deleted => write!(f, "Event was previously deleted"),
             ChorusError::Duplicate => write!(f, "Duplicate event"),
             ChorusError::EndOfInput => write!(f, "End of input"),
+            ChorusError::ErrorClose => write!(f, "Closing due to error(s)"),
             ChorusError::EventIsInvalid(s) => write!(f, "Event is invalid: {s}"),
             ChorusError::Http(e) => write!(f, "{e}"),
             ChorusError::Hyper(e) => write!(f, "{e}"),
@@ -188,7 +189,6 @@ impl std::fmt::Display for ChorusError {
             ChorusError::Tungstenite(e) => write!(f, "{e}"),
             ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
             ChorusError::Speedy(e) => write!(f, "{e}"),
-            ChorusError::TooManyErrors => write!(f, "Too many errors"),
             ChorusError::TooManySubscriptions => write!(f, "Too many subscriptions"),
             ChorusError::UrlParse(e) => write!(f, "{e}"),
             ChorusError::Utf8(e) => write!(f, "{e}"),
@@ -226,7 +226,7 @@ impl ChorusError {
             ChorusError::AuthFailure(_) => 0.25,
             ChorusError::AuthRequired => 0.0,
             ChorusError::BadEventId => 0.1,
-            ChorusError::BadHexInput => 0.25,
+            ChorusError::BadHexInput => 0.5,
             ChorusError::BufferTooSmall => 0.0,
             ChorusError::ChannelRecv(_) => 0.0,
             ChorusError::ChannelSend(_) => 0.0,
@@ -234,7 +234,8 @@ impl ChorusError {
             ChorusError::Crypto(_) => 0.1,
             ChorusError::Deleted => 0.1,
             ChorusError::Duplicate => 0.01,
-            ChorusError::EndOfInput => 0.2,
+            ChorusError::EndOfInput => 0.5,
+            ChorusError::ErrorClose => 1.0,
             ChorusError::EventIsInvalid(_) => 0.2,
             ChorusError::Http(_) => 0.0,
             ChorusError::Hyper(_) => 0.0,
@@ -254,9 +255,8 @@ impl ChorusError {
             ChorusError::Rustls(_) => 0.0,
             ChorusError::TimedOut => 0.1,
             ChorusError::Tungstenite(_) => 0.0,
-            ChorusError::Scraper => 0.5,
+            ChorusError::Scraper => 1.0,
             ChorusError::Speedy(_) => 0.0,
-            ChorusError::TooManyErrors => 1.0,
             ChorusError::TooManySubscriptions => 0.1,
             ChorusError::UrlParse(_) => 0.1,
             ChorusError::Utf8(_) => 0.1,

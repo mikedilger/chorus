@@ -4,11 +4,14 @@ pub use event_store::EventStore;
 mod migrations;
 
 use crate::error::{ChorusError, Error};
+use crate::ip::IpData;
 use crate::types::{Event, Filter, Id, Kind, Pubkey, Time};
 use heed::byteorder::BigEndian;
 use heed::types::{OwnedType, UnalignedSlice, Unit, U64};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
+use speedy::{Readable, Writable};
 use std::fs;
+use std::net::IpAddr;
 use std::ops::Bound;
 
 #[derive(Debug)]
@@ -23,6 +26,7 @@ pub struct Store {
     ktci: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     deleted_offsets: Database<U64<BigEndian>, Unit>,
     deleted_events: Database<UnalignedSlice<u8>, Unit>,
+    ip_data: Database<UnalignedSlice<u8>, UnalignedSlice<u8>>,
     allow_scraping: bool,
 }
 
@@ -88,12 +92,20 @@ impl Store {
             .types::<UnalignedSlice<u8>, Unit>()
             .name("deleted-events")
             .create(&mut txn)?;
+        let ip_data = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+            .name("ip_data")
+            .create(&mut txn)?;
 
         if let Ok(count) = ids.len(&txn) {
             log::info!("{count} events in storage");
         }
         if let Ok(count) = deleted_offsets.len(&txn) {
             log::info!("{count} deleted events in the map");
+        }
+        if let Ok(count) = ip_data.len(&txn) {
+            log::info!("{count} IP addresses reputationally tracked");
         }
 
         txn.commit()?;
@@ -112,6 +124,7 @@ impl Store {
             ktci,
             deleted_offsets,
             deleted_events,
+            ip_data,
             allow_scraping,
         };
 
@@ -602,6 +615,25 @@ impl Store {
             }
         }
 
+        Ok(())
+    }
+
+    pub fn get_ip_data(&self, ip: IpAddr) -> Result<IpData, Error> {
+        let key = ip.write_to_vec()?;
+        let txn = self.env.read_txn()?;
+        let bytes = match self.ip_data.get(&txn, &key)? {
+            Some(b) => b,
+            None => return Ok(Default::default()),
+        };
+        Ok(IpData::read_from_buffer(bytes)?)
+    }
+
+    pub fn update_ip_data(&self, ip: IpAddr, data: &IpData) -> Result<(), Error> {
+        let key = ip.write_to_vec()?;
+        let mut txn = self.env.write_txn()?;
+        let bytes = data.write_to_vec()?;
+        self.ip_data.put(&mut txn, &key, &bytes)?;
+        txn.commit()?;
         Ok(())
     }
 
