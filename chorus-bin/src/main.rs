@@ -319,6 +319,11 @@ async fn handle_http_request(
                                 session_exit = SessionExit::Timeout;
                                 msg = "Timed Out (with no subscriptions)";
                             }
+                            ChorusError::Io(_) => {
+                                // Usually "Connection reset by peer" but any I/O error
+                                // isn't a big deal.
+                                msg = "Reset";
+                            }
                             _ => {
                                 log::error!(target: "Client", "{}: {}", peer, e);
                                 session_exit = SessionExit::ErrorExit;
