@@ -387,9 +387,20 @@ impl WebSocketService {
 
 async fn screen_incoming_event(
     event: &Event<'_>,
-    _event_flags: EventFlags,
+    event_flags: EventFlags,
     authorized_user: bool,
 ) -> Result<bool, Error> {
+    // If the event has a '-' tag, require the user to be AUTHed and match
+    // the event author
+    for mut tag in event.tags()?.iter() {
+        if tag.next() == Some(b"-") {
+            // The event is protected. Only accept if user is AUTHed as the event author
+            if !event_flags.author_is_current_user {
+                return Err(ChorusError::ProtectedEvent.into());
+            }
+        }
+    }
+
     // Accept anything from authenticated authorized users
     if authorized_user {
         return Ok(true);
