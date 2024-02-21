@@ -13,7 +13,7 @@ heed = { git = "https://github.com/meilisearch/heed", rev = "64fd6fec293c0dee948
 hyper = { version = "0.14", features = [ "http1", "server", "runtime", "stream" ] }
 hyper-tungstenite = "0.11"
 log = "0.4"
-mmap-append = { git = "https://github.com/mikedilger/mmap-append", rev = "0d20e193e7f13a442865a4a40a5da9a120e87411" }
+mmap-append = "0.2"
 secp256k1 = { version = "0.28", features = [ "hashes", "global-context", "rand-std" ] }
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1", features = [ "full" ] }

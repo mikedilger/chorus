@@ -680,8 +680,9 @@ dependencies = [
 
 [[package]]
 name = "mmap-append"
-version = "0.1.0"
-source = "git+https://github.com/mikedilger/mmap-append?rev=0d20e193e7f13a442865a4a40a5da9a120e87411#0d20e193e7f13a442865a4a40a5da9a120e87411"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df2ef74bd4eba425972bd31da530dbe0c0e62d15f7c06e1c6ebcc3b6d5446237"
 dependencies = [
  "libc",
  "memmap2",
