@@ -33,7 +33,7 @@ impl WebSocketService {
         } else if &input[inpos..inpos + 5] == b"AUTH\"" {
             self.auth(msg, inpos + 5).await?;
         } else {
-            log::warn!("{}: Received unhandled text message: {}", self.peer, msg);
+            log::warn!(target: "Client", "{}: Received unhandled text message: {}", self.peer, msg);
             let reply = NostrReply::Notice("Command unrecognized".to_owned());
             self.websocket.send(Message::text(reply.as_json())).await?;
             self.replied = true;
@@ -159,7 +159,7 @@ impl WebSocketService {
 
         self.replied = true;
 
-        log::debug!(
+        log::debug!(target: "Client",
             "{}: new subscription \"{subid}\", {} total",
             self.peer,
             self.subscriptions.len()
@@ -199,11 +199,11 @@ impl WebSocketService {
                     "That event is deleted".to_string(),
                 ),
                 ChorusError::EventIsInvalid(ref why) => {
-                    log::error!("{}: {}", self.peer, e);
+                    log::error!(target: "Client", "{}: {}", self.peer, e);
                     NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, why.to_string())
                 }
                 ChorusError::Restricted => {
-                    log::error!("{}: {}", self.peer, e);
+                    log::error!(target: "Client", "{}: {}", self.peer, e);
                     NostrReply::Ok(
                         id,
                         false,

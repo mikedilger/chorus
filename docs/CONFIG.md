@@ -123,7 +123,7 @@ Default is false.
 
 ### max_subscriptions
 
-This is a usize indicating the maximum number of subscriptions a connection can have open at a given time.
+This is an integer indicating the maximum number of subscriptions a connection can have open at a given time.
 
 If you set this too low, clients will be incentivised to resubmit updated subscriptions which will pull down the same events over again, instead of submitting a new subscription that only gets the additional events that the client wants. It may seem intuitive that setting this to a low value like 10 will decrease server load, but it will probably increase server load.
 
@@ -133,12 +133,37 @@ Default is 32.
 
 ### serve_ephemeral
 
-Accept and serve all ephemeral events to everybody.
+Whether or not to accept and serve all ephemeral events to everybody.
 
 Default is true.
 
 ### serve_relay_lists
 
-Accept and serve kind 10002 events to everybody.
+Whether or not to accept and serve kind 10002 Relay List Metadata (NIP-65) events to everybody.
 
 Default is true.
+
+### server_log_level
+
+How verbose to log issues with the main server code.
+
+Possible values are: Trace, Debug, Info, Warn, Error
+
+Default is Info
+
+### library_log_level
+
+How verbose to log library issues and other general issues
+
+Possible values are: Trace, Debug, Info, Warn, Error
+
+Default is Warn
+
+### client_log_level
+
+How verbose to log issues with client requests
+
+Possible values are: Trace, Debug, Info, Warn, Error
+
+Default is Error
+

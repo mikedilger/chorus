@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::types::Pubkey;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use url::Host;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +23,9 @@ pub struct FriendlyConfig {
     pub max_subscriptions: usize,
     pub serve_ephemeral: bool,
     pub serve_relay_lists: bool,
+    pub server_log_level: String,
+    pub library_log_level: String,
+    pub client_log_level: String,
 }
 
 impl Default for FriendlyConfig {
@@ -44,6 +48,9 @@ impl Default for FriendlyConfig {
             max_subscriptions: 32,
             serve_ephemeral: true,
             serve_relay_lists: true,
+            server_log_level: "Info".to_string(),
+            library_log_level: "Warn".to_string(),
+            client_log_level: "Error".to_string(),
         }
     }
 }
@@ -68,6 +75,9 @@ impl FriendlyConfig {
             max_subscriptions,
             serve_ephemeral,
             serve_relay_lists,
+            server_log_level,
+            library_log_level,
+            client_log_level,
         } = self;
 
         let mut public_key: Option<Pubkey> = None;
@@ -81,6 +91,13 @@ impl FriendlyConfig {
         }
 
         let hostname = Host::parse(&hostname)?;
+
+        let server_log_level =
+            log::LevelFilter::from_str(&server_log_level).unwrap_or(log::LevelFilter::Error);
+        let library_log_level =
+            log::LevelFilter::from_str(&library_log_level).unwrap_or(log::LevelFilter::Warn);
+        let client_log_level =
+            log::LevelFilter::from_str(&client_log_level).unwrap_or(log::LevelFilter::Info);
 
         Ok(Config {
             data_directory,
@@ -101,6 +118,9 @@ impl FriendlyConfig {
             max_subscriptions,
             serve_ephemeral,
             serve_relay_lists,
+            server_log_level,
+            library_log_level,
+            client_log_level,
         })
     }
 }
@@ -125,4 +145,7 @@ pub struct Config {
     pub max_subscriptions: usize,
     pub serve_ephemeral: bool,
     pub serve_relay_lists: bool,
+    pub server_log_level: log::LevelFilter,
+    pub library_log_level: log::LevelFilter,
+    pub client_log_level: log::LevelFilter,
 }

@@ -7,12 +7,6 @@ use std::fs::OpenOptions;
 use std::io::Read;
 
 fn main() -> Result<(), Error> {
-    env_logger::builder()
-        .format_target(false)
-        .format_module_path(false)
-        .format_timestamp_millis()
-        .init();
-
     // Get args (config path)
     let mut args = env::args();
     if args.len() <= 1 {
@@ -27,7 +21,17 @@ fn main() -> Result<(), Error> {
     file.read_to_string(&mut contents)?;
     let friendly_config: FriendlyConfig = toml::from_str(&contents)?;
     let mut config: Config = friendly_config.into_config()?;
-    log::debug!("Loaded config file.");
+
+    env_logger::Builder::new()
+        .filter_level(config.library_log_level)
+        .filter(Some("Server"), config.server_log_level)
+        .filter(Some("Client"), config.client_log_level)
+        .format_target(true)
+        .format_module_path(false)
+        .format_timestamp_millis()
+        .init();
+
+    log::debug!(target: "Server", "Loaded config file.");
 
     // Force allow of scraping (this program is a scraper)
     config.allow_scraping = true;

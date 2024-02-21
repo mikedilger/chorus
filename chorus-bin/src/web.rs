@@ -5,7 +5,7 @@ use hyper::{Body, Request, Response, StatusCode};
 use std::net::SocketAddr;
 
 pub async fn serve_http(peer: SocketAddr, request: Request<Body>) -> Result<Response<Body>, Error> {
-    log::debug!("{}: HTTP request for {}", peer, request.uri());
+    log::debug!(target: "Client", "{}: HTTP request for {}", peer, request.uri());
     let response = Response::builder()
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Headers", "*")
@@ -16,7 +16,7 @@ pub async fn serve_http(peer: SocketAddr, request: Request<Body>) -> Result<Resp
 }
 
 pub async fn serve_nip11(peer: SocketAddr) -> Result<Response<Body>, Error> {
-    log::debug!("{}: sent NIP-11", peer);
+    log::debug!(target: "Client", "{}: sent NIP-11", peer);
     let rid = {
         let config = GLOBALS.config.get().unwrap();
         GLOBALS.rid.get_or_init(|| build_rid(config))

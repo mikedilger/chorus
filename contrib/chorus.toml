@@ -1,27 +1,190 @@
+# This is a config file for the Chorus nostr relay
+# Refer to https://github.com/mikedilger/chorus
+
+# This is the directory where chorus stores data.
+#
+# Default is "/tmp".
+#
+# If deployed according to docs/DEPLOYING.md, is "/opt/chorus/var/chorus".
+#
 data_directory = "/opt/chorus/var/chorus"
 
+
+# This is the IP address that chorus listens on. If deployed directly on the
+# Internet, this should be an Internet globally accessible IP address.
+# If proxied or if testing locally, this can be a localhost address.
+#
+# Default is "127.0.0.1".
+#
 ip_address = "127.0.0.1"
+
+
+# This is the port that chorus listens on. If deployed directly on the Internet,
+# this should probably be 443 which is the expected default port for the
+# "wss://" protocol.
+#
+# Default is 443.
+#
 port = 443
+
+
+# This is the DNS hostname of your relay.
+# This is used for verifying AUTH events, which specify your relay host name.
+#
 hostname = "localhost"
 
+
+# If true, chorus will handle TLS, running over HTTPS. If false, chorus run over HTTP.
+#
+# If you are proxying via nginx, normally you will set this to false and allow nginx to handle TLS.
+#
 use_tls = true
+
+
+# This is the path to your TLS certificate chain file.
+#
+# If use_tls is false, this value is irrelevant.
+#
+# Default is "./tls/fullchain.pem".
+#
+# If deployed according to docs/DEPLOYING.md using the direct method, this is set to
+# "/opt/chorus/etc/tls/fullchain.pem" and the systemd service copies letsencrypt TLS
+# certificates into this position on start.
+#
 certchain_pem_path = "/opt/chorus/etc/tls/fullchain.pem"
+
+
+# This is the path to yoru TLS private key file.
+#
+# If use_tls is false, this value is irrelevant.
+#
+# Default is "./tls/privkey.pem".
+#
+# If deployed according to docs/DEPLOYING.md using the direct method, this is set to
+# "/opt/chorus/etc/tls/privkey.pem" and the systemd service copies letsencrypt TLS
+# certificates into this position on start.
+#
 key_pem_path = "/opt/chorus/etc/tls/privkey.pem"
 
-name = "Chorus Default"
-description = "A default config of the Chorus relay"
+
+# This is an optional name for your relay, displayed in the NIP-11 response.
+#
+# Default is not set
+#
+# name = "Chorus Default"
+
+
+# This is an optional description for your relay, displayed in the NIP-11 response.
+#
+# Default is not set
+#
+# description = "A default config of the Chorus relay"
+
+
+# This is an optional contact for your relay, displayed in the NIP-11 response.
+#
+# Default is not set
+#
 # contact =
+
+
+# This is an optional public key (hex format) for your relay, displayed in the NIP-11 response.
+#
+# Default is not set
+#
 # public_key_hex =
 
+
+# These are the public keys (hex format) of your relay's authorized users. See BEHAVIOR.md
+# to understand how chorus uses these.
+#
+# Default is []
+#
 user_hex_keys = []
 
+
+# This is a boolean indicating whether or not chorus verifies incoming events.
+#
+# This setting only skips verification of events that are submitted by AUTHed and
+# authorized users. Chorus always verifies incoming AUTH events, and any event that
+# is not submitted by an AUTHed and authorized relay user.
+#
+# Default is true.
+#
 verify_events = true
 
-# This is a bad idea in production, but useful for testing or for dumping
-# your entire relay
+
+# This is a boolean indicating whether or not scraping is allowed.
+# Scraping is any filter that does not match one of the following conditions:
+#
+#    A non-empty id list is set
+#    A non-empty authors list is set and a non-empty kinds list is set
+#    A non-empty authors list is set and at least one tag is set.
+#    A non-empty kinds list is set and at least one tag is set.
+#    Has a limit <= 10
+#
+# Filter that fail to match these conditions will be rejected if allow_scraping is false.
+#
+# If allow_scraping is true, be aware that filters that don't match any of these conditions
+# have no indexes to speed up their query, so they scan through every single event on the relay.
+#
+# The purpose of this setting is as a temporary setting that allows you to dump every single
+# event on your relay, but the `dump` binary automatically sets it while it runs.
+#
+# Default is false.
+#
 allow_scraping = false
 
+
+# This is an integer indicating the maximum number of subscriptions a connection can have open
+# at a given time.
+#
+# If you set this too low, clients will be incentivised to resubmit updated subscriptions which
+# will pull down the same events over again, instead of submitting a new subscription that only
+# gets the additional events that the client wants. It may seem intuitive that setting this to
+# a low value like 10 will decrease server load, but it will probably increase server load.
+#
+# It is strongly recommended to not go below 16.
+#
+# Default is 32.
+#
 max_subscriptions = 32
 
+
+# Whether or not to accept and serve all ephemeral events to everybody.
+#
+# Default is true.
+#
 serve_ephemeral = true
+
+# Whether or not to accept and serve kind 10002 Relay List Metadata (NIP-65) events to everybody.
+#
+# Default is true.
+#
 serve_relay_lists = true
+
+# How verbose to log issues with the main server code.
+#
+# Possible values are: Trace, Debug, Info, Warn, Error
+#
+# Default is Info
+#
+server_log_level = "Info"
+
+
+# How verbose to log library issues and other general issues
+#
+# Possible values are: Trace, Debug, Info, Warn, Error
+#
+# Default is Warn
+#
+library_log_level = "Warn"
+
+
+# How verbose to log issues with client requests
+#
+# Possible values are: Trace, Debug, Info, Warn, Error
+#
+# Default is Error
+#
+client_log_level = "Error"

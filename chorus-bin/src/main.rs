@@ -36,12 +36,6 @@ use tungstenite::Message;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    env_logger::builder()
-        .format_target(false)
-        .format_module_path(false)
-        .format_timestamp_millis()
-        .init();
-
     // Get args (config path)
     let mut args = env::args();
     if args.len() <= 1 {
@@ -56,7 +50,17 @@ async fn main() -> Result<(), Error> {
     file.read_to_string(&mut contents)?;
     let friendly_config: FriendlyConfig = toml::from_str(&contents)?;
     let config: Config = friendly_config.into_config()?;
-    log::debug!("Loaded config file.");
+
+    env_logger::Builder::new()
+        .filter_level(config.library_log_level)
+        .filter(Some("Server"), config.server_log_level)
+        .filter(Some("Client"), config.client_log_level)
+        .format_target(true)
+        .format_module_path(false)
+        .format_timestamp_millis()
+        .init();
+
+    log::debug!(target: "Server", "Loaded config file.");
 
     // Setup store
     let store = Store::new(&config.data_directory, config.allow_scraping)?;
@@ -64,16 +68,16 @@ async fn main() -> Result<(), Error> {
 
     // TLS setup
     let maybe_tls_acceptor = if config.use_tls {
-        log::info!("Using TLS");
+        log::info!(target: "Server", "Using TLS");
         Some(tls::tls_acceptor(&config)?)
     } else {
-        log::info!("Not using TLS");
+        log::info!(target: "Server", "Not using TLS");
         None
     };
 
     // Bind listener to port
     let listener = TcpListener::bind((&*config.ip_address, config.port)).await?;
-    log::info!("Running on {}:{}", config.ip_address, config.port);
+    log::info!(target: "Server", "Running on {}:{}", config.ip_address, config.port);
 
     // Store config into GLOBALS
     let _ = GLOBALS.config.set(config);
@@ -86,15 +90,15 @@ async fn main() -> Result<(), Error> {
         tokio::select! {
             // Exits gracefully upon exit-type signals
             v = interrupt_signal.recv() => if v.is_some() {
-                log::info!("SIGINT");
+                log::info!(target: "Server", "SIGINT");
                 break;
             },
             v = quit_signal.recv() => if v.is_some() {
-                log::info!("SIGQUIT");
+                log::info!(target: "Server", "SIGQUIT");
                 break;
             },
             v = terminate_signal.recv() => if v.is_some() {
-                log::info!("SIGTERM");
+                log::info!(target: "Server", "SIGTERM");
                 break;
             },
 
@@ -106,7 +110,8 @@ async fn main() -> Result<(), Error> {
                 if let Some(ip_data) = GLOBALS.ip_data.get(&ipaddr) {
                     let now = Time::now();
                     if ip_data.ban_until > now {
-                        log::debug!("{peer_addr}: Blocking reconnection until {}",
+                        log::debug!(target: "Client",
+                                    "{peer_addr}: Blocking reconnection until {}",
                                     ip_data.ban_until);
                         continue;
                     }
@@ -116,10 +121,16 @@ async fn main() -> Result<(), Error> {
                     let tls_acceptor_clone = tls_acceptor.clone();
                     tokio::spawn(async move {
                         match tls_acceptor_clone.accept(tcp_stream).await {
-                            Err(e) => log::error!("{}: {}", peer_addr, e),
+                            Err(e) => log::error!(
+                                target: "Client",
+                                "{}: {}", peer_addr, e
+                            ),
                             Ok(tls_stream) => {
                                 if let Err(e) = serve(MaybeTlsStream::Rustls(tls_stream), peer_addr).await {
-                                    log::error!("{}: {}", peer_addr, e);
+                                    log::error!(
+                                        target: "Client",
+                                        "{}: {}", peer_addr, e
+                                    );
                                 }
                             }
                         }
@@ -140,7 +151,7 @@ async fn main() -> Result<(), Error> {
     // Wait for active websockets to shutdown gracefully
     let mut num_clients = GLOBALS.num_clients.load(Ordering::Relaxed);
     if num_clients != 0 {
-        log::info!("Waiting for {num_clients} websockets to shutdown...");
+        log::info!(target: "Server", "Waiting for {num_clients} websockets to shutdown...");
 
         // We will check if all clients have shutdown every 25ms
         let interval = tokio::time::interval(Duration::from_millis(25));
@@ -166,7 +177,7 @@ async fn main() -> Result<(), Error> {
         }
     }
 
-    log::info!("Syncing and shutting down.");
+    log::info!(target: "Server", "Syncing and shutting down.");
     let _ = GLOBALS.store.get().unwrap().sync();
 
     Ok(())
@@ -190,12 +201,12 @@ async fn serve(stream: MaybeTlsStream<TcpStream>, peer_addr: SocketAddr) -> Resu
                     // do nothing
                 } else {
                     // Print in detail
-                    log::error!("{}: {:?}", peer_addr, src);
+                    log::error!(target: "Client", "{}: {:?}", peer_addr, src);
                 }
             } else {
                 // Print in less detail
                 let e: Error = he.into();
-                log::error!("{}: {}", peer_addr, e);
+                log::error!(target: "Client", "{}: {}", peer_addr, e);
             }
         }
     });
@@ -277,7 +288,10 @@ async fn handle_http_request(
                     // Increment count of active websockets
                     let old_num_websockets = GLOBALS.num_clients.fetch_add(1, Ordering::SeqCst);
 
+                    // we cheat somewhat and log these websocket open and close messages
+                    // as server messages
                     log::info!(
+                        target: "Server",
                         "{}: TOTAL={}, New Connection: {}",
                         peer,
                         old_num_websockets + 1,
@@ -308,7 +322,7 @@ async fn handle_http_request(
                                 msg = "Timed Out (with no subscriptions)";
                             }
                             _ => {
-                                log::error!("{}: {}", peer, e);
+                                log::error!(target: "Client", "{}: {}", peer, e);
                                 bankind = Ban::ErrorExit;
                                 msg = "Error Exited";
                             }
@@ -321,7 +335,10 @@ async fn handle_http_request(
                     // Ban for the appropriate duration
                     let ban_seconds = Globals::ban(peer.ip(), bankind);
 
+                    // we cheat somewhat and log these websocket open and close messages
+                    // as server messages
                     log::info!(
+                        target: "Server",
                         "{}: TOTAL={}, {}, ban={}s",
                         peer,
                         old_num_websockets - 1,
@@ -330,7 +347,7 @@ async fn handle_http_request(
                     );
                 }
                 Err(e) => {
-                    log::error!("{}: {}", peer, e);
+                    log::error!(target: "Client", "{}: {}", peer, e);
                 }
             }
         });
@@ -397,7 +414,7 @@ impl WebSocketService {
                             let message = message?;
                             if let Err(e) = self.handle_websocket_message(message).await {
                                 if let Err(e) = self.websocket.close(None).await {
-                                    log::info!("{}: Err on websocket close: {e}", self.peer);
+                                    log::info!(target: "Client", "{}: Err on websocket close: {e}", self.peer);
                                 }
                                 return Err(e);
                             }
@@ -456,16 +473,16 @@ impl WebSocketService {
     async fn handle_websocket_message(&mut self, message: Message) -> Result<(), Error> {
         match message {
             Message::Text(msg) => {
-                log::trace!("{}: <= {}", self.peer, msg);
+                log::trace!(target: "Client", "{}: <= {}", self.peer, msg);
                 self.replied = false;
                 // This is defined in nostr.rs
                 if let Err(e) = self.handle_nostr_message(&msg).await {
                     self.error_punishment += e.inner.punishment();
-                    log::error!("{}: {e}", self.peer);
+                    log::error!(target: "Client", "{}: {e}", self.peer);
                     if msg.len() < 2048 {
-                        log::error!("{}:   msg was {}", self.peer, msg);
+                        log::error!(target: "Client", "{}:   msg was {}", self.peer, msg);
                     } else {
-                        log::error!("{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
+                        log::error!(target: "Client", "{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
                     }
                     if !self.replied {
                         let reply = NostrReply::Notice(format!("error: {}", e));
@@ -483,7 +500,7 @@ impl WebSocketService {
                     "binary messages are not processed by this relay".to_owned(),
                 );
                 self.websocket.send(Message::text(reply.as_json())).await?;
-                log::info!(
+                log::info!(target: "Client",
                     "{}: Received unhandled binary message: {:02X?}",
                     self.peer,
                     msg
@@ -491,22 +508,22 @@ impl WebSocketService {
             }
             Message::Ping(msg) => {
                 // No need to send a reply: tungstenite takes care of this for you.
-                log::debug!("{}: Received ping message: {:02X?}", self.peer, msg);
+                log::debug!(target: "Client", "{}: Received ping message: {:02X?}", self.peer, msg);
             }
             Message::Pong(msg) => {
-                log::debug!("{}: Received pong message: {:02X?}", self.peer, msg);
+                log::debug!(target: "Client", "{}: Received pong message: {:02X?}", self.peer, msg);
             }
             Message::Close(msg) => {
                 // No need to send a reply: tungstenite takes care of this for you.
                 if let Some(msg) = &msg {
-                    log::debug!(
+                    log::debug!(target: "Client",
                         "{}: Received close message with code {} and message: {}",
                         self.peer,
                         msg.code,
                         msg.reason
                     );
                 } else {
-                    log::debug!("{}: Received close message", self.peer);
+                    log::debug!(target: "Client", "{}: Received close message", self.peer);
                 }
             }
             Message::Frame(_msg) => {
