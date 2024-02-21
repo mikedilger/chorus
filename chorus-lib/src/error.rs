@@ -118,6 +118,9 @@ pub enum ChorusError {
     // Filter is underspecified
     Scraper,
 
+    // Speedy
+    Speedy(speedy::Error),
+
     // Too many errors
     TooManyErrors,
 
@@ -184,6 +187,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::TimedOut => write!(f, "Timed out"),
             ChorusError::Tungstenite(e) => write!(f, "{e}"),
             ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
+            ChorusError::Speedy(e) => write!(f, "{e}"),
             ChorusError::TooManyErrors => write!(f, "Too many errors"),
             ChorusError::TooManySubscriptions => write!(f, "Too many subscriptions"),
             ChorusError::UrlParse(e) => write!(f, "{e}"),
@@ -206,6 +210,7 @@ impl StdError for ChorusError {
             ChorusError::Io(e) => Some(e),
             ChorusError::Lmdb(e) => Some(e),
             ChorusError::Rustls(e) => Some(e),
+            ChorusError::Speedy(e) => Some(e),
             ChorusError::Tungstenite(e) => Some(e),
             ChorusError::UrlParse(e) => Some(e),
             ChorusError::Utf8(e) => Some(e),
@@ -250,6 +255,7 @@ impl ChorusError {
             ChorusError::TimedOut => 0.1,
             ChorusError::Tungstenite(_) => 0.0,
             ChorusError::Scraper => 0.5,
+            ChorusError::Speedy(_) => 0.0,
             ChorusError::TooManyErrors => 1.0,
             ChorusError::TooManySubscriptions => 0.1,
             ChorusError::UrlParse(_) => 0.1,
@@ -402,6 +408,16 @@ impl From<url::ParseError> for Error {
     fn from(err: url::ParseError) -> Self {
         Error {
             inner: ChorusError::UrlParse(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<speedy::Error> for Error {
+    #[track_caller]
+    fn from(err: speedy::Error) -> Self {
+        Error {
+            inner: ChorusError::Speedy(err),
             location: std::panic::Location::caller(),
         }
     }
