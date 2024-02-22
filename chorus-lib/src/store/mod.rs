@@ -389,10 +389,19 @@ impl Store {
                     }
                 }
             }
-        } else if self.allow_scraping || filter.limit() <= 10 {
+        } else {
+            let maxtime = filter.until().0.min(Time::now().0);
+            let allow =
+                self.allow_scraping || filter.limit() <= 100 || (maxtime - filter.since().0) < 3600;
+            if !allow {
+                return Err(ChorusError::Scraper.into());
+            }
+
+            // FIXME: we can use akci to scan author + time
+            //        we can use ktci to scan kind + time
+            //        (but we have no index yet to scan tag + time)
+
             // This is INEFFICIENT as it scans through EVERY EVENT
-            // but the filter is a scraper and we don't have a lot of support
-            // for scrapers.
             let mut count = 0;
             let txn = self.env.read_txn()?;
             let iter = self.ci.iter(&txn)?;
@@ -408,8 +417,6 @@ impl Store {
                     }
                 }
             }
-        } else {
-            return Err(ChorusError::Scraper.into());
         }
 
         Ok(output)
