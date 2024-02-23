@@ -174,6 +174,16 @@ You can watch the logs with a command like this
 sudo journalctl -f -u chorus.service
 ```
 
+## Updating
+````bash
+cd /opt/chorus/src/chorus
+git pull
+cargo build --release
+sudo install --mode=0700 --owner=chorus ./target/release/chorus /opt/chorus/sbin/chorus
+sudo install --mode=0700 --owner=chorus ./target/release/dump /opt/chorus/sbin/dump
+sudo systemctl restart chorus.service
+````
+
 ## Uninstalling
 
 ```bash
