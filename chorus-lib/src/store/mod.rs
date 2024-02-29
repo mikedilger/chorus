@@ -248,15 +248,15 @@ impl Store {
         if filter.num_ids() > 0 {
             // Fetch by id
             for id in filter.ids() {
+                // Stop if limited
+                if output.len() >= filter.limit() as usize {
+                    return Ok(output);
+                }
                 if let Some(event) = self.get_event_by_id(id)? {
                     // and check each against the rest of the filter
                     if filter.event_matches(&event)? && screen(&event) {
                         output.push(event);
                     }
-                }
-                // Stop if limited
-                if output.len() >= filter.limit() as usize {
-                    return Ok(output);
                 }
             }
         } else if filter.num_authors() > 0 && filter.num_kinds() > 0 {
@@ -281,6 +281,10 @@ impl Store {
                     let txn = self.env.read_txn()?;
                     let iter = self.akci.range(&txn, &range)?;
                     for result in iter {
+                        // Stop if limited
+                        if output.len() >= filter.limit() as usize {
+                            return Ok(output);
+                        }
                         let (_key, offset) = result?;
                         if let Some(event) = self.events.get_event_by_offset(offset)? {
                             // check against the rest of the filter
@@ -295,10 +299,6 @@ impl Store {
                                     continue 'kind;
                                 }
                             }
-                        }
-                        // Stop if limited
-                        if output.len() >= filter.limit() as usize {
-                            return Ok(output);
                         }
                     }
                 }
@@ -330,16 +330,16 @@ impl Store {
                             let txn = self.env.read_txn()?;
                             let iter = self.akci.range(&txn, &range)?;
                             for result in iter {
+                                // Stop if limited
+                                if output.len() >= filter.limit() as usize {
+                                    return Ok(output);
+                                }
                                 let (_key, offset) = result?;
                                 if let Some(event) = self.events.get_event_by_offset(offset)? {
                                     // check against the rest of the filter
                                     if filter.event_matches(&event)? && screen(&event) {
                                         output.push(event);
                                     }
-                                }
-                                // Stop if limited
-                                if output.len() >= filter.limit() as usize {
-                                    return Ok(output);
                                 }
                             }
                         }
@@ -373,16 +373,16 @@ impl Store {
                             let txn = self.env.read_txn()?;
                             let iter = self.akci.range(&txn, &range)?;
                             for result in iter {
+                                // Stop if limited
+                                if output.len() >= filter.limit() as usize {
+                                    return Ok(output);
+                                }
                                 let (_key, offset) = result?;
                                 if let Some(event) = self.events.get_event_by_offset(offset)? {
                                     // check against the rest of the filter
                                     if filter.event_matches(&event)? && screen(&event) {
                                         output.push(event);
                                     }
-                                }
-                                // Stop if limited
-                                if output.len() >= filter.limit() as usize {
-                                    return Ok(output);
                                 }
                             }
                         }
@@ -406,14 +406,14 @@ impl Store {
             let txn = self.env.read_txn()?;
             let iter = self.ci.iter(&txn)?;
             for result in iter {
+                if count >= filter.limit() {
+                    break;
+                }
                 let (_key, offset) = result?;
                 if let Some(event) = self.events.get_event_by_offset(offset)? {
                     if filter.event_matches(&event)? && screen(&event) {
                         output.push(event);
                         count += 1;
-                        if count >= filter.limit() {
-                            break;
-                        }
                     }
                 }
             }
