@@ -21,7 +21,7 @@ use json_event::parse_json_event;
  * 144+T+4+C <--- beginning of region beyond the event
  */
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Event<'a>(&'a [u8]);
 
 impl<'a> Event<'a> {
