@@ -1,6 +1,7 @@
 use super::{Id, Kind, Pubkey, Sig, Tags, Time};
 use crate::error::{ChorusError, Error};
 use crate::types::parse::json_escape::json_escape;
+use std::cmp::Ordering;
 use std::fmt;
 
 mod json_event;
@@ -175,6 +176,20 @@ impl fmt::Display for Event<'_> {
         } else {
             write!(f, "{{Corrupted Event}}")
         }
+    }
+}
+
+impl Eq for Event<'_> {}
+
+impl PartialOrd for Event<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Event<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.created_at().cmp(&other.created_at())
     }
 }
 
