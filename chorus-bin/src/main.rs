@@ -468,7 +468,7 @@ impl WebSocketService {
                     if filter.as_filter()?.event_matches(&event)?
                         && nostr::screen_outgoing_event(&event, &event_flags, authorized_user)
                     {
-                        let message = NostrReply::Event(subid, event.clone());
+                        let message = NostrReply::Event(subid, event);
                         self.websocket
                             .send(Message::text(message.as_json()))
                             .await?;
