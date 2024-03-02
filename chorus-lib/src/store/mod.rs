@@ -328,7 +328,7 @@ impl Store {
                                 Bound::Excluded(&*end_prefix),
                             );
                             let txn = self.env.read_txn()?;
-                            let iter = self.akci.range(&txn, &range)?;
+                            let iter = self.atci.range(&txn, &range)?;
                             for result in iter {
                                 // Stop if limited
                                 if output.len() >= filter.limit() as usize {
@@ -371,7 +371,7 @@ impl Store {
                                 Bound::Excluded(&*end_prefix),
                             );
                             let txn = self.env.read_txn()?;
-                            let iter = self.akci.range(&txn, &range)?;
+                            let iter = self.ktci.range(&txn, &range)?;
                             for result in iter {
                                 // Stop if limited
                                 if output.len() >= filter.limit() as usize {
@@ -605,7 +605,7 @@ impl Store {
                     Bound::Excluded(&*end_prefix),
                 );
                 let loop_txn = self.env.read_txn()?;
-                let iter = self.akci.range(&loop_txn, &range)?;
+                let iter = self.atci.range(&loop_txn, &range)?;
                 let mut first = true;
                 for result in iter {
                     // Keep the first result
