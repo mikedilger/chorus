@@ -13,10 +13,10 @@ user_hex_keys = [
   "ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49"
 ]
 verify_events = true
-allow_scraping = false
+allow_scraping = true
 max_subscriptions = 32
 serve_ephemeral = true
 serve_relay_lists = true
 server_log_level = "Info"
 library_log_level = "Warn"
-client_log_level = "Error"
+client_log_level = "Warn"
