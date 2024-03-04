@@ -28,13 +28,11 @@ Chorus serves all events to AUTHed and authorized users.
 
 Chorus serves all events which were authored by an authorized user.
 
-Filters which are broad are considered scrapers and are not serviced. Filters must meet one of the following criteria:
+Filters which are broad are considered scrapers and are not serviced. Scraping is any filter where all of the following are true:
 
-- A non-empty `id` list is set
-- A non-empty `authors` list is set and a non-empty `kinds` list is set
-- A non-empty `authors` list is set and at least one tag is set.
-- A non-empty `kinds` list is set and at least one tag is set.
-- Has a limit <= 10.
+- `ids` is missing or empty
+- `authors` is missing or empty
+- There are no `#X` tag filters
 
 If you wish to change these rules, change the source code at `nostr.rs:screen_outgoing_event()`
 

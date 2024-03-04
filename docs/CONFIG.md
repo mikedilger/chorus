@@ -105,13 +105,11 @@ Default is true.
 
 ### allow_scraping
 
-This is a boolean indicating whether or not scraping is allowed. Scraping is any filter that does not match one of the following conditions:
+This is a boolean indicating whether or not scraping is allowed. Scraping is any filter where all of the following are true:
 
-- A non-empty `id` list is set
-- A non-empty `authors` list is set and a non-empty `kinds` list is set
-- A non-empty `authors` list is set and at least one tag is set.
-- A non-empty `kinds` list is set and at least one tag is set.
-- Has a limit <= 10
+- `ids` is missing or empty
+- `authors` is missing or empty
+- There are no `#X` tag filters
 
 Filter that fail to match these conditions will be rejected if `allow_scraping` is false.
 
