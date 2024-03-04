@@ -25,7 +25,7 @@ pub struct Store {
     ci_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     akc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     atc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
-    kt_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
+    ktc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     deleted_offsets: Database<U64<BigEndian>, Unit>,
     deleted_events: Database<UnalignedSlice<u8>, Unit>,
     ip_data: Database<UnalignedSlice<u8>, UnalignedSlice<u8>>,
@@ -81,7 +81,7 @@ impl Store {
             .types::<UnalignedSlice<u8>, OwnedType<usize>>()
             .name("atci")
             .create(&mut txn)?;
-        let kt_index = env
+        let ktc_index = env
             .database_options()
             .types::<UnalignedSlice<u8>, OwnedType<usize>>()
             .name("ktci")
@@ -125,7 +125,7 @@ impl Store {
             ci_index,
             akc_index,
             atc_index,
-            kt_index,
+            ktc_index,
             deleted_offsets,
             deleted_events,
             ip_data,
@@ -411,14 +411,14 @@ impl Store {
                     if let Some(tag0) = tag.next() {
                         if let Some(tagvalue) = tag.next() {
                             let iter = {
-                                let start_prefix = Self::key_kt_index(
+                                let start_prefix = Self::key_ktc_index(
                                     kind,
                                     tag0[0],
                                     tagvalue,
                                     filter.until(), // scan goes backwards in time
                                     Id([0; 32]),
                                 );
-                                let end_prefix = Self::key_kt_index(
+                                let end_prefix = Self::key_ktc_index(
                                     kind,
                                     tag0[0],
                                     tagvalue,
@@ -429,7 +429,7 @@ impl Store {
                                     Bound::Included(&*start_prefix),
                                     Bound::Excluded(&*end_prefix),
                                 );
-                                self.kt_index.range(&txn, &range)?
+                                self.ktc_index.range(&txn, &range)?
                             };
 
                             // Count how many we have found of this kind-tag pair, so we
@@ -470,16 +470,12 @@ impl Store {
         } else {
             // SCRAPE:
             let maxtime = filter.until().0.min(Time::now().0);
-            let allow = self.allow_scraping ||
-                filter.limit() <= self.allow_scrape_if_limited_to ||
-                (maxtime - filter.since().0) < self.allow_scrape_if_max_seconds;
+            let allow = self.allow_scraping
+                || filter.limit() <= self.allow_scrape_if_limited_to
+                || (maxtime - filter.since().0) < self.allow_scrape_if_max_seconds;
             if !allow {
                 return Err(ChorusError::Scraper.into());
             }
-
-            // FIXME: we can use akc_index to scan author + time
-            //        we can use kt_index to scan kind + time
-            //        (but we have no index yet to scan tag + time)
 
             // This is INEFFICIENT as it scans through many events
 
@@ -565,9 +561,9 @@ impl Store {
                         )?;
 
                         // Index by kind and tag (with created_at and id)
-                        self.kt_index.put(
+                        self.ktc_index.put(
                             txn,
-                            &Self::key_kt_index(
+                            &Self::key_ktc_index(
                                 event.kind(),
                                 tagname[0],
                                 tagvalue,
@@ -604,9 +600,9 @@ impl Store {
                         )?;
 
                         // Index by kind and tag (with created_at and id)
-                        self.kt_index.delete(
+                        self.ktc_index.delete(
                             txn,
-                            &Self::key_kt_index(
+                            &Self::key_ktc_index(
                                 event.kind(),
                                 tagname[0],
                                 tagvalue,
@@ -801,7 +797,13 @@ impl Store {
 
     // For looking up event by Kind and Tag
     // kind(2) + tagletter(1) + fixlentag(182) + reversecreatedat(8) + id(32)
-    fn key_kt_index(kind: Kind, letter: u8, tag_value: &[u8], created_at: Time, id: Id) -> Vec<u8> {
+    fn key_ktc_index(
+        kind: Kind,
+        letter: u8,
+        tag_value: &[u8],
+        created_at: Time,
+        id: Id,
+    ) -> Vec<u8> {
         const PADLEN: usize = 182;
         let mut key: Vec<u8> = Vec::with_capacity(
             std::mem::size_of::<Kind>()
