@@ -458,7 +458,6 @@ impl Store {
                 }
             }
         } else if filter.num_kinds() > 0 && !filter.tags()?.is_empty() {
-            // SKIP
             // We may bring since forward if we hit the limit without going back that
             // far, so we use a mutable since:
             let mut since = filter.since();
@@ -520,6 +519,105 @@ impl Store {
                                         }
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if !filter.tags()?.is_empty() {
+            // We may bring since forward if we hit the limit without going back that
+            // far, so we use a mutable since:
+            let mut since = filter.since();
+
+            let tags = filter.tags()?;
+            for mut tag in tags.iter() {
+                if let Some(tag0) = tag.next() {
+                    if let Some(tagvalue) = tag.next() {
+                        let iter = {
+                            let start_prefix = Self::key_tc_index(
+                                tag0[0],
+                                tagvalue,
+                                filter.until(), // scan goes backwards in time
+                                Id([0; 32]),
+                            );
+                            let end_prefix =
+                                Self::key_tc_index(tag0[0], tagvalue, since, Id([255; 32]));
+                            let range = (
+                                Bound::Included(&*start_prefix),
+                                Bound::Excluded(&*end_prefix),
+                            );
+                            self.tc_index.range(&txn, &range)?
+                        };
+
+                        let mut rangecount = 0;
+
+                        'per_event: for result in iter {
+                            let (_key, offset) = result?;
+                            if let Some(event) = self.events.get_event_by_offset(offset)? {
+                                if event.created_at() < since {
+                                    break 'per_event;
+                                }
+
+                                // check against the rest of the filter
+                                if filter.event_matches(&event)? && screen(&event) {
+                                    // Accept the event
+                                    output.insert(event);
+                                    rangecount += 1;
+
+                                    // Stop this limited
+                                    if rangecount >= filter.limit() as usize {
+                                        if event.created_at() > since {
+                                            since = event.created_at();
+                                        }
+                                        break 'per_event;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if filter.num_authors() > 0 {
+            // We may bring since forward if we hit the limit without going back that
+            // far, so we use a mutable since:
+            let mut since = filter.since();
+
+            for author in filter.authors() {
+                let iter = {
+                    let start_prefix = Self::key_ac_index(
+                        author,
+                        filter.until(), // scan goes backwards in time
+                        Id([0; 32]),
+                    );
+                    let end_prefix = Self::key_ac_index(author, since, Id([255; 32]));
+                    let range = (
+                        Bound::Included(&*start_prefix),
+                        Bound::Excluded(&*end_prefix),
+                    );
+                    self.ac_index.range(&txn, &range)?
+                };
+
+                let mut rangecount = 0;
+
+                'per_event: for result in iter {
+                    let (_key, offset) = result?;
+                    if let Some(event) = self.events.get_event_by_offset(offset)? {
+                        if event.created_at() < filter.since() {
+                            break 'per_event;
+                        }
+
+                        // check against the rest of the filter
+                        if filter.event_matches(&event)? && screen(&event) {
+                            // Accept the event
+                            output.insert(event);
+                            rangecount += 1;
+
+                            // Stop this limited
+                            if rangecount >= filter.limit() as usize {
+                                if event.created_at() > since {
+                                    since = event.created_at();
+                                }
+                                break 'per_event;
                             }
                         }
                     }
