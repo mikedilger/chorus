@@ -115,10 +115,54 @@ impl Store {
             .create(&mut txn)?;
 
         if let Ok(count) = i_index.len(&txn) {
-            log::info!("{count} events in storage");
+            log::info!("Index: id ({} entries, {} bytes)", count, count * (32 + 8));
         }
+        if let Ok(count) = ci_index.len(&txn) {
+            log::info!(
+                "Index: created_at+id ({} entries, {} bytes)",
+                count,
+                count * (40 + 8)
+            );
+        }
+
+        if let Ok(count) = tc_index.len(&txn) {
+            log::info!(
+                "Index: tag+created_at+id ({} entries, {} bytes)",
+                count,
+                count * (223 + 8)
+            );
+        }
+        if let Ok(count) = ac_index.len(&txn) {
+            log::info!(
+                "Index: author+created_at+id ({} entries, {} bytes)",
+                count,
+                count * (72 + 8)
+            );
+        }
+        if let Ok(count) = akc_index.len(&txn) {
+            log::info!(
+                "Index: author+kind+created_at+id ({} entries, {} bytes)",
+                count,
+                count * (74 + 8)
+            );
+        }
+        if let Ok(count) = atc_index.len(&txn) {
+            log::info!(
+                "Index: author+tags+created_at+id ({} entries, {} bytes)",
+                count,
+                count * (255 + 8)
+            );
+        }
+        if let Ok(count) = ktc_index.len(&txn) {
+            log::info!(
+                "Index: kind+tags+created_at+id ({} entries, {} bytes)",
+                count,
+                count * (225 + 8)
+            );
+        }
+
         if let Ok(count) = deleted_offsets.len(&txn) {
-            log::info!("{count} deleted events in the map");
+            log::info!("{} deleted events", count);
         }
         if let Ok(count) = ip_data.len(&txn) {
             log::info!("{count} IP addresses reputationally tracked");
@@ -798,6 +842,8 @@ impl Store {
         key
     }
 
+    // For looking up event by Tag
+    // tagletter(1) + fixlentag(182) + reversecreatedat(8) + id(32)
     fn key_tc_index(letter: u8, tag_value: &[u8], created_at: Time, id: Id) -> Vec<u8> {
         const PADLEN: usize = 182;
         let mut key: Vec<u8> =
@@ -814,6 +860,8 @@ impl Store {
         key
     }
 
+    // For looking up event by Author
+    // author(32) + reversecreatedat(8) + id(32)
     fn key_ac_index(author: Pubkey, created_at: Time, id: Id) -> Vec<u8> {
         let mut key: Vec<u8> = Vec::with_capacity(
             std::mem::size_of::<Pubkey>() + std::mem::size_of::<Time>() + std::mem::size_of::<Id>(),
