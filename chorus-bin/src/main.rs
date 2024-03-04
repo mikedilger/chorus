@@ -63,7 +63,7 @@ async fn main() -> Result<(), Error> {
     log::debug!(target: "Server", "Loaded config file.");
 
     // Setup store
-    let store = Store::new(&config.data_directory, config.allow_scraping)?;
+    let store = Store::new(&config)?;
     let _ = GLOBALS.store.set(store);
 
     // TLS setup

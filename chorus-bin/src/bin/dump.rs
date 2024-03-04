@@ -37,7 +37,7 @@ fn main() -> Result<(), Error> {
     config.allow_scraping = true;
 
     // Setup store
-    let store = Store::new(&config.data_directory, config.allow_scraping)?;
+    let store = Store::new(&config)?;
 
     let mut buffer: [u8; 128] = [0; 128];
     let (_incount, _outcount, filter) = Filter::from_json(b"{}", &mut buffer)?;

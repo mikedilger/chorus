@@ -121,6 +121,22 @@ The purpose of this setting is as a temporary setting that allows you to dump ev
 
 Default is false.
 
+### allow_scrape_if_limited_to
+
+This is a u32 count of events indicating a filter `limit` value under which a scrape is allowed, irrespective of the `allow_scraping` setting. Such scrapes are not expensive due to the limit.
+
+See `allow_scraping` to learn the definition of a scrape.
+
+The default is 100.
+
+### allow_scrape_if_max_seconds
+
+This is a u64 number of seconds indicating a filter time range under which a scrape is allowed, irrespective of the `allow_scraping` setting. Such scrapes are rarely expensive due to the short time period.
+
+See `allow_scraping` to learn the definition of a scrape.
+
+The default is 3600.
+
 ### max_subscriptions
 
 This is an integer indicating the maximum number of subscriptions a connection can have open at a given time.

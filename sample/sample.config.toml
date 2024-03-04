@@ -14,6 +14,8 @@ user_hex_keys = [
 ]
 verify_events = true
 allow_scraping = true
+allow_scrape_if_limited_to = 100
+allow_scrape_if_max_seconds = 3600
 max_subscriptions = 32
 serve_ephemeral = true
 serve_relay_lists = true

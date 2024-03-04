@@ -3,6 +3,7 @@ pub use event_store::EventStore;
 
 mod migrations;
 
+use crate::config::Config;
 use crate::error::{ChorusError, Error};
 use crate::ip::IpData;
 use crate::types::{Event, Filter, Id, Kind, Pubkey, Time};
@@ -29,11 +30,13 @@ pub struct Store {
     deleted_events: Database<UnalignedSlice<u8>, Unit>,
     ip_data: Database<UnalignedSlice<u8>, UnalignedSlice<u8>>,
     allow_scraping: bool,
+    allow_scrape_if_limited_to: u32,
+    allow_scrape_if_max_seconds: u64,
 }
 
 impl Store {
     /// Setup persistent storage
-    pub fn new(data_directory: &str, allow_scraping: bool) -> Result<Store, Error> {
+    pub fn new(config: &Config) -> Result<Store, Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
             builder.flags(EnvFlags::NO_TLS);
@@ -41,7 +44,7 @@ impl Store {
         builder.max_dbs(32);
         builder.map_size(1048576 * 1024 * 24); // 24 GB
 
-        let dir = format!("{}/lmdb", data_directory);
+        let dir = format!("{}/lmdb", &config.data_directory);
         fs::create_dir_all(&dir)?;
 
         let env = match builder.open(&dir) {
@@ -111,7 +114,7 @@ impl Store {
 
         txn.commit()?;
 
-        let event_map_file = format!("{}/event.map", data_directory);
+        let event_map_file = format!("{}/event.map", &config.data_directory);
         let events = EventStore::new(event_map_file)?;
 
         let store = Store {
@@ -126,7 +129,9 @@ impl Store {
             deleted_offsets,
             deleted_events,
             ip_data,
-            allow_scraping,
+            allow_scraping: config.allow_scraping,
+            allow_scrape_if_limited_to: config.allow_scrape_if_limited_to,
+            allow_scrape_if_max_seconds: config.allow_scrape_if_max_seconds,
         };
 
         // This is in migrations.rs
@@ -465,8 +470,9 @@ impl Store {
         } else {
             // SCRAPE:
             let maxtime = filter.until().0.min(Time::now().0);
-            let allow =
-                self.allow_scraping || filter.limit() <= 100 || (maxtime - filter.since().0) < 3600;
+            let allow = self.allow_scraping ||
+                filter.limit() <= self.allow_scrape_if_limited_to ||
+                (maxtime - filter.since().0) < self.allow_scrape_if_max_seconds;
             if !allow {
                 return Err(ChorusError::Scraper.into());
             }
