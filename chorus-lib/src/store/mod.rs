@@ -23,6 +23,8 @@ pub struct Store {
     env: Env,
     i_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     ci_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
+    tc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
+    ac_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     akc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     atc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     ktc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
@@ -70,6 +72,16 @@ impl Store {
             .database_options()
             .types::<UnalignedSlice<u8>, OwnedType<usize>>()
             .name("ci")
+            .create(&mut txn)?;
+        let tc_index = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, OwnedType<usize>>()
+            .name("tci")
+            .create(&mut txn)?;
+        let ac_index = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, OwnedType<usize>>()
+            .name("aci")
             .create(&mut txn)?;
         let akc_index = env
             .database_options()
@@ -123,6 +135,8 @@ impl Store {
             env,
             i_index,
             ci_index,
+            tc_index,
+            ac_index,
             akc_index,
             atc_index,
             ktc_index,
@@ -542,11 +556,29 @@ impl Store {
             &offset,
         )?;
 
+        self.ac_index.put(
+            txn,
+            &Self::key_ac_index(event.pubkey(), event.created_at(), event.id()),
+            &offset,
+        )?;
+
         for mut tsi in event.tags()?.iter() {
             if let Some(tagname) = tsi.next() {
                 // FIXME make sure it is a letter too
                 if tagname.len() == 1 {
                     if let Some(tagvalue) = tsi.next() {
+                        // Index by tag (with created_at and id)
+                        self.tc_index.put(
+                            txn,
+                            &Self::key_tc_index(
+                                tagname[0],
+                                tagvalue,
+                                event.created_at(),
+                                event.id(),
+                            ),
+                            &offset,
+                        )?;
+
                         // Index by author and tag (with created_at and id)
                         self.atc_index.put(
                             txn,
@@ -610,10 +642,26 @@ impl Store {
                                 event.id(),
                             ),
                         )?;
+
+                        // Index by tag (with created_at and id)
+                        self.tc_index.delete(
+                            txn,
+                            &Self::key_tc_index(
+                                tagname[0],
+                                tagvalue,
+                                event.created_at(),
+                                event.id(),
+                            ),
+                        )?;
                     }
                 }
             }
         }
+
+        self.ac_index.delete(
+            txn,
+            &Self::key_ac_index(event.pubkey(), event.created_at(), event.id()),
+        )?;
 
         self.ci_index
             .delete(txn, &Self::key_ci_index(event.created_at(), event.id()))?;
@@ -745,6 +793,32 @@ impl Store {
     fn key_ci_index(created_at: Time, id: Id) -> Vec<u8> {
         let mut key: Vec<u8> =
             Vec::with_capacity(std::mem::size_of::<Time>() + std::mem::size_of::<Id>());
+        key.extend((u64::MAX - created_at.0).to_be_bytes().as_slice());
+        key.extend(id.as_slice());
+        key
+    }
+
+    fn key_tc_index(letter: u8, tag_value: &[u8], created_at: Time, id: Id) -> Vec<u8> {
+        const PADLEN: usize = 182;
+        let mut key: Vec<u8> =
+            Vec::with_capacity(PADLEN + std::mem::size_of::<Time>() + std::mem::size_of::<Id>());
+        key.push(letter);
+        if tag_value.len() <= PADLEN {
+            key.extend(tag_value);
+            key.extend(core::iter::repeat(0).take(PADLEN - tag_value.len()));
+        } else {
+            key.extend(&tag_value[..PADLEN]);
+        }
+        key.extend((u64::MAX - created_at.0).to_be_bytes().as_slice());
+        key.extend(id.as_slice());
+        key
+    }
+
+    fn key_ac_index(author: Pubkey, created_at: Time, id: Id) -> Vec<u8> {
+        let mut key: Vec<u8> = Vec::with_capacity(
+            std::mem::size_of::<Pubkey>() + std::mem::size_of::<Time>() + std::mem::size_of::<Id>(),
+        );
+        key.extend(author.as_slice());
         key.extend((u64::MAX - created_at.0).to_be_bytes().as_slice());
         key.extend(id.as_slice());
         key
