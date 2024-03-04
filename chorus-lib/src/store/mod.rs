@@ -300,7 +300,7 @@ impl Store {
                             // If we have gone beyond since, we can stop early
                             // (We have to check because `since` might change in this loop)
                             if event.created_at() < since {
-                                continue 'per_event;
+                                break 'per_event;
                             }
 
                             // check against the rest of the filter
@@ -374,7 +374,7 @@ impl Store {
                                     // If we have gone beyond since, we can stop early
                                     // (We have to check because `since` might change in this loop)
                                     if event.created_at() < since {
-                                        continue 'per_event;
+                                        break 'per_event;
                                     }
 
                                     // check against the rest of the filter
@@ -442,7 +442,7 @@ impl Store {
                                     // If we have gone beyond since, we can stop early
                                     // (We have to check because `since` might change in this loop)
                                     if event.created_at() < since {
-                                        continue 'per_event;
+                                        break 'per_event;
                                     }
 
                                     // check against the rest of the filter
