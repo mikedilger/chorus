@@ -47,13 +47,16 @@ impl Store {
     fn migrate_to_1(&self, txn: &mut RwTxn<'_>) -> Result<(), Error> {
         // Build ci database
         let loop_txn = self.env.read_txn()?;
-        let iter = self.ids.iter(&loop_txn)?;
+        let iter = self.i_index.iter(&loop_txn)?;
         for result in iter {
             let (_key, offset) = result?;
             if let Some(event) = self.events.get_event_by_offset(offset)? {
                 // Index in ci
-                self.ci
-                    .put(txn, &Self::key_ci(event.created_at(), event.id()), &offset)?;
+                self.ci_index.put(
+                    txn,
+                    &Self::key_ci_index(event.created_at(), event.id()),
+                    &offset,
+                )?;
             }
         }
 
