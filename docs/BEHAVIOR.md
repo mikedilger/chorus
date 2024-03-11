@@ -4,7 +4,11 @@
 
 If `verify_events` is set in the configuration, chorus rejects invalid events in all cases.
 
-Chorus accepts all events submitted by authorized users.
+If an event has a '-' tag, it must be submitted by an AUTHed user that matches the pubkey of the event, else it is rejected.
+
+If `open_relay` is true, all other events are accepted. If false, the remaining rules apply.
+
+Chorus accepts all events submitted by AUTHed authorized users.
 
 Chorus accepts relay list metadata (kind 10002) from anybody.
 
@@ -18,13 +22,15 @@ If you wish to change these rules, change the source code at `nostr.rs:screen_in
 
 ## REQ Read permissions and behavior
 
+Chorus does not serve any DM (kind 4) or GiftWrap (kind 1059) unless the connection is AUTHed and the user matches either a tagged person or the author of the event.
+
+If `open_relay` is true, all other events are served. If false, the remaining rules apply.
+
 Chorus serves all relay list metadata (kind 10002) events queried.
 
 Chorus serves all ephemeral events.
 
-Chorus does not serve any DM (kind 4) or GiftWrap (kind 1059) unless the connection is AUTHed and the user matches either a tagged person or the author of the event.
-
-Chorus serves all events to AUTHed and authorized users.
+Chorus serves all events to AUTHed authorized users.
 
 Chorus serves all events which were authored by an authorized user.
 
@@ -38,19 +44,19 @@ If you wish to change these rules, change the source code at `nostr.rs:screen_ou
 
 ## Abuse, Banning, Throttling, and the like
 
-WebSocket frames and messages are limited to 1 MB.
+WebSocket frames and messages are limited to 1 MB (slightly less for messages due to some overhead).
 
 Each connection has a memory buffer used for JSON deserialization that is no larger
 than the WebSocket message. No more than one such buffer exists per connection, and memory
 allocation is generally tightly controlled.
 
-Every connection is IP banned for 4 seconds after disconnection, whether or not the connection
+Every connection is IP banned for 2 seconds after disconnection, whether or not the connection
 was well behaved. We don't think clients should ever reconnect immediately. If chorus is
 run directly (not behind an nginx proxy), this IP banning is more efficient because it happens
 prior to SSL setup.
 
-A maximum of 32 subscriptions are allowed by default, although this is configurable with the
-`max_subscriptions` configuration setting.
+A maximum of 32 subscriptions are allowed by default (per connection), although this is
+configurable with the `max_subscriptions` configuration setting.
 
 ## NIP Support
 
@@ -78,8 +84,6 @@ as well as remembering these (id,pubkey) pairs to reject such events subsequentl
 ### NIP-11 Relay Information Document
 
 Chorus fully complies with NIP-11.
-
-Chorus returns a brief result without much detail.
 
 ### NIP-26 Delegated Event Signing
 
@@ -130,4 +134,3 @@ Chorus does not support NIP-94.
 ### NIP-96 HTTP File Storage Integration
 
 Chorus does not support NIP-96.
-
