@@ -5,6 +5,7 @@ use std::str::FromStr;
 use url::Host;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct FriendlyConfig {
     pub data_directory: String,
     pub ip_address: String,
