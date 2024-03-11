@@ -23,3 +23,7 @@ they will need to setup SSL connections to far too many relays.
 It may be better for others if people were to use a smaller number of larger relay services.
 
 But who am I to say? You are the sovereign. Here is your personal relay.
+
+## Open Relay
+
+You can run chorus as an open public relay.  Just set `open_relay` to true in the config.

@@ -89,6 +89,12 @@ This is an optional public key (hex format) for your relay, displayed in the NIP
 
 Default is None.
 
+### open_relay
+
+If open_relay true, the relay behaves as an open public relay.
+
+Default is false.
+
 ### user_hex_keys
 
 These are the public keys (hex format) of your relay's authorized users. See [BEHAVIOR.md](BEHAVIOR.md) to understand how chorus uses these.

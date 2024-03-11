@@ -401,6 +401,11 @@ async fn screen_incoming_event(
         }
     }
 
+    // Accept if an open relay
+    if GLOBALS.config.get().unwrap().open_relay {
+        return Ok(true);
+    }
+
     // Accept anything from authenticated authorized users
     if authorized_user {
         return Ok(true);
@@ -448,6 +453,17 @@ pub fn screen_outgoing_event(
     event_flags: &EventFlags,
     authorized_user: bool,
 ) -> bool {
+    // Forbid if it is a private event (DM or GiftWrap) and theey are neither the recipient
+    // nor the author
+    if event.kind() == Kind(4) || event.kind() == Kind(1059) {
+        return event_flags.tags_current_user || event_flags.author_is_current_user;
+    }
+
+    // Allow if an open relay
+    if GLOBALS.config.get().unwrap().open_relay {
+        return true;
+    }
+
     // Allow Relay Lists
     if event.kind() == Kind(10002) && GLOBALS.config.get().unwrap().serve_relay_lists {
         return true;
@@ -456,12 +472,6 @@ pub fn screen_outgoing_event(
     // Allow if event kind ephemeral
     if event.kind().is_ephemeral() && GLOBALS.config.get().unwrap().serve_ephemeral {
         return true;
-    }
-
-    // Forbid if it is a private event (DM or GiftWrap) and theey are neither the recipient
-    // nor the author
-    if event.kind() == Kind(4) || event.kind() == Kind(1059) {
-        return event_flags.tags_current_user || event_flags.author_is_current_user;
     }
 
     // Allow if an authorized_user is asking
