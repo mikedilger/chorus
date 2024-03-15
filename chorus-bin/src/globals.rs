@@ -6,9 +6,10 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::OnceLock;
 use tokio::sync::broadcast::Sender as BroadcastSender;
 use tokio::sync::watch::Sender as WatchSender;
+use tokio::sync::RwLock;
 
 pub struct Globals {
-    pub config: OnceLock<Config>,
+    pub config: RwLock<Config>,
     pub store: OnceLock<Store>,
     pub http_server: Http,
     pub rid: OnceLock<String>,
@@ -33,7 +34,7 @@ lazy_static! {
         let (shutting_down, _) = tokio::sync::watch::channel(false);
 
         Globals {
-            config: OnceLock::new(),
+            config: RwLock::new(Default::default()),
             store: OnceLock::new(),
             http_server,
             rid: OnceLock::new(),

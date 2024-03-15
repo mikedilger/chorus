@@ -10,7 +10,7 @@ The config file must be in TOML format. See the [TOML documentation](https://git
 
 This is the directory where chorus stores data.
 
-Default is "/tmp".
+Default is "/opt/chorus/var/chorus".
 
 If deployed according to [docs/DEPLOYING.md](docs/DEPLOYING.md), is "/opt/chorus/var/chorus".
 
@@ -34,6 +34,8 @@ Default is 443.
 This is the DNS hostname of your relay. This is used for verifying AUTH events, which specify
 your relay host name.
 
+Default is localhost
+
 ### use_tls
 
 If true, chorus will handle TLS, running over HTTPS.  If false, chorus run over HTTP.
@@ -41,17 +43,18 @@ If true, chorus will handle TLS, running over HTTPS.  If false, chorus run over 
 If you are proxying via nginx, normally you will set this to false and allow nginx to handle
 TLS.
 
+Default is true
+
 ### certchain_pem_path
 
 This is the path to your TLS certificate chain file.
 
 If `use_tls` is false, this value is irrelevant.
 
-Default is "./tls/fullchain.pem".
+Default is "/opt/chorus/etc/tls/fullchain.pem"
 
 If deployed according to [docs/DEPLOYING.md](docs/DEPLOYING.md) using the direct method,
-this is set to "/opt/chorus/etc/tls/fullchain.pem" and the systemd service copies letsencrypt
-TLS certificates into this position on start.
+systemd service copies letsencrypt TLS certificates into this position on start.
 
 ### key_pem_path
 
@@ -59,23 +62,22 @@ This is the path to yoru TLS private key file.
 
 If `use_tls` is false, this value is irrelevant.
 
-Default is "./tls/privkey.pem".
+Default is "/opt/chorus/etc/tls/privkey.pem"
 
 If deployed according to [docs/DEPLOYING.md](docs/DEPLOYING.md) using the direct method,
-this is set to "/opt/chorus/etc/tls/privkey.pem" and the systemd service copies letsencrypt
-TLS certificates into this position on start.
+systemd service copies letsencrypt TLS certificates into this position on start.
 
 ### name
 
 This is an optional name for your relay, displayed in the NIP-11 response.
 
-Default is None.
+Default is "Chorus Default"
 
 ### description
 
 This is an optional description for your relay, displayed in the NIP-11 response.
 
-Default is None.
+Default is "A default config of the Chorus relay".
 
 ### contact
 
@@ -177,7 +179,7 @@ How verbose to log library issues and other general issues
 
 Possible values are: Trace, Debug, Info, Warn, Error
 
-Default is Warn
+Default is Info
 
 ### client_log_level
 
@@ -185,5 +187,5 @@ How verbose to log issues with client requests
 
 Possible values are: Trace, Debug, Info, Warn, Error
 
-Default is Error
+Default is Info
 

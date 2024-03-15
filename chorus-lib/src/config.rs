@@ -35,15 +35,15 @@ pub struct FriendlyConfig {
 impl Default for FriendlyConfig {
     fn default() -> FriendlyConfig {
         FriendlyConfig {
-            data_directory: "/tmp".to_string(),
+            data_directory: "/opt/chorus/var/chorus".to_string(),
             ip_address: "127.0.0.1".to_string(),
-            port: 80,
+            port: 443,
             hostname: "localhost".to_string(),
-            use_tls: false,
-            certchain_pem_path: "./tls/fullchain.pem".to_string(),
-            key_pem_path: "./tls/privkey.pem".to_string(),
-            name: None,
-            description: None,
+            use_tls: true,
+            certchain_pem_path: "/opt/chorus/etc/tls/fullchain.pem".to_string(),
+            key_pem_path: "/opt/chorus/etc/tls/privkey.pem".to_string(),
+            name: Some("Chorus Default".to_string()),
+            description: Some("A default config of the Chorus relay".to_string()),
             contact: None,
             public_key_hex: None,
             open_relay: false,
@@ -56,8 +56,8 @@ impl Default for FriendlyConfig {
             serve_ephemeral: true,
             serve_relay_lists: true,
             server_log_level: "Info".to_string(),
-            library_log_level: "Warn".to_string(),
-            client_log_level: "Error".to_string(),
+            library_log_level: "Info".to_string(),
+            client_log_level: "Info".to_string(),
         }
     }
 }
@@ -103,9 +103,9 @@ impl FriendlyConfig {
         let hostname = Host::parse(&hostname)?;
 
         let server_log_level =
-            log::LevelFilter::from_str(&server_log_level).unwrap_or(log::LevelFilter::Error);
+            log::LevelFilter::from_str(&server_log_level).unwrap_or(log::LevelFilter::Info);
         let library_log_level =
-            log::LevelFilter::from_str(&library_log_level).unwrap_or(log::LevelFilter::Warn);
+            log::LevelFilter::from_str(&library_log_level).unwrap_or(log::LevelFilter::Info);
         let client_log_level =
             log::LevelFilter::from_str(&client_log_level).unwrap_or(log::LevelFilter::Info);
 
@@ -164,4 +164,13 @@ pub struct Config {
     pub server_log_level: log::LevelFilter,
     pub library_log_level: log::LevelFilter,
     pub client_log_level: log::LevelFilter,
+}
+
+impl Default for Config {
+    fn default() -> Config {
+        let friendly = FriendlyConfig::default();
+
+        // We know the default config passes into_config without error:
+        friendly.into_config().unwrap()
+    }
 }

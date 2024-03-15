@@ -67,16 +67,16 @@ certchain_pem_path = "/opt/chorus/etc/tls/fullchain.pem"
 key_pem_path = "/opt/chorus/etc/tls/privkey.pem"
 
 
-# This is an optional name for your relay, displayed in the NIP-11 response.
+# This is a name for your relay, displayed in the NIP-11 response.
 #
-# Default is not set
+# Default is "Chorus Default"
 #
 # name = "Chorus Default"
 
 
-# This is an optional description for your relay, displayed in the NIP-11 response.
+# This is a description for your relay, displayed in the NIP-11 response.
 #
-# Default is not set
+# Default is "A default config of the Chorus relay"
 #
 # description = "A default config of the Chorus relay"
 
@@ -203,15 +203,15 @@ server_log_level = "Info"
 #
 # Possible values are: Trace, Debug, Info, Warn, Error
 #
-# Default is Warn
+# Default is Info
 #
-library_log_level = "Warn"
+library_log_level = "Info"
 
 
 # How verbose to log issues with client requests
 #
 # Possible values are: Trace, Debug, Info, Warn, Error
 #
-# Default is Error
+# Default is Info
 #
-client_log_level = "Error"
+client_log_level = "Info"

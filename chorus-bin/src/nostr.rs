@@ -82,7 +82,7 @@ impl WebSocketService {
         if let Err(e) = self.req_inner(&subid, filters).await {
             let reply = match e.inner {
                 ChorusError::TooManySubscriptions => {
-                    let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;
+                    let max_subscriptions = GLOBALS.config.read().await.max_subscriptions;
                     NostrReply::Closed(
                         &subid,
                         NostrReplyPrefix::Blocked,
@@ -105,7 +105,7 @@ impl WebSocketService {
     }
 
     async fn req_inner(&mut self, subid: &String, filters: Vec<OwnedFilter>) -> Result<(), Error> {
-        let max_subscriptions = GLOBALS.config.get().unwrap().max_subscriptions;
+        let max_subscriptions = GLOBALS.config.read().await.max_subscriptions;
         if self.subscriptions.len() >= max_subscriptions {
             return Err(ChorusError::TooManySubscriptions.into());
         }
@@ -233,8 +233,7 @@ impl WebSocketService {
 
         let event_flags = event_flags(&event, &user);
 
-        if !event_flags.author_is_an_authorized_user || GLOBALS.config.get().unwrap().verify_events
-        {
+        if !event_flags.author_is_an_authorized_user || GLOBALS.config.read().await.verify_events {
             // Verify the event is valid (id is hash, signature is valid)
             if let Err(e) = event.verify() {
                 return Err(ChorusError::EventIsInvalid(format!("{}", e)).into());
@@ -345,7 +344,7 @@ impl WebSocketService {
                         };
                         if let Some(h) = url.host() {
                             let theirhost = h.to_owned();
-                            if theirhost == GLOBALS.config.get().unwrap().hostname {
+                            if theirhost == GLOBALS.config.read().await.hostname {
                                 relay_ok = true;
                             }
                         }
@@ -402,7 +401,7 @@ async fn screen_incoming_event(
     }
 
     // Accept if an open relay
-    if GLOBALS.config.get().unwrap().open_relay {
+    if GLOBALS.config.read().await.open_relay {
         return Ok(true);
     }
 
@@ -412,20 +411,20 @@ async fn screen_incoming_event(
     }
 
     // Accept relay lists from anybody
-    if event.kind() == Kind(10002) && GLOBALS.config.get().unwrap().serve_relay_lists {
+    if event.kind() == Kind(10002) && GLOBALS.config.read().await.serve_relay_lists {
         return Ok(true);
     }
 
     // Allow if event kind ephemeral
-    if event.kind().is_ephemeral() && GLOBALS.config.get().unwrap().serve_ephemeral {
+    if event.kind().is_ephemeral() && GLOBALS.config.read().await.serve_ephemeral {
         return Ok(true);
     }
 
     // If the author is one of our users, always accept it
     if GLOBALS
         .config
-        .get()
-        .unwrap()
+        .read()
+        .await
         .user_keys
         .contains(&event.pubkey())
     {
@@ -436,7 +435,7 @@ async fn screen_incoming_event(
     for mut tag in event.tags()?.iter() {
         if tag.next() == Some(b"p") {
             if let Some(value) = tag.next() {
-                for ukhex in &GLOBALS.config.get().unwrap().user_hex_keys {
+                for ukhex in &GLOBALS.config.read().await.user_hex_keys {
                     if value == ukhex.as_bytes() {
                         return Ok(true);
                     }
@@ -460,17 +459,17 @@ pub fn screen_outgoing_event(
     }
 
     // Allow if an open relay
-    if GLOBALS.config.get().unwrap().open_relay {
+    if GLOBALS.config.blocking_read().open_relay {
         return true;
     }
 
     // Allow Relay Lists
-    if event.kind() == Kind(10002) && GLOBALS.config.get().unwrap().serve_relay_lists {
+    if event.kind() == Kind(10002) && GLOBALS.config.blocking_read().serve_relay_lists {
         return true;
     }
 
     // Allow if event kind ephemeral
-    if event.kind().is_ephemeral() && GLOBALS.config.get().unwrap().serve_ephemeral {
+    if event.kind().is_ephemeral() && GLOBALS.config.blocking_read().serve_ephemeral {
         return true;
     }
 
@@ -491,7 +490,7 @@ pub fn screen_outgoing_event(
 pub async fn authorized_user(user: &Option<Pubkey>) -> bool {
     match user {
         None => false,
-        Some(pk) => GLOBALS.config.get().unwrap().user_keys.contains(pk),
+        Some(pk) => GLOBALS.config.read().await.user_keys.contains(pk),
     }
 }
 
@@ -505,8 +504,7 @@ pub struct EventFlags {
 pub fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
     let author_is_an_authorized_user = GLOBALS
         .config
-        .get()
-        .unwrap()
+        .blocking_read()
         .user_keys
         .contains(&event.pubkey());
 
@@ -529,7 +527,12 @@ pub fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
                             }
                         }
 
-                        if GLOBALS.config.get().unwrap().user_keys.contains(&tagged_pk) {
+                        if GLOBALS
+                            .config
+                            .blocking_read()
+                            .user_keys
+                            .contains(&tagged_pk)
+                        {
                             tags_an_authorized_user = true;
                         }
                     }

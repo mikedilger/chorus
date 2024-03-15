@@ -45,7 +45,7 @@ async fn main() -> Result<(), Error> {
     let config_path = args.next().unwrap();
 
     // Read config file
-    let mut file = OpenOptions::new().read(true).open(config_path)?;
+    let mut file = OpenOptions::new().read(true).open(config_path.clone())?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     let friendly_config: FriendlyConfig = toml::from_str(&contents)?;
@@ -80,11 +80,12 @@ async fn main() -> Result<(), Error> {
     log::info!(target: "Server", "Running on {}:{}", config.ip_address, config.port);
 
     // Store config into GLOBALS
-    let _ = GLOBALS.config.set(config);
+    *GLOBALS.config.write().await = config;
 
     let mut interrupt_signal = signal(SignalKind::interrupt())?;
     let mut quit_signal = signal(SignalKind::quit())?;
     let mut terminate_signal = signal(SignalKind::terminate())?;
+    let mut hup_signal = signal(SignalKind::hangup())?;
 
     loop {
         tokio::select! {
@@ -100,6 +101,20 @@ async fn main() -> Result<(), Error> {
             v = terminate_signal.recv() => if v.is_some() {
                 log::info!(target: "Server", "SIGTERM");
                 break;
+            },
+
+            // Reload config on HUP
+            v = hup_signal.recv() => if v.is_some() {
+                log::info!(target: "Server", "SIGHUP: Reloading configuration");
+
+                // Reload the config file
+                let mut file = OpenOptions::new().read(true).open(config_path.clone())?;
+                let mut contents = String::new();
+                file.read_to_string(&mut contents)?;
+                let friendly_config: FriendlyConfig = toml::from_str(&contents)?;
+                let config: Config = friendly_config.into_config()?;
+
+                *GLOBALS.config.write().await = config;
             },
 
             // Accepts network connections and spawn a task to serve each one
