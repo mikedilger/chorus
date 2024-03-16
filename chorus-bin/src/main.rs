@@ -475,13 +475,22 @@ impl WebSocketService {
             .unwrap()
             .get_event_by_offset(new_event_offset)?
         {
-            let event_flags = nostr::event_flags(&event, &self.user);
+            let config = &*GLOBALS.config.read().await;
+            let event_flags = {
+                let user_keys_ref = &config.user_keys;
+                nostr::event_flags(&event, &self.user, user_keys_ref)
+            };
             let authorized_user = nostr::authorized_user(&self.user).await;
 
             'subs: for (subid, filters) in self.subscriptions.iter() {
                 for filter in filters.iter() {
                     if filter.as_filter()?.event_matches(&event)?
-                        && nostr::screen_outgoing_event(&event, &event_flags, authorized_user)
+                        && nostr::screen_outgoing_event(
+                            &event,
+                            &event_flags,
+                            authorized_user,
+                            config,
+                        )
                     {
                         let message = NostrReply::Event(subid, event);
                         self.websocket

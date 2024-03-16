@@ -1,5 +1,6 @@
 use crate::globals::GLOBALS;
 use crate::WebSocketService;
+use chorus_lib::config::Config;
 use chorus_lib::error::{ChorusError, Error};
 use chorus_lib::reply::{NostrReply, NostrReplyPrefix};
 use chorus_lib::types::parse::json_escape::json_unescape;
@@ -125,10 +126,14 @@ impl WebSocketService {
         // Serve events matching subscription
         {
             let mut events: Vec<Event> = Vec::new();
+
+            let config = GLOBALS.config.read().await;
+            let user_keys_ref = &config.user_keys;
+
             for filter in filters.iter() {
                 let screen = |event: &Event| {
-                    let event_flags = event_flags(event, &user);
-                    screen_outgoing_event(event, &event_flags, authorized_user)
+                    let event_flags = event_flags(event, &user, user_keys_ref);
+                    screen_outgoing_event(event, &event_flags, authorized_user, &config)
                 };
                 let filter_events = GLOBALS
                     .store
@@ -231,7 +236,10 @@ impl WebSocketService {
         // Delineate the event back out of the session buffer
         let event = Event::delineate(&self.buffer)?;
 
-        let event_flags = event_flags(&event, &user);
+        let event_flags = {
+            let user_keys_ref = &*GLOBALS.config.read().await.user_keys;
+            event_flags(&event, &user, user_keys_ref)
+        };
 
         if !event_flags.author_is_an_authorized_user || GLOBALS.config.read().await.verify_events {
             // Verify the event is valid (id is hash, signature is valid)
@@ -451,6 +459,7 @@ pub fn screen_outgoing_event(
     event: &Event<'_>,
     event_flags: &EventFlags,
     authorized_user: bool,
+    config: &Config,
 ) -> bool {
     // Forbid if it is a private event (DM or GiftWrap) and theey are neither the recipient
     // nor the author
@@ -459,17 +468,17 @@ pub fn screen_outgoing_event(
     }
 
     // Allow if an open relay
-    if GLOBALS.config.blocking_read().open_relay {
+    if config.open_relay {
         return true;
     }
 
     // Allow Relay Lists
-    if event.kind() == Kind(10002) && GLOBALS.config.blocking_read().serve_relay_lists {
+    if event.kind() == Kind(10002) && config.serve_relay_lists {
         return true;
     }
 
     // Allow if event kind ephemeral
-    if event.kind().is_ephemeral() && GLOBALS.config.blocking_read().serve_ephemeral {
+    if event.kind().is_ephemeral() && config.serve_ephemeral {
         return true;
     }
 
@@ -501,12 +510,8 @@ pub struct EventFlags {
     pub tags_current_user: bool,
 }
 
-pub fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
-    let author_is_an_authorized_user = GLOBALS
-        .config
-        .blocking_read()
-        .user_keys
-        .contains(&event.pubkey());
+pub fn event_flags(event: &Event<'_>, user: &Option<Pubkey>, user_keys: &[Pubkey]) -> EventFlags {
+    let author_is_an_authorized_user = user_keys.contains(&event.pubkey());
 
     let author_is_current_user = match user {
         None => false,
@@ -527,12 +532,7 @@ pub fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
                             }
                         }
 
-                        if GLOBALS
-                            .config
-                            .blocking_read()
-                            .user_keys
-                            .contains(&tagged_pk)
-                        {
+                        if user_keys.contains(&tagged_pk) {
                             tags_an_authorized_user = true;
                         }
                     }
