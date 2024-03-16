@@ -13,6 +13,7 @@ ExecStartPre=+cp -H /etc/letsencrypt/live/chorus.example.com/fullchain.pem /opt/
 ExecStartPre=+cp -H /etc/letsencrypt/live/chorus.example.com/privkey.pem /opt/chorus/etc/tls/
 ExecStartPre=+chown chorus /opt/chorus/etc/tls/fullchain.pem /opt/chorus/etc/tls/privkey.pem
 ExecStart=/opt/chorus/sbin/chorus /opt/chorus/etc/chorus.toml
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5
 

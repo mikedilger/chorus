@@ -9,6 +9,7 @@ Environment="RUST_LOG=info"
 WorkingDirectory=/opt/chorus
 User=chorus
 ExecStart=/opt/chorus/sbin/chorus /opt/chorus/etc/chorus.toml
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5
 
