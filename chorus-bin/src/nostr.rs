@@ -1,6 +1,5 @@
 use crate::globals::GLOBALS;
 use crate::WebSocketService;
-use chorus_lib::config::Config;
 use chorus_lib::error::{ChorusError, Error};
 use chorus_lib::reply::{NostrReply, NostrReplyPrefix};
 use chorus_lib::types::parse::json_escape::json_unescape;
@@ -83,7 +82,7 @@ impl WebSocketService {
         if let Err(e) = self.req_inner(&subid, filters).await {
             let reply = match e.inner {
                 ChorusError::TooManySubscriptions => {
-                    let max_subscriptions = GLOBALS.config.read().await.max_subscriptions;
+                    let max_subscriptions = GLOBALS.config.read().max_subscriptions;
                     NostrReply::Closed(
                         &subid,
                         NostrReplyPrefix::Blocked,
@@ -106,13 +105,13 @@ impl WebSocketService {
     }
 
     async fn req_inner(&mut self, subid: &String, filters: Vec<OwnedFilter>) -> Result<(), Error> {
-        let max_subscriptions = GLOBALS.config.read().await.max_subscriptions;
+        let max_subscriptions = GLOBALS.config.read().max_subscriptions;
         if self.subscriptions.len() >= max_subscriptions {
             return Err(ChorusError::TooManySubscriptions.into());
         }
 
         let user = self.user;
-        let authorized_user = authorized_user(&user).await;
+        let authorized_user = authorized_user(&user);
 
         // NOTE on private events (DMs, GiftWraps)
         // Most relays check if you are seeking them, and of which pubkey, and if you are
@@ -127,19 +126,19 @@ impl WebSocketService {
         {
             let mut events: Vec<Event> = Vec::new();
 
-            let config = GLOBALS.config.read().await;
-            let user_keys_ref = &config.user_keys;
-
             for filter in filters.iter() {
                 let screen = |event: &Event| {
-                    let event_flags = event_flags(event, &user, user_keys_ref);
-                    screen_outgoing_event(event, &event_flags, authorized_user, &config)
+                    let event_flags = event_flags(event, &user);
+                    screen_outgoing_event(event, &event_flags, authorized_user)
                 };
-                let filter_events = GLOBALS
-                    .store
-                    .get()
-                    .unwrap()
-                    .find_events(filter.as_filter()?, screen)?;
+                let filter_events = {
+                    let config = &*GLOBALS.config.read();
+                    GLOBALS
+                        .store
+                        .get()
+                        .unwrap()
+                        .find_events(filter.as_filter()?, screen, config)?
+                };
                 events.extend(filter_events);
             }
 
@@ -231,17 +230,14 @@ impl WebSocketService {
 
     async fn event_inner(&mut self) -> Result<(), Error> {
         let user = self.user;
-        let authorized_user = authorized_user(&user).await;
+        let authorized_user = authorized_user(&user);
 
         // Delineate the event back out of the session buffer
         let event = Event::delineate(&self.buffer)?;
 
-        let event_flags = {
-            let user_keys_ref = &*GLOBALS.config.read().await.user_keys;
-            event_flags(&event, &user, user_keys_ref)
-        };
+        let event_flags = event_flags(&event, &user);
 
-        if !event_flags.author_is_an_authorized_user || GLOBALS.config.read().await.verify_events {
+        if !event_flags.author_is_an_authorized_user || GLOBALS.config.read().verify_events {
             // Verify the event is valid (id is hash, signature is valid)
             if let Err(e) = event.verify() {
                 return Err(ChorusError::EventIsInvalid(format!("{}", e)).into());
@@ -352,7 +348,7 @@ impl WebSocketService {
                         };
                         if let Some(h) = url.host() {
                             let theirhost = h.to_owned();
-                            if theirhost == GLOBALS.config.read().await.hostname {
+                            if theirhost == GLOBALS.config.read().hostname {
                                 relay_ok = true;
                             }
                         }
@@ -409,7 +405,7 @@ async fn screen_incoming_event(
     }
 
     // Accept if an open relay
-    if GLOBALS.config.read().await.open_relay {
+    if GLOBALS.config.read().open_relay {
         return Ok(true);
     }
 
@@ -419,23 +415,17 @@ async fn screen_incoming_event(
     }
 
     // Accept relay lists from anybody
-    if event.kind() == Kind(10002) && GLOBALS.config.read().await.serve_relay_lists {
+    if event.kind() == Kind(10002) && GLOBALS.config.read().serve_relay_lists {
         return Ok(true);
     }
 
     // Allow if event kind ephemeral
-    if event.kind().is_ephemeral() && GLOBALS.config.read().await.serve_ephemeral {
+    if event.kind().is_ephemeral() && GLOBALS.config.read().serve_ephemeral {
         return Ok(true);
     }
 
     // If the author is one of our users, always accept it
-    if GLOBALS
-        .config
-        .read()
-        .await
-        .user_keys
-        .contains(&event.pubkey())
-    {
+    if GLOBALS.config.read().user_keys.contains(&event.pubkey()) {
         return Ok(true);
     }
 
@@ -443,7 +433,7 @@ async fn screen_incoming_event(
     for mut tag in event.tags()?.iter() {
         if tag.next() == Some(b"p") {
             if let Some(value) = tag.next() {
-                for ukhex in &GLOBALS.config.read().await.user_hex_keys {
+                for ukhex in &GLOBALS.config.read().user_hex_keys {
                     if value == ukhex.as_bytes() {
                         return Ok(true);
                     }
@@ -459,7 +449,6 @@ pub fn screen_outgoing_event(
     event: &Event<'_>,
     event_flags: &EventFlags,
     authorized_user: bool,
-    config: &Config,
 ) -> bool {
     // Forbid if it is a private event (DM or GiftWrap) and theey are neither the recipient
     // nor the author
@@ -468,17 +457,17 @@ pub fn screen_outgoing_event(
     }
 
     // Allow if an open relay
-    if config.open_relay {
+    if GLOBALS.config.read().open_relay {
         return true;
     }
 
     // Allow Relay Lists
-    if event.kind() == Kind(10002) && config.serve_relay_lists {
+    if event.kind() == Kind(10002) && GLOBALS.config.read().serve_relay_lists {
         return true;
     }
 
     // Allow if event kind ephemeral
-    if event.kind().is_ephemeral() && config.serve_ephemeral {
+    if event.kind().is_ephemeral() && GLOBALS.config.read().serve_ephemeral {
         return true;
     }
 
@@ -496,10 +485,10 @@ pub fn screen_outgoing_event(
     false
 }
 
-pub async fn authorized_user(user: &Option<Pubkey>) -> bool {
+pub fn authorized_user(user: &Option<Pubkey>) -> bool {
     match user {
         None => false,
-        Some(pk) => GLOBALS.config.read().await.user_keys.contains(pk),
+        Some(pk) => GLOBALS.config.read().user_keys.contains(pk),
     }
 }
 
@@ -510,8 +499,8 @@ pub struct EventFlags {
     pub tags_current_user: bool,
 }
 
-pub fn event_flags(event: &Event<'_>, user: &Option<Pubkey>, user_keys: &[Pubkey]) -> EventFlags {
-    let author_is_an_authorized_user = user_keys.contains(&event.pubkey());
+pub fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
+    let author_is_an_authorized_user = GLOBALS.config.read().user_keys.contains(&event.pubkey());
 
     let author_is_current_user = match user {
         None => false,
@@ -532,7 +521,7 @@ pub fn event_flags(event: &Event<'_>, user: &Option<Pubkey>, user_keys: &[Pubkey
                             }
                         }
 
-                        if user_keys.contains(&tagged_pk) {
+                        if GLOBALS.config.read().user_keys.contains(&tagged_pk) {
                             tags_an_authorized_user = true;
                         }
                     }

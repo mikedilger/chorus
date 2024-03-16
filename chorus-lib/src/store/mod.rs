@@ -31,9 +31,6 @@ pub struct Store {
     deleted_offsets: Database<U64<BigEndian>, Unit>,
     deleted_events: Database<UnalignedSlice<u8>, Unit>,
     ip_data: Database<UnalignedSlice<u8>, UnalignedSlice<u8>>,
-    allow_scraping: bool,
-    allow_scrape_if_limited_to: u32,
-    allow_scrape_if_max_seconds: u64,
 }
 
 impl Store {
@@ -187,9 +184,6 @@ impl Store {
             deleted_offsets,
             deleted_events,
             ip_data,
-            allow_scraping: config.allow_scraping,
-            allow_scrape_if_limited_to: config.allow_scrape_if_limited_to,
-            allow_scrape_if_max_seconds: config.allow_scrape_if_max_seconds,
         };
 
         // This is in migrations.rs
@@ -303,7 +297,8 @@ impl Store {
     }
 
     /// Find all events that match the filter
-    pub fn find_events<F>(&self, filter: Filter, screen: F) -> Result<Vec<Event>, Error>
+    pub fn find_events<F>(&self, filter: Filter, screen: F, config: &Config)
+                          -> Result<Vec<Event>, Error>
     where
         F: Fn(&Event) -> bool,
     {
@@ -626,9 +621,10 @@ impl Store {
         } else {
             // SCRAPE:
             let maxtime = filter.until().0.min(Time::now().0);
-            let allow = self.allow_scraping
-                || filter.limit() <= self.allow_scrape_if_limited_to
-                || (maxtime - filter.since().0) < self.allow_scrape_if_max_seconds;
+
+            let allow = config.allow_scraping
+                || filter.limit() <= config.allow_scrape_if_limited_to
+                || (maxtime - filter.since().0) < config.allow_scrape_if_max_seconds;
             if !allow {
                 return Err(ChorusError::Scraper.into());
             }

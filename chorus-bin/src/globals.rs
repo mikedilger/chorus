@@ -2,11 +2,11 @@ use chorus_lib::config::Config;
 use chorus_lib::store::Store;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
+use parking_lot::RwLock;
 use std::sync::atomic::AtomicUsize;
 use std::sync::OnceLock;
 use tokio::sync::broadcast::Sender as BroadcastSender;
 use tokio::sync::watch::Sender as WatchSender;
-use tokio::sync::RwLock;
 
 pub struct Globals {
     pub config: RwLock<Config>,

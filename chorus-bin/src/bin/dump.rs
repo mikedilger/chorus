@@ -43,7 +43,7 @@ fn main() -> Result<(), Error> {
     let (_incount, _outcount, filter) = Filter::from_json(b"{}", &mut buffer)?;
     let screen = |_: &Event<'_>| -> bool { true };
 
-    let mut events = store.find_events(filter, screen)?;
+    let mut events = store.find_events(filter, screen, &config)?;
     for event in events.drain(..) {
         let bytes = event.as_json()?;
         let s = unsafe { std::str::from_utf8_unchecked(&bytes) };

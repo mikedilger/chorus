@@ -153,6 +153,7 @@ dependencies = [
  "hyper-tungstenite",
  "lazy_static",
  "log",
+ "parking_lot",
  "rustls-pemfile",
  "serde",
  "tempfile",

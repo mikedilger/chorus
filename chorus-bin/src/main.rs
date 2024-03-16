@@ -80,7 +80,7 @@ async fn main() -> Result<(), Error> {
     log::info!(target: "Server", "Running on {}:{}", config.ip_address, config.port);
 
     // Store config into GLOBALS
-    *GLOBALS.config.write().await = config;
+    *GLOBALS.config.write() = config;
 
     let mut interrupt_signal = signal(SignalKind::interrupt())?;
     let mut quit_signal = signal(SignalKind::quit())?;
@@ -114,7 +114,7 @@ async fn main() -> Result<(), Error> {
                 let friendly_config: FriendlyConfig = toml::from_str(&contents)?;
                 let config: Config = friendly_config.into_config()?;
 
-                *GLOBALS.config.write().await = config;
+                *GLOBALS.config.write() = config;
             },
 
             // Accepts network connections and spawn a task to serve each one
@@ -475,22 +475,13 @@ impl WebSocketService {
             .unwrap()
             .get_event_by_offset(new_event_offset)?
         {
-            let config = &*GLOBALS.config.read().await;
-            let event_flags = {
-                let user_keys_ref = &config.user_keys;
-                nostr::event_flags(&event, &self.user, user_keys_ref)
-            };
-            let authorized_user = nostr::authorized_user(&self.user).await;
+            let event_flags = nostr::event_flags(&event, &self.user);
+            let authorized_user = nostr::authorized_user(&self.user);
 
             'subs: for (subid, filters) in self.subscriptions.iter() {
                 for filter in filters.iter() {
                     if filter.as_filter()?.event_matches(&event)?
-                        && nostr::screen_outgoing_event(
-                            &event,
-                            &event_flags,
-                            authorized_user,
-                            config,
-                        )
+                        && nostr::screen_outgoing_event(&event, &event_flags, authorized_user)
                     {
                         let message = NostrReply::Event(subid, event);
                         self.websocket
