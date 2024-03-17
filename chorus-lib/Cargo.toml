@@ -8,6 +8,7 @@ repository = "https://github.com/mikedilger/chorus"
 edition = "2021"
 
 [dependencies]
+base64 = "0.22"
 futures = "0.3"
 heed = { git = "https://github.com/meilisearch/heed", rev = "64fd6fec293c0dee94855b8267557ce03e7ce5d8" }
 hyper = { version = "0.14", features = [ "http1", "server", "runtime", "stream" ] }

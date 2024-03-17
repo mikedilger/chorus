@@ -5,7 +5,7 @@ mod migrations;
 
 use crate::config::Config;
 use crate::error::{ChorusError, Error};
-use crate::ip::IpData;
+use crate::ip::{HashedIp, IpData};
 use crate::types::{Event, Filter, Id, Kind, Pubkey, Time};
 use heed::byteorder::BigEndian;
 use heed::types::{OwnedType, UnalignedSlice, Unit, U64};
@@ -13,7 +13,6 @@ use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use speedy::{Readable, Writable};
 use std::collections::BTreeSet;
 use std::fs;
-use std::net::IpAddr;
 use std::ops::Bound;
 
 #[derive(Debug)]
@@ -297,8 +296,12 @@ impl Store {
     }
 
     /// Find all events that match the filter
-    pub fn find_events<F>(&self, filter: Filter, screen: F, config: &Config)
-                          -> Result<Vec<Event>, Error>
+    pub fn find_events<F>(
+        &self,
+        filter: Filter,
+        screen: F,
+        config: &Config,
+    ) -> Result<Vec<Event>, Error>
     where
         F: Fn(&Event) -> bool,
     {
@@ -909,21 +912,21 @@ impl Store {
         Ok(())
     }
 
-    pub fn get_ip_data(&self, ip: IpAddr) -> Result<IpData, Error> {
-        let key = ip.write_to_vec()?;
+    pub fn get_ip_data(&self, ip: HashedIp) -> Result<IpData, Error> {
+        let key = &ip.0;
         let txn = self.env.read_txn()?;
-        let bytes = match self.ip_data.get(&txn, &key)? {
+        let bytes = match self.ip_data.get(&txn, key)? {
             Some(b) => b,
             None => return Ok(Default::default()),
         };
         Ok(IpData::read_from_buffer(bytes)?)
     }
 
-    pub fn update_ip_data(&self, ip: IpAddr, data: &IpData) -> Result<(), Error> {
-        let key = ip.write_to_vec()?;
+    pub fn update_ip_data(&self, ip: HashedIp, data: &IpData) -> Result<(), Error> {
+        let key = &ip.0;
         let mut txn = self.env.write_txn()?;
         let bytes = data.write_to_vec()?;
-        self.ip_data.put(&mut txn, &key, &bytes)?;
+        self.ip_data.put(&mut txn, key, &bytes)?;
         txn.commit()?;
         Ok(())
     }

@@ -2,7 +2,7 @@ use super::Store;
 use crate::error::Error;
 use heed::RwTxn;
 
-pub const CURRENT_MIGRATION_LEVEL: u32 = 2;
+pub const CURRENT_MIGRATION_LEVEL: u32 = 3;
 
 impl Store {
     pub fn migrate(&self) -> Result<(), Error> {
@@ -39,6 +39,7 @@ impl Store {
         match level {
             1 => self.migrate_to_1(txn)?,
             2 => self.migrate_to_2(txn)?,
+            3 => self.migrate_to_3(txn)?,
             _ => panic!("Unknown migration level {level}"),
         }
 
@@ -100,6 +101,12 @@ impl Store {
             }
         }
 
+        Ok(())
+    }
+
+    // Clear IP data (we are hashing now)
+    fn migrate_to_3(&self, txn: &mut RwTxn<'_>) -> Result<(), Error> {
+        self.ip_data.clear(txn)?;
         Ok(())
     }
 }

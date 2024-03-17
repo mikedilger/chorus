@@ -7,7 +7,7 @@ use crate::globals::GLOBALS;
 use crate::tls::MaybeTlsStream;
 use chorus_lib::config::{Config, FriendlyConfig};
 use chorus_lib::error::{ChorusError, Error};
-use chorus_lib::ip::SessionExit;
+use chorus_lib::ip::{HashedIp, HashedPeer, SessionExit};
 use chorus_lib::reply::NostrReply;
 use chorus_lib::store::Store;
 use chorus_lib::types::{OwnedFilter, Pubkey};
@@ -22,7 +22,7 @@ use std::error::Error as StdError;
 use std::fs::OpenOptions;
 use std::future::Future;
 use std::io::Read;
-use std::net::{IpAddr, SocketAddr};
+use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::atomic::Ordering;
 use std::task::{Context, Poll};
@@ -119,13 +119,17 @@ async fn main() -> Result<(), Error> {
 
             // Accepts network connections and spawn a task to serve each one
             v = listener.accept() => {
-                let (tcp_stream, peer_addr) = v?;
-                let ipaddr = peer_addr.ip();
+                let (tcp_stream, hashed_peer) = {
+                    let (tcp_stream, peer_addr) = v?;
+                    let hashed_peer = HashedPeer::new(peer_addr);
+                    (tcp_stream, hashed_peer)
+                };
 
-                let ip_data = GLOBALS.store.get().unwrap().get_ip_data(ipaddr)?;
+                let ip_data = GLOBALS.store.get().unwrap().get_ip_data(hashed_peer.ip())?;
                 if ip_data.is_banned() {
                     log::debug!(target: "Client",
-                                "{peer_addr}: Blocking reconnection until {}",
+                                "{}: Blocking reconnection until {}",
+                                hashed_peer.ip(),
                                 ip_data.ban_until);
                     continue;
                 }
@@ -136,20 +140,20 @@ async fn main() -> Result<(), Error> {
                         match tls_acceptor_clone.accept(tcp_stream).await {
                             Err(e) => log::error!(
                                 target: "Client",
-                                "{}: {}", peer_addr, e
+                                "{}: {}", hashed_peer, e
                             ),
                             Ok(tls_stream) => {
-                                if let Err(e) = serve(MaybeTlsStream::Rustls(tls_stream), peer_addr).await {
+                                if let Err(e) = serve(MaybeTlsStream::Rustls(tls_stream), hashed_peer).await {
                                     log::error!(
                                         target: "Client",
-                                        "{}: {}", peer_addr, e
+                                        "{}: {}", hashed_peer, e
                                     );
                                 }
                             }
                         }
                     });
                 } else {
-                    serve(MaybeTlsStream::Plain(tcp_stream), peer_addr).await?;
+                    serve(MaybeTlsStream::Plain(tcp_stream), hashed_peer).await?;
                 }
             }
         };
@@ -197,9 +201,9 @@ async fn main() -> Result<(), Error> {
 }
 
 // Serve a single network connection
-async fn serve(stream: MaybeTlsStream<TcpStream>, peer_addr: SocketAddr) -> Result<(), Error> {
+async fn serve(stream: MaybeTlsStream<TcpStream>, peer: HashedPeer) -> Result<(), Error> {
     // Serve the network stream with our http server and our HttpService
-    let service = HttpService { peer: peer_addr };
+    let service = HttpService { peer };
 
     let connection = GLOBALS
         .http_server
@@ -214,12 +218,12 @@ async fn serve(stream: MaybeTlsStream<TcpStream>, peer_addr: SocketAddr) -> Resu
                     // do nothing
                 } else {
                     // Print in detail
-                    log::error!(target: "Client", "{}: {:?}", peer_addr, src);
+                    log::error!(target: "Client", "{}: {:?}", peer, src);
                 }
             } else {
                 // Print in less detail
                 let e: Error = he.into();
-                log::error!(target: "Client", "{}: {}", peer_addr, e);
+                log::error!(target: "Client", "{}: {}", peer, e);
             }
         }
     });
@@ -229,7 +233,7 @@ async fn serve(stream: MaybeTlsStream<TcpStream>, peer_addr: SocketAddr) -> Resu
 
 // This is our per-connection HTTP service
 struct HttpService {
-    peer: SocketAddr,
+    peer: HashedPeer,
 }
 
 impl Service<Request<Body>> for HttpService {
@@ -253,7 +257,8 @@ impl Service<Request<Body>> for HttpService {
             if let Some(rip) = req.headers().get("x-real-ip") {
                 if let Ok(ripstr) = rip.to_str() {
                     if let Ok(ipaddr) = ripstr.parse::<IpAddr>() {
-                        peer.set_ip(ipaddr);
+                        let hashed_ip = HashedIp::new(ipaddr);
+                        peer = HashedPeer::from_parts(hashed_ip, peer.port());
                     }
                 }
             }
@@ -264,7 +269,7 @@ impl Service<Request<Body>> for HttpService {
 }
 
 async fn handle_http_request(
-    peer: SocketAddr,
+    peer: HashedPeer,
     mut request: Request<Body>,
 ) -> Result<Response<Body>, Error> {
     let ua = match request.headers().get("user-agent") {
@@ -393,7 +398,7 @@ async fn handle_http_request(
 }
 
 struct WebSocketService {
-    pub peer: SocketAddr,
+    pub peer: HashedPeer,
     pub subscriptions: HashMap<String, Vec<OwnedFilter>>,
     pub buffer: Vec<u8>,
     pub websocket: WebSocketStream<Upgraded>,

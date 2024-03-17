@@ -1,10 +1,10 @@
 use crate::globals::GLOBALS;
 use chorus_lib::config::Config;
 use chorus_lib::error::Error;
+use chorus_lib::ip::HashedPeer;
 use hyper::{Body, Request, Response, StatusCode};
-use std::net::SocketAddr;
 
-pub async fn serve_http(peer: SocketAddr, request: Request<Body>) -> Result<Response<Body>, Error> {
+pub async fn serve_http(peer: HashedPeer, request: Request<Body>) -> Result<Response<Body>, Error> {
     log::debug!(target: "Client", "{}: HTTP request for {}", peer, request.uri());
     let response = Response::builder()
         .header("Access-Control-Allow-Origin", "*")
@@ -15,7 +15,7 @@ pub async fn serve_http(peer: SocketAddr, request: Request<Body>) -> Result<Resp
     Ok(response)
 }
 
-pub async fn serve_nip11(peer: SocketAddr) -> Result<Response<Body>, Error> {
+pub async fn serve_nip11(peer: HashedPeer) -> Result<Response<Body>, Error> {
     log::debug!(target: "Client", "{}: sent NIP-11", peer);
     let rid = {
         let config = &*GLOBALS.config.read();

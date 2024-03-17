@@ -1,5 +1,61 @@
 use crate::types::Time;
 use speedy::{Readable, Writable};
+use std::net::{IpAddr, SocketAddr};
+
+#[derive(Debug, Clone, Copy)]
+pub struct HashedIp(pub [u8; 20], bool);
+
+impl std::fmt::Display for HashedIp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        unsafe { write!(f, "{}", std::str::from_utf8_unchecked(self.0.as_slice())) }
+    }
+}
+
+impl HashedIp {
+    pub fn new(ip_addr: IpAddr) -> HashedIp {
+        use base64::prelude::*;
+        use secp256k1::hashes::{sha256, Hash};
+        let bytes = ip_addr.write_to_vec().unwrap();
+        let hashvalue: sha256::Hash = Hash::hash(&bytes);
+        let tag = BASE64_STANDARD.encode(&hashvalue.as_byte_array()[0..16]);
+        HashedIp(
+            tag.as_bytes()[..20].try_into().unwrap(),
+            ip_addr.is_loopback(),
+        )
+    }
+
+    pub fn is_loopback(&self) -> bool {
+        self.1
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct HashedPeer(pub HashedIp, pub u16);
+
+impl std::fmt::Display for HashedPeer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.0, self.1)
+    }
+}
+
+impl HashedPeer {
+    pub fn new(peer_addr: SocketAddr) -> HashedPeer {
+        let hashed_ip = HashedIp::new(peer_addr.ip());
+        HashedPeer(hashed_ip, peer_addr.port())
+    }
+
+    pub fn from_parts(hashed_ip: HashedIp, port: u16) -> HashedPeer {
+        HashedPeer(hashed_ip, port)
+    }
+
+    pub fn ip(&self) -> HashedIp {
+        self.0
+    }
+
+    pub fn port(&self) -> u16 {
+        self.1
+    }
+}
 
 // Single-session exit condition
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -90,5 +146,19 @@ impl IpData {
             SessionExit::TooManyErrors => 2 + (5.0 * multiplier) as u64,
             SessionExit::Timeout => 2 + (4.0 * multiplier) as u64,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_hashed_ip() {
+        let ipaddr: std::net::IpAddr = "127.0.0.1".parse().unwrap();
+        println!("HashedIP={}", HashedIp::new(ipaddr).unwrap());
+
+        let socketaddr = std::net::SocketAddr::new(ipaddr, 80);
+        println!("HashedPEER={}", HashedPeer::new(socketaddr).unwrap());
     }
 }
