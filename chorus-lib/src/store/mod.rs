@@ -8,7 +8,7 @@ use crate::error::{ChorusError, Error};
 use crate::ip::{HashedIp, IpData};
 use crate::types::{Event, Filter, Id, Kind, Pubkey, Time};
 use heed::byteorder::BigEndian;
-use heed::types::{OwnedType, UnalignedSlice, Unit, U64};
+use heed::types::{OwnedType, UnalignedSlice, Unit, U64, U8};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use speedy::{Readable, Writable};
 use std::collections::BTreeSet;
@@ -31,7 +31,8 @@ pub struct Store {
 
     // this is for events deleted by other events
     deleted_events: Database<UnalignedSlice<u8>, Unit>,
-
+    approved_events: Database<UnalignedSlice<u8>, U8>,
+    approved_pubkeys: Database<UnalignedSlice<u8>, U8>,
     ip_data: Database<UnalignedSlice<u8>, UnalignedSlice<u8>>,
 }
 
@@ -106,6 +107,16 @@ impl Store {
             .database_options()
             .types::<UnalignedSlice<u8>, Unit>()
             .name("deleted-events")
+            .create(&mut txn)?;
+        let approved_events = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, U8>()
+            .name("approved-events")
+            .create(&mut txn)?;
+        let approved_pubkeys = env
+            .database_options()
+            .types::<UnalignedSlice<u8>, U8>()
+            .name("approved-pubkeys")
             .create(&mut txn)?;
         let ip_data = env
             .database_options()
@@ -185,6 +196,8 @@ impl Store {
             ktc_index,
             deleted_offsets,
             deleted_events,
+            approved_events,
+            approved_pubkeys,
             ip_data,
         };
 
@@ -943,6 +956,53 @@ impl Store {
         self.ip_data.put(&mut txn, key, &bytes)?;
         txn.commit()?;
         Ok(())
+    }
+
+    pub fn mark_event_approval(&self, id: Id, approval: bool) -> Result<(), Error> {
+        let mut txn = self.env.write_txn()?;
+        self.approved_events
+            .put(&mut txn, id.0.as_slice(), &(approval as u8))?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn clear_event_approval(&self, id: Id) -> Result<(), Error> {
+        let mut txn = self.env.write_txn()?;
+        self.approved_events.delete(&mut txn, id.0.as_slice())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn get_event_approval(&self, id: Id) -> Result<Option<bool>, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self
+            .approved_events
+            .get(&txn, id.0.as_slice())?
+            .map(|u| u != 0))
+    }
+
+    pub fn mark_pubkey_approval(&self, pubkey: Pubkey, approval: bool) -> Result<(), Error> {
+        let mut txn = self.env.write_txn()?;
+        self.approved_pubkeys
+            .put(&mut txn, pubkey.0.as_slice(), &(approval as u8))?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn clear_pubkey_approval(&self, pubkey: Pubkey) -> Result<(), Error> {
+        let mut txn = self.env.write_txn()?;
+        self.approved_pubkeys
+            .delete(&mut txn, pubkey.0.as_slice())?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn get_pubkey_approval(&self, pubkey: Pubkey) -> Result<Option<bool>, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self
+            .approved_pubkeys
+            .get(&txn, pubkey.0.as_slice())?
+            .map(|u| u != 0))
     }
 
     fn key_ci_index(created_at: Time, id: Id) -> Vec<u8> {
