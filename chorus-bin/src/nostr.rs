@@ -215,6 +215,18 @@ impl WebSocketService {
                         PERSONAL_MSG.to_owned(),
                     )
                 }
+                ChorusError::BannedEvent => NostrReply::Ok(
+                    id,
+                    false,
+                    NostrReplyPrefix::Blocked,
+                    "Event has been banned".to_string(),
+                ),
+                ChorusError::BannedUser => NostrReply::Ok(
+                    id,
+                    false,
+                    NostrReplyPrefix::Blocked,
+                    "Author has been banned".to_string(),
+                ),
                 _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
             };
             self.websocket.send(Message::text(reply.as_json())).await?;
@@ -393,6 +405,26 @@ async fn screen_incoming_event(
     event_flags: EventFlags,
     authorized_user: bool,
 ) -> Result<bool, Error> {
+    // Reject if event approval is false
+    if let Some(false) = GLOBALS
+        .store
+        .get()
+        .unwrap()
+        .get_event_approval(event.id())?
+    {
+        return Err(ChorusError::BannedEvent.into());
+    }
+
+    // Reject if pubkey approval is false
+    if let Some(false) = GLOBALS
+        .store
+        .get()
+        .unwrap()
+        .get_pubkey_approval(event.pubkey())?
+    {
+        return Err(ChorusError::BannedUser.into());
+    }
+
     // If the event has a '-' tag, require the user to be AUTHed and match
     // the event author
     for mut tag in event.tags()?.iter() {
@@ -478,6 +510,21 @@ pub fn screen_outgoing_event(
 
     // Everybody can see events from our authorized users
     if event_flags.author_is_an_authorized_user {
+        return true;
+    }
+
+    // Allow if event is explicitly approved
+    if let Ok(Some(true)) = GLOBALS.store.get().unwrap().get_event_approval(event.id()) {
+        return true;
+    }
+
+    // Allow if author is explicitly approved
+    if let Ok(Some(true)) = GLOBALS
+        .store
+        .get()
+        .unwrap()
+        .get_pubkey_approval(event.pubkey())
+    {
         return true;
     }
 

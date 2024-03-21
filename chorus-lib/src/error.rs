@@ -34,6 +34,12 @@ pub enum ChorusError {
     // Bad hex input
     BadHexInput,
 
+    // Event is banned
+    BannedEvent,
+
+    // User is banned
+    BannedUser,
+
     // Output buffer too small
     BufferTooSmall,
 
@@ -147,6 +153,8 @@ impl std::fmt::Display for ChorusError {
             ChorusError::AuthRequired => write!(f, "AUTH required"),
             ChorusError::BadEventId => write!(f, "Bad event id, does not match hash"),
             ChorusError::BadHexInput => write!(f, "Bad hex input"),
+            ChorusError::BannedEvent => write!(f, "Event is banned"),
+            ChorusError::BannedUser => write!(f, "User is banned"),
             ChorusError::BufferTooSmall => write!(f, "Output buffer too small"),
             ChorusError::ChannelRecv(e) => write!(f, "{e}"),
             ChorusError::ChannelSend(e) => write!(f, "{e}"),
@@ -227,6 +235,8 @@ impl ChorusError {
             ChorusError::AuthRequired => 0.0,
             ChorusError::BadEventId => 0.1,
             ChorusError::BadHexInput => 0.4,
+            ChorusError::BannedEvent => 0.1,
+            ChorusError::BannedUser => 0.2,
             ChorusError::BufferTooSmall => 0.0,
             ChorusError::ChannelRecv(_) => 0.0,
             ChorusError::ChannelSend(_) => 0.0,
