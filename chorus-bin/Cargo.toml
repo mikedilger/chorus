@@ -1,6 +1,6 @@
 [package]
 name = "chorus"
-version = "1.1.1"
+version = "1.2.0"
 description = "A personal relay for nostr"
 authors = ["Mike Dilger <mike@mikedilger.com>"]
 license = "MIT"

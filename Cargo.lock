@@ -149,7 +149,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chorus"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "chorus-lib",
  "dashmap",
@@ -172,7 +172,7 @@ dependencies = [
 
 [[package]]
 name = "chorus-lib"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "base64 0.22.0",
  "futures",
