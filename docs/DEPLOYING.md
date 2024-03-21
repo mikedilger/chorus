@@ -70,6 +70,7 @@ Ok now let's install that (along with the utility binaries):
 ```bash
 sudo install --mode=0700 --owner=chorus ./target/release/chorus /opt/chorus/sbin/chorus
 sudo install --mode=0700 --owner=chorus ./target/release/chorus_dump /opt/chorus/sbin/chorus_dump
+sudo install --mode=0700 --owner=chorus ./target/release/chorus_dump_approvals /opt/chorus/sbin/chorus_dump_approvals
 sudo install --mode=0700 --owner=chorus ./target/release/chorus_moderate /opt/chorus/sbin/chorus_moderate
 ```
 
@@ -182,6 +183,7 @@ git pull
 cargo build --release
 sudo install --mode=0700 --owner=chorus ./target/release/chorus /opt/chorus/sbin/chorus
 sudo install --mode=0700 --owner=chorus ./target/release/chorus_dump /opt/chorus/sbin/chorus_dump
+sudo install --mode=0700 --owner=chorus ./target/release/chorus_dump_approvals /opt/chorus/sbin/chorus_dump_approvals
 sudo install --mode=0700 --owner=chorus ./target/release/chorus_moderate /opt/chorus/sbin/chorus_moderate
 sudo systemctl restart chorus.service
 ````

@@ -981,6 +981,18 @@ impl Store {
             .map(|u| u != 0))
     }
 
+    pub fn dump_event_approvals(&self) -> Result<Vec<(Id, bool)>, Error> {
+        let mut output: Vec<(Id, bool)> = Vec::new();
+        let txn = self.env.read_txn()?;
+        for i in self.approved_events.iter(&txn)? {
+            let (key, val) = i?;
+            let id = Id(key.try_into().unwrap());
+            let approval: bool = val != 0;
+            output.push((id, approval));
+        }
+        Ok(output)
+    }
+
     pub fn mark_pubkey_approval(&self, pubkey: Pubkey, approval: bool) -> Result<(), Error> {
         let mut txn = self.env.write_txn()?;
         self.approved_pubkeys
@@ -1003,6 +1015,18 @@ impl Store {
             .approved_pubkeys
             .get(&txn, pubkey.0.as_slice())?
             .map(|u| u != 0))
+    }
+
+    pub fn dump_pubkey_approvals(&self) -> Result<Vec<(Pubkey, bool)>, Error> {
+        let mut output: Vec<(Pubkey, bool)> = Vec::new();
+        let txn = self.env.read_txn()?;
+        for i in self.approved_pubkeys.iter(&txn)? {
+            let (key, val) = i?;
+            let pubkey = Pubkey(key.try_into().unwrap());
+            let approval: bool = val != 0;
+            output.push((pubkey, approval));
+        }
+        Ok(output)
     }
 
     fn key_ci_index(created_at: Time, id: Id) -> Vec<u8> {
