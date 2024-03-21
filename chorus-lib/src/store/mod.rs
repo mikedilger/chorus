@@ -28,7 +28,10 @@ pub struct Store {
     atc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     ktc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     deleted_offsets: Database<U64<BigEndian>, Unit>,
+
+    // this is for events deleted by other events
     deleted_events: Database<UnalignedSlice<u8>, Unit>,
+
     ip_data: Database<UnalignedSlice<u8>, UnalignedSlice<u8>>,
 }
 
@@ -253,6 +256,14 @@ impl Store {
         }
 
         Ok(offset)
+    }
+
+    // This deletes an event without marking it as having been deleted by another event
+    pub fn delete_event(&self, id: Id) -> Result<(), Error> {
+        let mut txn = self.env.write_txn()?;
+        self.delete(&mut txn, id)?;
+        txn.commit()?;
+        Ok(())
     }
 
     pub fn handle_deletion_event(&self, txn: &mut RwTxn<'_>, event: &Event) -> Result<(), Error> {
@@ -667,7 +678,10 @@ impl Store {
             .collect())
     }
 
-    /// Delete an event by id
+    /// Delete an event by id.
+    ///
+    /// This does not add to the deleted_events record, which is for events
+    /// that are deleted by other events
     fn delete(&self, txn: &mut RwTxn<'_>, id: Id) -> Result<(), Error> {
         if let Some(offset) = self.i_index.get(txn, id.0.as_slice())? {
             self.set_offset_as_deleted(txn, offset)?;
