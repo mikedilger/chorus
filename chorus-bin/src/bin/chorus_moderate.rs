@@ -96,6 +96,7 @@ fn main() -> Result<(), Error> {
         loop {
             print!(">> ");
             let _ = stdout.flush();
+            input.clear();
             stdin.read_line(&mut input)?;
             if input.is_empty() {
                 continue;
@@ -123,7 +124,10 @@ fn main() -> Result<(), Error> {
                     println!("Event banned.");
                     break;
                 }
-                b's' => break,
+                b's' => {
+                    println!("Skipped.");
+                    break;
+                }
                 b'q' => break 'eventloop,
                 _ => {
                     println!("?");
