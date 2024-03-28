@@ -84,6 +84,12 @@ fn main() -> Result<(), Error> {
             continue;
         }
 
+        // Delete if pubkey marked banned
+        if matches!(store.get_pubkey_approval(event.pubkey()), Ok(Some(false))) {
+            store.delete_event(event.id())?;
+            continue;
+        }
+
         println!("---------------------------------------------------------------");
         println!("id={} pubkey={}", event.id(), event.pubkey());
         println!("{}", String::from_utf8_lossy(event.content()));
