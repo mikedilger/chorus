@@ -119,6 +119,18 @@ fn build_rid(config: &Config) -> String {
     rid.push(',');
     rid.push_str("\"retention\":[{\"time\": null}]");
 
+    // Services
+    rid.push(',');
+    rid.push_str("\"services\":{");
+    rid.push_str("\"public\":[\"ephemeral\",\"directory\"]");
+    rid.push(',');
+    rid.push_str("\"private\":[\"outbox\",\"inbox\"]");
+    rid.push(',');
+    rid.push_str("\"paid\":[]");
+    rid.push(',');
+    rid.push_str("\"unavailable\":[\"search\"]");
+    rid.push('}');
+
     rid.push('}');
 
     rid
