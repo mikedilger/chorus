@@ -1,9 +1,11 @@
+use crate::globals::GLOBALS;
 use chorus_lib::config::Config;
 use chorus_lib::error::{ChorusError, Error};
 use rustls::{Certificate, PrivateKey};
 use std::fs::File;
 use std::io::BufReader;
 use std::pin::Pin;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
@@ -53,8 +55,32 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for MaybeTlsStream<S> {
         buf: &mut ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
         match self.get_mut() {
-            MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_read(cx, buf),
-            MaybeTlsStream::Rustls(s) => Pin::new(s).poll_read(cx, buf),
+            MaybeTlsStream::Plain(ref mut s) => {
+                // Count bytes for statistics
+                let pre = buf.filled().len();
+                let result = Pin::new(s).poll_read(cx, buf);
+                let post = buf.filled().len();
+                let count = post - pre;
+                if count > 0 {
+                    let _ = GLOBALS
+                        .bytes_inbound
+                        .fetch_add(count as u64, Ordering::SeqCst);
+                }
+                result
+            }
+            MaybeTlsStream::Rustls(s) => {
+                // Count bytes for statistics
+                let pre = buf.filled().len();
+                let result = Pin::new(s).poll_read(cx, buf);
+                let post = buf.filled().len();
+                let count = post - pre;
+                if count > 0 {
+                    let _ = GLOBALS
+                        .bytes_inbound
+                        .fetch_add(count as u64, Ordering::SeqCst);
+                }
+                result
+            }
         }
     }
 }
@@ -66,8 +92,20 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for MaybeTlsStream<S> {
         buf: &[u8],
     ) -> Poll<Result<usize, std::io::Error>> {
         match self.get_mut() {
-            MaybeTlsStream::Plain(ref mut s) => Pin::new(s).poll_write(cx, buf),
-            MaybeTlsStream::Rustls(s) => Pin::new(s).poll_write(cx, buf),
+            MaybeTlsStream::Plain(ref mut s) => {
+                // Count bytes for statistics
+                let _ = GLOBALS
+                    .bytes_outbound
+                    .fetch_add(buf.len() as u64, Ordering::SeqCst);
+                Pin::new(s).poll_write(cx, buf)
+            }
+            MaybeTlsStream::Rustls(s) => {
+                // Count bytes for statistics
+                let _ = GLOBALS
+                    .bytes_outbound
+                    .fetch_add(buf.len() as u64, Ordering::SeqCst);
+                Pin::new(s).poll_write(cx, buf)
+            }
         }
     }
 

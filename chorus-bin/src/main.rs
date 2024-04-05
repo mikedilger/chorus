@@ -197,6 +197,22 @@ async fn main() -> Result<(), Error> {
     log::info!(target: "Server", "Syncing and shutting down.");
     let _ = GLOBALS.store.get().unwrap().sync();
 
+    let mut runtime: u64 = GLOBALS.start_time.elapsed().as_secs();
+    if runtime < 1 {
+        runtime = 1;
+    }
+    log::info!("Runtime: {} seconds", runtime);
+    log::info!(
+        "Inbound: {} bytes ({} B/s)",
+        GLOBALS.bytes_inbound.load(Ordering::Relaxed),
+        (GLOBALS.bytes_inbound.load(Ordering::Relaxed) as f32) / (runtime as f32)
+    );
+    log::info!(
+        "Outbound: {} bytes ({} B/s)",
+        GLOBALS.bytes_outbound.load(Ordering::Relaxed),
+        (GLOBALS.bytes_outbound.load(Ordering::Relaxed) as f32) / (runtime as f32)
+    );
+
     Ok(())
 }
 
@@ -316,8 +332,7 @@ async fn handle_http_request(
                         ua
                     );
 
-                    // Everybody gets a 4-second ban on disconnect to prevent
-                    // rapid reconnection
+                    // Everybody gets a ban on disconnect to prevent rapid reconnection
                     let mut session_exit: SessionExit = SessionExit::Ok;
                     let mut msg = "Closed";
 

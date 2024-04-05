@@ -3,12 +3,16 @@ use chorus_lib::store::Store;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicU64, AtomicUsize};
 use std::sync::OnceLock;
+use std::time::Instant;
 use tokio::sync::broadcast::Sender as BroadcastSender;
 use tokio::sync::watch::Sender as WatchSender;
 
 pub struct Globals {
+    pub start_time: Instant,
+    pub bytes_inbound: AtomicU64,
+    pub bytes_outbound: AtomicU64,
     pub config: RwLock<Config>,
     pub store: OnceLock<Store>,
     pub http_server: Http,
@@ -34,6 +38,9 @@ lazy_static! {
         let (shutting_down, _) = tokio::sync::watch::channel(false);
 
         Globals {
+            start_time: Instant::now(),
+            bytes_inbound: AtomicU64::new(0),
+            bytes_outbound: AtomicU64::new(0),
             config: RwLock::new(Default::default()),
             store: OnceLock::new(),
             http_server,
