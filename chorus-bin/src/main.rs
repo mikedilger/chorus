@@ -200,14 +200,21 @@ async fn main() -> Result<(), Error> {
     let mut runtime: u64 = GLOBALS.start_time.elapsed().as_secs();
     if runtime < 1 {
         runtime = 1;
+
     }
-    log::info!("Runtime: {} seconds", runtime);
+
     log::info!(
+        target: "Server",
+        "Runtime: {} seconds", runtime
+    );
+    log::info!(
+        target: "Server",
         "Inbound: {} bytes ({} B/s)",
         GLOBALS.bytes_inbound.load(Ordering::Relaxed),
         (GLOBALS.bytes_inbound.load(Ordering::Relaxed) as f32) / (runtime as f32)
     );
     log::info!(
+        target: "Server",
         "Outbound: {} bytes ({} B/s)",
         GLOBALS.bytes_outbound.load(Ordering::Relaxed),
         (GLOBALS.bytes_outbound.load(Ordering::Relaxed) as f32) / (runtime as f32)
