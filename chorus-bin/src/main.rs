@@ -115,6 +115,8 @@ async fn main() -> Result<(), Error> {
                 let config: Config = friendly_config.into_config()?;
 
                 *GLOBALS.config.write() = config;
+
+                print_stats();
             },
 
             // Accepts network connections and spawn a task to serve each one
@@ -197,12 +199,16 @@ async fn main() -> Result<(), Error> {
     log::info!(target: "Server", "Syncing and shutting down.");
     let _ = GLOBALS.store.get().unwrap().sync();
 
+    print_stats();
+
+    Ok(())
+}
+
+fn print_stats() {
     let mut runtime: u64 = GLOBALS.start_time.elapsed().as_secs();
     if runtime < 1 {
         runtime = 1;
-
     }
-
     log::info!(
         target: "Server",
         "Runtime: {} seconds", runtime
@@ -219,8 +225,6 @@ async fn main() -> Result<(), Error> {
         GLOBALS.bytes_outbound.load(Ordering::Relaxed),
         (GLOBALS.bytes_outbound.load(Ordering::Relaxed) as f32) / (runtime as f32)
     );
-
-    Ok(())
 }
 
 // Serve a single network connection
