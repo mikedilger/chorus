@@ -536,10 +536,12 @@ impl WebSocketService {
                 if let Err(e) = self.handle_nostr_message(&msg).await {
                     self.error_punishment += e.inner.punishment();
                     log::error!(target: "Client", "{}: {e}", self.peer);
-                    if msg.len() < 2048 {
-                        log::error!(target: "Client", "{}:   msg was {}", self.peer, msg);
-                    } else {
-                        log::error!(target: "Client", "{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
+                    if !matches!(e, ChorusError::AuthRequired) {
+                        if msg.len() < 2048 {
+                            log::error!(target: "Client", "{}:   msg was {}", self.peer, msg);
+                        } else {
+                            log::error!(target: "Client", "{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
+                        }
                     }
                     if !self.replied {
                         let reply = NostrReply::Notice(format!("error: {}", e));
