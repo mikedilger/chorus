@@ -35,6 +35,7 @@ impl EventStore {
         let event_map_file = OpenOptions::new()
             .read(true)
             .write(true)
+            .truncate(false)
             .create(true)
             .open(event_map_file)?;
 
