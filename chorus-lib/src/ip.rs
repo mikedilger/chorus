@@ -156,9 +156,9 @@ mod test {
     #[test]
     fn test_hashed_ip() {
         let ipaddr: std::net::IpAddr = "127.0.0.1".parse().unwrap();
-        println!("HashedIP={}", HashedIp::new(ipaddr).unwrap());
+        println!("HashedIP={}", HashedIp::new(ipaddr));
 
         let socketaddr = std::net::SocketAddr::new(ipaddr, 80);
-        println!("HashedPEER={}", HashedPeer::new(socketaddr).unwrap());
+        println!("HashedPEER={}", HashedPeer::new(socketaddr));
     }
 }
