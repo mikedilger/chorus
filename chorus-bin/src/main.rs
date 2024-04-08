@@ -536,7 +536,7 @@ impl WebSocketService {
                 if let Err(e) = self.handle_nostr_message(&msg).await {
                     self.error_punishment += e.inner.punishment();
                     log::error!(target: "Client", "{}: {e}", self.peer);
-                    if !matches!(e, ChorusError::AuthRequired) {
+                    if !matches!(e.inner, ChorusError::AuthRequired) {
                         if msg.len() < 2048 {
                             log::error!(target: "Client", "{}:   msg was {}", self.peer, msg);
                         } else {
