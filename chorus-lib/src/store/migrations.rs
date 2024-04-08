@@ -1,10 +1,11 @@
 use super::Store;
 use crate::error::Error;
+use crate::types::Id;
 use heed::byteorder::BigEndian;
-use heed::types::{Unit, U64};
+use heed::types::{UnalignedSlice, Unit, U64};
 use heed::RwTxn;
 
-pub const CURRENT_MIGRATION_LEVEL: u32 = 4;
+pub const CURRENT_MIGRATION_LEVEL: u32 = 5;
 
 impl Store {
     pub fn migrate(&self) -> Result<(), Error> {
@@ -43,6 +44,7 @@ impl Store {
             2 => self.migrate_to_2(txn)?,
             3 => self.migrate_to_3(txn)?,
             4 => self.migrate_to_4(txn)?,
+            5 => self.migrate_to_5(txn)?,
             _ => panic!("Unknown migration level {level}"),
         }
 
@@ -120,6 +122,32 @@ impl Store {
             .name("deleted_offsets")
             .create(txn)?;
         deleted_offsets.clear(txn)?;
+        Ok(())
+    }
+
+    // Move data from deleted_events to deleted_ids
+    fn migrate_to_5(&self, txn: &mut RwTxn<'_>) -> Result<(), Error> {
+        let deleted_events = self
+            .env
+            .database_options()
+            .types::<UnalignedSlice<u8>, Unit>()
+            .name("deleted-events")
+            .create(txn)?;
+
+        let mut ids: Vec<Id> = Vec::new();
+
+        for i in deleted_events.iter(txn)? {
+            let (key, _val) = i?;
+            let id = Id(key[0..32].try_into().unwrap());
+            ids.push(id);
+        }
+
+        for id in ids.drain(..) {
+            self.deleted_ids.put(txn, id.as_slice(), &())?;
+        }
+
+        deleted_events.clear(txn)?;
+
         Ok(())
     }
 }

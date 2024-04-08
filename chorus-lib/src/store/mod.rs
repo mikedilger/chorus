@@ -28,7 +28,7 @@ pub struct Store {
     ktc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
 
     // this is for events deleted by other events
-    deleted_events: Database<UnalignedSlice<u8>, Unit>,
+    deleted_ids: Database<UnalignedSlice<u8>, Unit>,
     approved_events: Database<UnalignedSlice<u8>, U8>,
     approved_pubkeys: Database<UnalignedSlice<u8>, U8>,
     ip_data: Database<UnalignedSlice<u8>, UnalignedSlice<u8>>,
@@ -96,10 +96,10 @@ impl Store {
             .types::<UnalignedSlice<u8>, OwnedType<usize>>()
             .name("ktci")
             .create(&mut txn)?;
-        let deleted_events = env
+        let deleted_ids = env
             .database_options()
             .types::<UnalignedSlice<u8>, Unit>()
-            .name("deleted-events")
+            .name("deleted-ids")
             .create(&mut txn)?;
         let approved_events = env
             .database_options()
@@ -164,7 +164,7 @@ impl Store {
             );
         }
 
-        if let Ok(count) = deleted_events.len(&txn) {
+        if let Ok(count) = deleted_ids.len(&txn) {
             log::info!("{} deleted events", count);
         }
         if let Ok(count) = ip_data.len(&txn) {
@@ -187,7 +187,7 @@ impl Store {
             akc_index,
             atc_index,
             ktc_index,
-            deleted_events,
+            deleted_ids,
             approved_events,
             approved_pubkeys,
             ip_data,
@@ -225,8 +225,7 @@ impl Store {
         if self.i_index.get(&txn, event.id().0.as_slice())?.is_none() {
             // Reject event if it was deleted
             {
-                let deleted_key = Self::key_deleted_events(event.id(), event.pubkey());
-                if self.deleted_events.get(&txn, &deleted_key)?.is_some() {
+                if self.deleted_ids.get(&txn, event.id().as_slice())?.is_some() {
                     return Err(ChorusError::Deleted.into());
                 }
             }
@@ -265,8 +264,7 @@ impl Store {
                     if let Some(id_hex) = tag.next() {
                         if let Ok(id) = Id::read_hex(id_hex) {
                             // Add deletion pair to the event_deleted table
-                            let deleted_key = Self::key_deleted_events(id, event.pubkey());
-                            self.deleted_events.put(txn, &deleted_key, &())?;
+                            self.deleted_ids.put(txn, id.as_slice(), &())?;
 
                             // Delete pair
                             if let Some(target) = self.get_event_by_id(id)? {
@@ -674,7 +672,7 @@ impl Store {
     ///
     /// This deindexes the event.
     ///
-    /// This does not add to the deleted_events record, which is for events
+    /// This does not add to the deleted_ids record, which is for events
     /// that are deleted by other events
     fn delete_by_id(&self, txn: &mut RwTxn<'_>, id: Id) -> Result<(), Error> {
         if let Some(offset) = self.i_index.get(txn, id.0.as_slice())? {
@@ -688,7 +686,7 @@ impl Store {
     ///
     /// This deindexes the event.
     ///
-    /// This does not add to the deleted_events record, which is for events
+    /// This does not add to the deleted_ids record, which is for events
     /// that are deleted by other events
     fn delete_by_offset(&self, txn: &mut RwTxn<'_>, offset: usize) -> Result<(), Error> {
         // Get event
@@ -1119,14 +1117,6 @@ impl Store {
         }
         key.extend((u64::MAX - created_at.0).to_be_bytes().as_slice());
         key.extend(id.as_slice());
-        key
-    }
-
-    fn key_deleted_events(id: Id, pubkey: Pubkey) -> Vec<u8> {
-        let mut key: Vec<u8> =
-            Vec::with_capacity(std::mem::size_of::<Id>() + std::mem::size_of::<Pubkey>());
-        key.extend(id.as_slice());
-        key.extend(pubkey.as_slice());
         key
     }
 }
