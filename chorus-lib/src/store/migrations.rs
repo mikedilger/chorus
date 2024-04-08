@@ -52,14 +52,12 @@ impl Store {
         let iter = self.i_index.iter(&loop_txn)?;
         for result in iter {
             let (_key, offset) = result?;
-            if let Some(event) = self.events.get_event_by_offset(offset)? {
-                // Index in ci
-                self.ci_index.put(
-                    txn,
-                    &Self::key_ci_index(event.created_at(), event.id()),
-                    &offset,
-                )?;
-            }
+            let event = self.events.get_event_by_offset(offset)?;
+            self.ci_index.put(
+                txn,
+                &Self::key_ci_index(event.created_at(), event.id()),
+                &offset,
+            )?;
         }
 
         Ok(())
@@ -71,30 +69,30 @@ impl Store {
         let iter = self.i_index.iter(&loop_txn)?;
         for result in iter {
             let (_key, offset) = result?;
-            if let Some(event) = self.events.get_event_by_offset(offset)? {
-                // Add to ac_index
-                self.ac_index.put(
-                    txn,
-                    &Self::key_ac_index(event.pubkey(), event.created_at(), event.id()),
-                    &offset,
-                )?;
+            let event = self.events.get_event_by_offset(offset)?;
 
-                // Add to tc_index
-                for mut tsi in event.tags()?.iter() {
-                    if let Some(tagname) = tsi.next() {
-                        if tagname.len() == 1 {
-                            if let Some(tagvalue) = tsi.next() {
-                                self.tc_index.put(
-                                    txn,
-                                    &Self::key_tc_index(
-                                        tagname[0],
-                                        tagvalue,
-                                        event.created_at(),
-                                        event.id(),
-                                    ),
-                                    &offset,
-                                )?;
-                            }
+            // Add to ac_index
+            self.ac_index.put(
+                txn,
+                &Self::key_ac_index(event.pubkey(), event.created_at(), event.id()),
+                &offset,
+            )?;
+
+            // Add to tc_index
+            for mut tsi in event.tags()?.iter() {
+                if let Some(tagname) = tsi.next() {
+                    if tagname.len() == 1 {
+                        if let Some(tagvalue) = tsi.next() {
+                            self.tc_index.put(
+                                txn,
+                                &Self::key_tc_index(
+                                    tagname[0],
+                                    tagvalue,
+                                    event.created_at(),
+                                    event.id(),
+                                ),
+                                &offset,
+                            )?;
                         }
                     }
                 }

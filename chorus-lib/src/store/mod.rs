@@ -305,7 +305,7 @@ impl Store {
     }
 
     /// Get an event by its offset.
-    pub fn get_event_by_offset(&self, offset: usize) -> Result<Option<Event>, Error> {
+    pub fn get_event_by_offset(&self, offset: usize) -> Result<Event, Error> {
         self.events.get_event_by_offset(offset)
     }
 
@@ -313,7 +313,7 @@ impl Store {
     pub fn get_event_by_id(&self, id: Id) -> Result<Option<Event>, Error> {
         let txn = self.env.read_txn()?;
         if let Some(offset) = self.i_index.get(&txn, id.0.as_slice())? {
-            self.events.get_event_by_offset(offset)
+            Some(self.events.get_event_by_offset(offset)).transpose()
         } else {
             Ok(None)
         }
@@ -376,37 +376,37 @@ impl Store {
 
                     'per_event: for result in iter {
                         let (_key, offset) = result?;
-                        if let Some(event) = self.events.get_event_by_offset(offset)? {
-                            // If we have gone beyond since, we can stop early
-                            // (We have to check because `since` might change in this loop)
-                            if event.created_at() < since {
+                        let event = self.events.get_event_by_offset(offset)?;
+
+                        // If we have gone beyond since, we can stop early
+                        // (We have to check because `since` might change in this loop)
+                        if event.created_at() < since {
+                            break 'per_event;
+                        }
+
+                        // check against the rest of the filter
+                        if filter.event_matches(&event)? && screen(&event) {
+                            // Accept the event
+                            output.insert(event);
+                            paircount += 1;
+
+                            // Stop this pair if limited
+                            if paircount >= filter.limit() as usize {
+                                // Since we found the limit just among this pair,
+                                // potentially move since forward
+                                if event.created_at() > since {
+                                    since = event.created_at();
+                                }
                                 break 'per_event;
                             }
 
-                            // check against the rest of the filter
-                            if filter.event_matches(&event)? && screen(&event) {
-                                // Accept the event
-                                output.insert(event);
-                                paircount += 1;
-
-                                // Stop this pair if limited
-                                if paircount >= filter.limit() as usize {
-                                    // Since we found the limit just among this pair,
-                                    // potentially move since forward
-                                    if event.created_at() > since {
-                                        since = event.created_at();
-                                    }
-                                    break 'per_event;
-                                }
-
-                                // If kind is replaceable (and not parameterized)
-                                // then don't take any more events for this author-kind
-                                // pair.
-                                // NOTE that this optimization is difficult to implement
-                                // for other replaceable event situations
-                                if kind.is_replaceable() {
-                                    break 'per_event;
-                                }
+                            // If kind is replaceable (and not parameterized)
+                            // then don't take any more events for this author-kind
+                            // pair.
+                            // NOTE that this optimization is difficult to implement
+                            // for other replaceable event situations
+                            if kind.is_replaceable() {
+                                break 'per_event;
                             }
                         }
                     }
@@ -450,28 +450,28 @@ impl Store {
 
                             'per_event: for result in iter {
                                 let (_key, offset) = result?;
-                                if let Some(event) = self.events.get_event_by_offset(offset)? {
-                                    // If we have gone beyond since, we can stop early
-                                    // (We have to check because `since` might change in this loop)
-                                    if event.created_at() < since {
-                                        break 'per_event;
-                                    }
+                                let event = self.events.get_event_by_offset(offset)?;
 
-                                    // check against the rest of the filter
-                                    if filter.event_matches(&event)? && screen(&event) {
-                                        // Accept the event
-                                        output.insert(event);
-                                        paircount += 1;
+                                // If we have gone beyond since, we can stop early
+                                // (We have to check because `since` might change in this loop)
+                                if event.created_at() < since {
+                                    break 'per_event;
+                                }
 
-                                        // Stop this pair if limited
-                                        if paircount >= filter.limit() as usize {
-                                            // Since we found the limit just among this pair,
-                                            // potentially move since forward
-                                            if event.created_at() > since {
-                                                since = event.created_at();
-                                            }
-                                            break 'per_event;
+                                // check against the rest of the filter
+                                if filter.event_matches(&event)? && screen(&event) {
+                                    // Accept the event
+                                    output.insert(event);
+                                    paircount += 1;
+
+                                    // Stop this pair if limited
+                                    if paircount >= filter.limit() as usize {
+                                        // Since we found the limit just among this pair,
+                                        // potentially move since forward
+                                        if event.created_at() > since {
+                                            since = event.created_at();
                                         }
+                                        break 'per_event;
                                     }
                                 }
                             }
@@ -517,28 +517,28 @@ impl Store {
 
                             'per_event: for result in iter {
                                 let (_key, offset) = result?;
-                                if let Some(event) = self.events.get_event_by_offset(offset)? {
-                                    // If we have gone beyond since, we can stop early
-                                    // (We have to check because `since` might change in this loop)
-                                    if event.created_at() < since {
-                                        break 'per_event;
-                                    }
+                                let event = self.events.get_event_by_offset(offset)?;
 
-                                    // check against the rest of the filter
-                                    if filter.event_matches(&event)? && screen(&event) {
-                                        // Accept the event
-                                        output.insert(event);
-                                        paircount += 1;
+                                // If we have gone beyond since, we can stop early
+                                // (We have to check because `since` might change in this loop)
+                                if event.created_at() < since {
+                                    break 'per_event;
+                                }
 
-                                        // Stop this pair if limited
-                                        if paircount >= filter.limit() as usize {
-                                            // Since we found the limit just among this pair,
-                                            // potentially move since forward
-                                            if event.created_at() > since {
-                                                since = event.created_at();
-                                            }
-                                            break 'per_event;
+                                // check against the rest of the filter
+                                if filter.event_matches(&event)? && screen(&event) {
+                                    // Accept the event
+                                    output.insert(event);
+                                    paircount += 1;
+
+                                    // Stop this pair if limited
+                                    if paircount >= filter.limit() as usize {
+                                        // Since we found the limit just among this pair,
+                                        // potentially move since forward
+                                        if event.created_at() > since {
+                                            since = event.created_at();
                                         }
+                                        break 'per_event;
                                     }
                                 }
                             }
@@ -575,24 +575,24 @@ impl Store {
 
                         'per_event: for result in iter {
                             let (_key, offset) = result?;
-                            if let Some(event) = self.events.get_event_by_offset(offset)? {
-                                if event.created_at() < since {
-                                    break 'per_event;
-                                }
+                            let event = self.events.get_event_by_offset(offset)?;
 
-                                // check against the rest of the filter
-                                if filter.event_matches(&event)? && screen(&event) {
-                                    // Accept the event
-                                    output.insert(event);
-                                    rangecount += 1;
+                            if event.created_at() < since {
+                                break 'per_event;
+                            }
 
-                                    // Stop this limited
-                                    if rangecount >= filter.limit() as usize {
-                                        if event.created_at() > since {
-                                            since = event.created_at();
-                                        }
-                                        break 'per_event;
+                            // check against the rest of the filter
+                            if filter.event_matches(&event)? && screen(&event) {
+                                // Accept the event
+                                output.insert(event);
+                                rangecount += 1;
+
+                                // Stop this limited
+                                if rangecount >= filter.limit() as usize {
+                                    if event.created_at() > since {
+                                        since = event.created_at();
                                     }
+                                    break 'per_event;
                                 }
                             }
                         }
@@ -623,24 +623,24 @@ impl Store {
 
                 'per_event: for result in iter {
                     let (_key, offset) = result?;
-                    if let Some(event) = self.events.get_event_by_offset(offset)? {
-                        if event.created_at() < filter.since() {
-                            break 'per_event;
-                        }
+                    let event = self.events.get_event_by_offset(offset)?;
 
-                        // check against the rest of the filter
-                        if filter.event_matches(&event)? && screen(&event) {
-                            // Accept the event
-                            output.insert(event);
-                            rangecount += 1;
+                    if event.created_at() < filter.since() {
+                        break 'per_event;
+                    }
 
-                            // Stop this limited
-                            if rangecount >= filter.limit() as usize {
-                                if event.created_at() > since {
-                                    since = event.created_at();
-                                }
-                                break 'per_event;
+                    // check against the rest of the filter
+                    if filter.event_matches(&event)? && screen(&event) {
+                        // Accept the event
+                        output.insert(event);
+                        rangecount += 1;
+
+                        // Stop this limited
+                        if rangecount >= filter.limit() as usize {
+                            if event.created_at() > since {
+                                since = event.created_at();
                             }
+                            break 'per_event;
                         }
                     }
                 }
@@ -674,10 +674,10 @@ impl Store {
                     break;
                 }
                 let (_key, offset) = result?;
-                if let Some(event) = self.events.get_event_by_offset(offset)? {
-                    if filter.event_matches(&event)? && screen(&event) {
-                        output.insert(event);
-                    }
+                let event = self.events.get_event_by_offset(offset)?;
+
+                if filter.event_matches(&event)? && screen(&event) {
+                    output.insert(event);
                 }
             }
         }
@@ -860,10 +860,7 @@ impl Store {
         self.deleted_offsets.put(txn, &offset_u64, &())?;
 
         // Get event
-        let event = match self.events.get_event_by_offset(offset)? {
-            Some(event) => event,
-            None => return Ok(()),
-        };
+        let event = self.events.get_event_by_offset(offset)?;
 
         // Remove from indexes
         self.deindex(txn, &event)?;

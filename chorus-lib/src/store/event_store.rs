@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::error::{ChorusError, Error};
 use crate::types::Event;
 use mmap_append::MmapAppend;
 use std::fs::{File, OpenOptions};
@@ -77,10 +77,12 @@ impl EventStore {
     }
 
     /// Get an event by its offset in the map
-    pub fn get_event_by_offset(&self, offset: usize) -> Result<Option<Event>, Error> {
-        // deserialize event
+    pub fn get_event_by_offset(&self, offset: usize) -> Result<Event, Error> {
+        if offset >= self.read_event_map_end() {
+            return Err(ChorusError::EndOfInput.into());
+        }
         let event = Event::delineate(&self.event_map[offset..])?;
-        Ok(Some(event))
+        Ok(event)
     }
 
     // This stores an event
@@ -162,19 +164,19 @@ mod tests {
 
         println!("Event map has {} used bytes", store.read_event_map_end());
 
-        if let Some(event) = store.get_event_by_offset(offset1).unwrap() {
+        if let Ok(event) = store.get_event_by_offset(offset1) {
             assert_eq!(event, event1);
         } else {
             panic!("EVENT 1 IS WRONG");
         }
 
-        if let Some(event) = store.get_event_by_offset(offset2).unwrap() {
+        if let Ok(event) = store.get_event_by_offset(offset2) {
             assert_eq!(event, event2);
         } else {
             panic!("EVENT 2 IS WRONG");
         }
 
-        if let Some(event) = store.get_event_by_offset(offset3).unwrap() {
+        if let Ok(event) = store.get_event_by_offset(offset3) {
             assert_eq!(event, event3);
         } else {
             panic!("EVENT 3 IS WRONG");

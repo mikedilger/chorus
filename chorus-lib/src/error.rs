@@ -112,6 +112,9 @@ pub enum ChorusError {
     // Protected Event
     ProtectedEvent,
 
+    // Range error
+    RangeError,
+
     // Restricted
     Restricted,
 
@@ -191,6 +194,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
             ChorusError::NoSuchSubscription => write!(f, "No such subscription"),
             ChorusError::ProtectedEvent => write!(f, "Protected event"),
+            ChorusError::RangeError => write!(f, "Range error"),
             ChorusError::Restricted => write!(f, "Restricted"),
             ChorusError::Rustls(e) => write!(f, "{e}"),
             ChorusError::TimedOut => write!(f, "Timed out"),
@@ -261,6 +265,7 @@ impl ChorusError {
             ChorusError::NoPrivateKey => 0.0,
             ChorusError::NoSuchSubscription => 0.05,
             ChorusError::ProtectedEvent => 0.35,
+            ChorusError::RangeError => 0.0,
             ChorusError::Restricted => 0.1,
             ChorusError::Rustls(_) => 0.0,
             ChorusError::TimedOut => 0.1,

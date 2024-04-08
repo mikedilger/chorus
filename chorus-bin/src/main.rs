@@ -500,26 +500,25 @@ impl WebSocketService {
             return Ok(());
         }
 
-        if let Some(event) = GLOBALS
+        let event = GLOBALS
             .store
             .get()
             .unwrap()
-            .get_event_by_offset(new_event_offset)?
-        {
-            let event_flags = nostr::event_flags(&event, &self.user);
-            let authorized_user = nostr::authorized_user(&self.user);
+            .get_event_by_offset(new_event_offset)?;
 
-            'subs: for (subid, filters) in self.subscriptions.iter() {
-                for filter in filters.iter() {
-                    if filter.as_filter()?.event_matches(&event)?
-                        && nostr::screen_outgoing_event(&event, &event_flags, authorized_user)
-                    {
-                        let message = NostrReply::Event(subid, event);
-                        self.websocket
-                            .send(Message::text(message.as_json()))
-                            .await?;
-                        continue 'subs;
-                    }
+        let event_flags = nostr::event_flags(&event, &self.user);
+        let authorized_user = nostr::authorized_user(&self.user);
+
+        'subs: for (subid, filters) in self.subscriptions.iter() {
+            for filter in filters.iter() {
+                if filter.as_filter()?.event_matches(&event)?
+                    && nostr::screen_outgoing_event(&event, &event_flags, authorized_user)
+                {
+                    let message = NostrReply::Event(subid, event);
+                    self.websocket
+                        .send(Message::text(message.as_json()))
+                        .await?;
+                    continue 'subs;
                 }
             }
         }
