@@ -1,8 +1,10 @@
 use super::Store;
 use crate::error::Error;
+use heed::byteorder::BigEndian;
+use heed::types::{Unit, U64};
 use heed::RwTxn;
 
-pub const CURRENT_MIGRATION_LEVEL: u32 = 3;
+pub const CURRENT_MIGRATION_LEVEL: u32 = 4;
 
 impl Store {
     pub fn migrate(&self) -> Result<(), Error> {
@@ -40,6 +42,7 @@ impl Store {
             1 => self.migrate_to_1(txn)?,
             2 => self.migrate_to_2(txn)?,
             3 => self.migrate_to_3(txn)?,
+            4 => self.migrate_to_4(txn)?,
             _ => panic!("Unknown migration level {level}"),
         }
 
@@ -105,6 +108,18 @@ impl Store {
     // Clear IP data (we are hashing now)
     fn migrate_to_3(&self, txn: &mut RwTxn<'_>) -> Result<(), Error> {
         self.ip_data.clear(txn)?;
+        Ok(())
+    }
+
+    // Clear deleted_offsets (now retired)
+    fn migrate_to_4(&self, txn: &mut RwTxn<'_>) -> Result<(), Error> {
+        let deleted_offsets = self
+            .env
+            .database_options()
+            .types::<U64<BigEndian>, Unit>()
+            .name("deleted_offsets")
+            .create(txn)?;
+        deleted_offsets.clear(txn)?;
         Ok(())
     }
 }

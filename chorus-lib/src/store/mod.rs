@@ -7,8 +7,7 @@ use crate::config::Config;
 use crate::error::{ChorusError, Error};
 use crate::ip::{HashedIp, IpData};
 use crate::types::{Event, Filter, Id, Kind, Pubkey, Time};
-use heed::byteorder::BigEndian;
-use heed::types::{OwnedType, UnalignedSlice, Unit, U64, U8};
+use heed::types::{OwnedType, UnalignedSlice, Unit, U8};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use speedy::{Readable, Writable};
 use std::collections::BTreeSet;
@@ -27,7 +26,6 @@ pub struct Store {
     akc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     atc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
     ktc_index: Database<UnalignedSlice<u8>, OwnedType<usize>>,
-    deleted_offsets: Database<U64<BigEndian>, Unit>,
 
     // this is for events deleted by other events
     deleted_events: Database<UnalignedSlice<u8>, Unit>,
@@ -98,11 +96,6 @@ impl Store {
             .types::<UnalignedSlice<u8>, OwnedType<usize>>()
             .name("ktci")
             .create(&mut txn)?;
-        let deleted_offsets = env
-            .database_options()
-            .types::<U64<BigEndian>, Unit>()
-            .name("deleted_offsets")
-            .create(&mut txn)?;
         let deleted_events = env
             .database_options()
             .types::<UnalignedSlice<u8>, Unit>()
@@ -171,7 +164,7 @@ impl Store {
             );
         }
 
-        if let Ok(count) = deleted_offsets.len(&txn) {
+        if let Ok(count) = deleted_events.len(&txn) {
             log::info!("{} deleted events", count);
         }
         if let Ok(count) = ip_data.len(&txn) {
@@ -194,7 +187,6 @@ impl Store {
             akc_index,
             atc_index,
             ktc_index,
-            deleted_offsets,
             deleted_events,
             approved_events,
             approved_pubkeys,
@@ -242,13 +234,8 @@ impl Store {
             // Store the event
             offset = self.events.store_event(event)?;
 
-            if event.kind().is_ephemeral() {
-                // Do not index ephemeral events, not even by id.
-                // But save them in the deleted table
-                let offset_u64 = offset as u64;
-                self.deleted_offsets.put(&mut txn, &offset_u64, &())?;
-            } else {
-                // Index the event
+            // Index the event
+            if !event.kind().is_ephemeral() {
                 self.index(&mut txn, event, offset)?;
             }
 
@@ -271,15 +258,7 @@ impl Store {
         Ok(offset)
     }
 
-    // This deletes an event without marking it as having been deleted by another event
-    pub fn delete_event(&self, id: Id) -> Result<(), Error> {
-        let mut txn = self.env.write_txn()?;
-        self.delete(&mut txn, id)?;
-        txn.commit()?;
-        Ok(())
-    }
-
-    pub fn handle_deletion_event(&self, txn: &mut RwTxn<'_>, event: &Event) -> Result<(), Error> {
+    fn handle_deletion_event(&self, txn: &mut RwTxn<'_>, event: &Event) -> Result<(), Error> {
         for mut tag in event.tags()?.iter() {
             if let Some(tagname) = tag.next() {
                 if tagname == b"e" {
@@ -292,7 +271,7 @@ impl Store {
                             // Delete pair
                             if let Some(target) = self.get_event_by_id(id)? {
                                 if target.pubkey() == event.pubkey() {
-                                    self.delete(txn, id)?;
+                                    self.delete_by_id(txn, id)?;
                                 }
                             }
                         }
@@ -693,15 +672,42 @@ impl Store {
 
     /// Delete an event by id.
     ///
+    /// This deindexes the event.
+    ///
     /// This does not add to the deleted_events record, which is for events
     /// that are deleted by other events
-    fn delete(&self, txn: &mut RwTxn<'_>, id: Id) -> Result<(), Error> {
+    fn delete_by_id(&self, txn: &mut RwTxn<'_>, id: Id) -> Result<(), Error> {
         if let Some(offset) = self.i_index.get(txn, id.0.as_slice())? {
-            self.set_offset_as_deleted(txn, offset)?;
-
-            // Also remove from the id index
-            self.i_index.delete(txn, id.0.as_slice())?;
+            self.delete_by_offset(txn, offset)?;
         }
+
+        Ok(())
+    }
+
+    /// Delete an event by offset.
+    ///
+    /// This deindexes the event.
+    ///
+    /// This does not add to the deleted_events record, which is for events
+    /// that are deleted by other events
+    fn delete_by_offset(&self, txn: &mut RwTxn<'_>, offset: usize) -> Result<(), Error> {
+        // Get event
+        let event = self.events.get_event_by_offset(offset)?;
+
+        // Remove from indexes
+        self.deindex(txn, &event)?;
+
+        // Also remove from the id index
+        self.i_index.delete(txn, event.id().0.as_slice())?;
+
+        Ok(())
+    }
+
+    // This deletes an event without marking it as having been deleted by another event
+    pub fn delete_event(&self, id: Id) -> Result<(), Error> {
+        let mut txn = self.env.write_txn()?;
+        self.delete_by_id(&mut txn, id)?;
+        txn.commit()?;
         Ok(())
     }
 
@@ -846,28 +852,6 @@ impl Store {
         Ok(())
     }
 
-    // Set an event as deleted
-    // This removes it from indexes (except the id index) and adds it to the deleted table
-    fn set_offset_as_deleted(&self, txn: &mut RwTxn<'_>, offset: usize) -> Result<(), Error> {
-        let offset_u64 = offset as u64;
-
-        // Check if it is already deleted
-        if self.deleted_offsets.get(txn, &offset_u64)?.is_some() {
-            return Ok(());
-        }
-
-        // Add to deleted database in case we need to get at it in the future.
-        self.deleted_offsets.put(txn, &offset_u64, &())?;
-
-        // Get event
-        let event = self.events.get_event_by_offset(offset)?;
-
-        // Remove from indexes
-        self.deindex(txn, &event)?;
-
-        Ok(())
-    }
-
     // If the event is replaceable or parameterized replaceable
     // this deletes all the events in that group except the most recent one.
     fn delete_replaced(&self, txn: &mut RwTxn<'_>, event: &Event) -> Result<(), Error> {
@@ -897,7 +881,7 @@ impl Store {
                 let (_key, offset) = result?;
 
                 // Delete the event
-                self.set_offset_as_deleted(txn, offset)?;
+                self.delete_by_offset(txn, offset)?;
             }
         } else if event.kind().is_parameterized_replaceable() {
             let tags = event.tags()?;
@@ -928,7 +912,7 @@ impl Store {
                     let (_key, offset) = result?;
 
                     // Delete the event
-                    self.set_offset_as_deleted(txn, offset)?;
+                    self.delete_by_offset(txn, offset)?;
                 }
             }
         }
