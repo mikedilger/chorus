@@ -91,13 +91,13 @@ fn main() -> Result<(), Error> {
         }
 
         println!("---------------------------------------------------------------");
-        println!("id={} pubkey={}", event.id(), event.pubkey());
+        println!("kind={} id={}", event.kind(), event.id());
         println!("{}", String::from_utf8_lossy(event.content()));
         println!("---------------------------------------------------------------");
 
-        println!(">> Pubkey:  (p) approve, (P) ban and delete");
-        println!(">> Id:      (i) approve, (I) ban and delete");
-        println!(">> other:   (s) skip, (q) quit");
+        println!("   Pubkey:  (p) approve, (P) ban and delete");
+        println!("   Id:      (i) approve, (I) ban and delete");
+        println!("   other:   (s) skip, (q) quit");
 
         loop {
             print!(">> ");
