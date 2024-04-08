@@ -130,6 +130,38 @@ impl EventStore {
             }
         }
     }
+
+    pub fn iter(&self) -> EventStoreIter<'_> {
+        EventStoreIter {
+            store: self,
+            offset: mmap_append::HEADER_SIZE,
+        }
+    }
+}
+
+pub struct EventStoreIter<'a> {
+    store: &'a EventStore,
+    offset: usize,
+}
+
+impl<'a> Iterator for EventStoreIter<'a> {
+    type Item = Result<Event<'a>, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.store.get_event_by_offset(self.offset) {
+            Err(e) => {
+                if matches!(e.inner, ChorusError::EndOfInput) {
+                    None
+                } else {
+                    Some(Err(e))
+                }
+            },
+            Ok(event) => {
+                self.offset += event.length();
+                Some(Ok(event))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
