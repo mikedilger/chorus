@@ -25,12 +25,18 @@ pub struct EventStore {
     // This is a linear sequence of events in an append-only memory mapped file which
     // internally remembers the 'end' pointer and internally prevents multiple writers.
     event_map: MmapAppend,
+
+    // Whether or not event offsets are aligned on 8-byte boundaries. If they are,
+    // event retrieval is more CPU efficient, and a tiny bit more space is used.
+    // Early code did not align the data. If you specify the wrong value here that
+    // doesnt match the data, the iterator will fail badly.
+    aligned: bool,
 }
 
 impl EventStore {
     /// Create a new `EventStore`. The `event_map_file` is the eventually large file
     /// that holds all the events.
-    pub fn new<P: AsRef<Path>>(event_map_file: P) -> Result<EventStore, Error> {
+    pub fn new<P: AsRef<Path>>(event_map_file: P, aligned: bool) -> Result<EventStore, Error> {
         // Open the event map file, possibly creating if it isn't there
         let event_map_file = OpenOptions::new()
             .read(true)
@@ -68,7 +74,14 @@ impl EventStore {
             event_map_file,
             event_map_file_len: AtomicUsize::new(len),
             event_map,
+            aligned,
         })
+    }
+
+    /// Get whether events are aligned in the map
+    #[inline]
+    pub fn is_aligned(&self) -> bool {
+        self.aligned
     }
 
     /// Get the number of bytes used in the event map
@@ -92,6 +105,16 @@ impl EventStore {
     // It does NOT record the event into any indexes
     // But it does grow the file if needed and returns the offset where it was stored
     pub fn store_event(&self, event: &Event) -> Result<usize, Error> {
+        if self.aligned {
+            let mut end = self.event_map.get_end();
+            if end % 8 != 0 {
+                let padding = 8 - (end % 8);
+                end += padding;
+                assert_eq!(end % 8, 0);
+                self.event_map.append(padding, |_| Ok(padding))?;
+            }
+        }
+
         let event_size = event.length();
 
         loop {
@@ -155,9 +178,13 @@ impl<'a> Iterator for EventStoreIter<'a> {
                 } else {
                     Some(Err(e))
                 }
-            },
+            }
             Ok(event) => {
                 self.offset += event.length();
+                if self.store.aligned && self.offset % 8 != 0 {
+                    self.offset += 8 - (self.offset % 8);
+                    assert_eq!(self.offset % 8, 0);
+                }
                 Some(Ok(event))
             }
         }
@@ -173,7 +200,7 @@ mod tests {
     fn test_event_store() {
         let tempdir = tempfile::tempdir().unwrap();
         let path = tempdir.path().join("mmap");
-        let store = EventStore::new(&path).unwrap();
+        let store = EventStore::new(&path, false).unwrap();
 
         println!("Event map has {} used bytes", store.read_event_map_end());
 

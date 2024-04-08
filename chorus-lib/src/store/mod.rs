@@ -26,7 +26,7 @@ impl Store {
 
         let events = {
             let event_map_file = format!("{}/event.map", &config.data_directory);
-            EventStore::new(event_map_file)?
+            EventStore::new(event_map_file, false)?
         };
 
         let store = Store { lmdb, events };
