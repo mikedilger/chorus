@@ -62,6 +62,9 @@ async fn main() -> Result<(), Error> {
 
     log::debug!(target: "Server", "Loaded config file.");
 
+    // Log host name
+    log::info!(target: "Server", "HOSTNAME = {}", config.hostname);
+
     // Setup store
     let store = Store::new(&config)?;
     let _ = GLOBALS.store.set(store);
