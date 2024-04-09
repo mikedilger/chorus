@@ -151,6 +151,11 @@ impl Lmdb {
 
     pub fn log_stats(&self) -> Result<(), Error> {
         let txn = self.read_txn()?;
+
+        if !self.get_if_events_are_aligned()? {
+            log::warn!("Events are not aligned on 8-byte offsets. You should run `chorus_compress` to rebuild your data (but it will keep working regardless)");
+        }
+
         if let Ok(count) = self.i_index.len(&txn) {
             log::info!("Index: id ({} entries, {} bytes)", count, count * (32 + 8));
         }
