@@ -24,9 +24,11 @@ impl Store {
     pub fn new(config: &Config) -> Result<Store, Error> {
         let lmdb = Lmdb::new(config)?;
 
+        let events_are_aligned = lmdb.get_if_events_are_aligned()?;
+
         let events = {
             let event_map_file = format!("{}/event.map", &config.data_directory);
-            EventStore::new(event_map_file, false)?
+            EventStore::new(event_map_file, events_are_aligned)?
         };
 
         let store = Store { lmdb, events };

@@ -10,6 +10,9 @@ use std::ops::Bound;
 
 mod retired;
 
+const FALSE: &[u8] = &[0];
+const TRUE: &[u8] = &[1];
+
 #[derive(Debug)]
 pub struct Lmdb {
     env: Env,
@@ -222,6 +225,30 @@ impl Lmdb {
         self.general
             .put(txn, b"migration_level", level.to_be_bytes().as_slice())?;
 
+        Ok(())
+    }
+
+    pub fn get_if_events_are_aligned(&self) -> Result<bool, Error> {
+        let txn = self.read_txn()?;
+        match self.general.get(&txn, b"events_are_aligned")? {
+            None => Ok(false),
+            Some(bytes) => match bytes[0] {
+                0 => Ok(false),
+                _ => Ok(true),
+            },
+        }
+    }
+
+    pub fn set_if_events_are_aligned(
+        &self,
+        txn: &mut RwTxn<'_>,
+        events_are_aligned: bool,
+    ) -> Result<(), Error> {
+        let slice = match events_are_aligned {
+            false => FALSE,
+            true => TRUE,
+        };
+        self.general.put(txn, b"events_are_aligned", slice)?;
         Ok(())
     }
 
