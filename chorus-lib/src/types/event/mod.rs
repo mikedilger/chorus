@@ -166,6 +166,22 @@ impl<'a> Event<'a> {
 
         Ok(())
     }
+
+    pub fn is_expired(&self) -> Result<bool, Error> {
+        for mut tag in self.tags()?.iter() {
+            if tag.next() == Some(b"expiration") {
+                if let Some(expires) = tag.next() {
+                    // Interpret string as a u64
+                    let mut p = 0;
+                    let time = super::parse::json_parse::read_u64(expires, &mut p)?;
+                    if time <= Time::now().0 {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+        Ok(false)
+    }
 }
 
 impl fmt::Display for Event<'_> {
@@ -199,5 +215,27 @@ pub struct OwnedEvent(pub Vec<u8>);
 impl OwnedEvent {
     pub fn as_event(&self) -> Result<Event<'_>, Error> {
         Event::delineate(&self.0)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Event;
+
+    #[test]
+    fn test_event_expired() {
+        let json = br#"{"id":"8b8b1d98f279b43f571ce55dce7cc51ced0c24e9558bfdaa0be0467f82f64708","pubkey":"ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49","created_at":1712693549,"kind":1,"sig":"870497b1a254f2394a692decd46b5cffa044302179a42e985697b488fc408118c9ff7c5578d85393474c1a025f28c869148968ee3229aa24425800ae54f54e51","content":"He got snowed in","tags":[["expiration","1712693529"],["p","e2ccf7cf20403f3f2a4a55b328f0de3be38558a7d5f33632fdaaefc726c1c8eb"],["e","2c86abcc98f7fd8a6750aab8df6c1863903f107206cc2d72e8afeb6c38357aed","wss://nostr-pub.wellorder.net/","root"]]}"#;
+        let mut buffer: Vec<u8> = Vec::with_capacity(4096);
+        buffer.resize(4096, 0);
+        let (_size, event) = Event::from_json(json.as_slice(), &mut buffer).unwrap();
+        assert_eq!(event.is_expired().unwrap(), true); // In the past
+
+        let json = br#"{"id":"120b3d99f889c6147972b0256413e84b0b7b7862a705964b7302f5392677e52a","pubkey":"ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49","created_at":1712693868,"kind":1,"sig":"ed0463b822f76f63c392b00d4a66c297f5e13371c800b139f2d40174bf77146201f29ae6e3a9da71a9346416d8b2ba4d2f5a2be693a9e75a91a33abfdc43ec71","content":"He got snowed in","tags":[["expiration","99712693529"],["p","e2ccf7cf20403f3f2a4a55b328f0de3be38558a7d5f33632fdaaefc726c1c8eb"],["e","2c86abcc98f7fd8a6750aab8df6c1863903f107206cc2d72e8afeb6c38357aed","wss://nostr-pub.wellorder.net/","root"]]}"#;
+        let (_size, event) = Event::from_json(json.as_slice(), &mut buffer).unwrap();
+        assert_eq!(event.is_expired().unwrap(), false); // Too far in the future
+
+        let json = br#"{"kind":1,"pubkey":"ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49","created_at":1681778790,"sig":"4dfea1a6f73141d5691e43afc3234dbe73016db0fb207cf247e0127cc2591ee6b4be5b462272030a9bde75882aae810f359682b1b6ce6cbb97201141c576db42","tags":[["client","gossip"],["p","e2ccf7cf20403f3f2a4a55b328f0de3be38558a7d5f33632fdaaefc726c1c8eb"],["e","2c86abcc98f7fd8a6750aab8df6c1863903f107206cc2d72e8afeb6c38357aed","wss://nostr-pub.wellorder.net/","root"]],"id":"a9663055164ab8b30d9524656370c4bf93393bb051b7edf4556f40c5298dc0c7","content":"He got snowed in"}"#;
+        let (_size, event) = Event::from_json(json.as_slice(), &mut buffer).unwrap();
+        assert_eq!(event.is_expired().unwrap(), false); // Doesn't have the expiration tag
     }
 }

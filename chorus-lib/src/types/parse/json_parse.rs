@@ -91,11 +91,7 @@ pub fn read_u64(input: &[u8], inposp: &mut usize) -> Result<u64, Error> {
         *inposp += 1;
     }
     if !any {
-        return Err(ChorusError::JsonBad(
-            "Created at must be a positive or zero valued number",
-            *inposp,
-        )
-        .into());
+        return Err(ChorusError::JsonBad("Expected a positive integer", *inposp).into());
     }
     Ok(value)
 }
