@@ -1,4 +1,3 @@
-use crate::config::Config;
 use crate::error::Error;
 use crate::ip::{HashedIp, IpData};
 use crate::types::{Event, Id, Kind, Pubkey, Time};
@@ -33,7 +32,7 @@ pub struct Lmdb {
 }
 
 impl Lmdb {
-    pub fn new(config: &Config) -> Result<Lmdb, Error> {
+    pub fn new(directory: &str) -> Result<Lmdb, Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
             builder.flags(EnvFlags::NO_TLS);
@@ -41,13 +40,12 @@ impl Lmdb {
         builder.max_dbs(32);
         builder.map_size(1048576 * 1024 * 24); // 24 GB
 
-        let dir = format!("{}/lmdb", &config.data_directory);
-        fs::create_dir_all(&dir)?;
+        fs::create_dir_all(directory)?;
 
-        let env = match builder.open(&dir) {
+        let env = match builder.open(directory) {
             Ok(env) => env,
             Err(e) => {
-                log::error!("Unable to open LMDB at {}", dir);
+                log::error!("Unable to open LMDB at {}", directory);
                 return Err(e.into());
             }
         };

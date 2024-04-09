@@ -22,7 +22,8 @@ pub struct Store {
 impl Store {
     /// Setup persistent storage
     pub fn new(config: &Config) -> Result<Store, Error> {
-        let lmdb = Lmdb::new(config)?;
+        let dir = format!("{}/lmdb", &config.data_directory);
+        let lmdb = Lmdb::new(&dir)?;
 
         let events_are_aligned = lmdb.get_if_events_are_aligned()?;
 
