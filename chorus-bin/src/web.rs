@@ -45,18 +45,17 @@ fn build_rid(config: &Config) -> String {
         59, // GiftWrap
         65, // Relay List Metadata
     ];
-    const _UNSUPPORTED_NIPS: [u8; 7] = [
+    const _UNSUPPORTED_NIPS: [u8; 6] = [
         26, // Delegated Event Signing
-        28, // Public Chat
         29, // Relay-based Groups
         45, // Counting results
         50, // SEARCH
         94, // File Metadata
         96, // HTTP File Storage Integration
     ];
-    const _INAPPLICABLE_NIPS: [u8; 44] = [
-        2, 3, 5, 6, 7, 8, 10, 13, 14, 15, 18, 19, 21, 23, 24, 25, 27, 30, 31, 32, 34, 36, 38, 39,
-        44, 46, 47, 48, 49, 51, 52, 53, 56, 57, 58, 72, 75, 78, 84, 89, 90, 92, 98, 99,
+    const _INAPPLICABLE_NIPS: [u8; 45] = [
+        2, 3, 5, 6, 7, 8, 10, 13, 14, 15, 18, 19, 21, 23, 24, 25, 27, 28, 30, 31, 32, 34, 36, 38,
+        39, 44, 46, 47, 48, 49, 51, 52, 53, 56, 57, 58, 72, 75, 78, 84, 89, 90, 92, 98, 99,
     ];
 
     let s = SUPPORTED_NIPS
