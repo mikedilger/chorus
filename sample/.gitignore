@@ -1,2 +1,4 @@
 lmdb/
+lmdb.bak/
 event.map
+event.map.bak

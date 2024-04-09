@@ -409,6 +409,17 @@ impl Lmdb {
         Ok(())
     }
 
+    pub fn dump_deleted(&self) -> Result<Vec<Id>, Error> {
+        let mut output: Vec<Id> = Vec::new();
+        let txn = self.read_txn()?;
+        for i in self.deleted_ids.iter(&txn)? {
+            let (key, _val) = i?;
+            let id = Id(key[0..32].try_into().unwrap());
+            output.push(id);
+        }
+        Ok(output)
+    }
+
     pub fn get_ip_data(&self, ip: HashedIp) -> Result<IpData, Error> {
         let key = &ip.0;
         let txn = self.read_txn()?;
@@ -426,6 +437,18 @@ impl Lmdb {
         self.ip_data.put(&mut txn, key, &bytes)?;
         txn.commit()?;
         Ok(())
+    }
+
+    pub fn dump_ip_data(&self) -> Result<Vec<(HashedIp, IpData)>, Error> {
+        let mut output: Vec<(HashedIp, IpData)> = Vec::new();
+        let txn = self.read_txn()?;
+        for i in self.ip_data.iter(&txn)? {
+            let (key, val) = i?;
+            let hashedip = HashedIp::from_bytes(key);
+            let data = IpData::read_from_buffer(val)?;
+            output.push((hashedip, data));
+        }
+        Ok(output)
     }
 
     pub fn mark_event_approval(&self, id: Id, approval: bool) -> Result<(), Error> {

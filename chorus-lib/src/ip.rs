@@ -24,6 +24,10 @@ impl HashedIp {
         )
     }
 
+    pub fn from_bytes(bytes: &[u8]) -> HashedIp {
+        HashedIp(bytes[0..20].try_into().unwrap(), false)
+    }
+
     pub fn is_loopback(&self) -> bool {
         self.1
     }

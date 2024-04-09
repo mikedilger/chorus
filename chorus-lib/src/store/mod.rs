@@ -12,6 +12,7 @@ use crate::ip::{HashedIp, IpData};
 use crate::types::{Event, Filter, Id, Kind, Pubkey, Time};
 use heed::RwTxn;
 use std::collections::BTreeSet;
+use std::fs;
 
 #[derive(Debug)]
 pub struct Store {
@@ -40,6 +41,88 @@ impl Store {
         store.lmdb.log_stats()?;
 
         Ok(store)
+    }
+
+    pub fn rebuild(config: &Config) -> Result<(), Error> {
+        let dir = format!("{}/lmdb", &config.data_directory);
+        let dir_bak = format!("{}/lmdb.bak", &config.data_directory);
+        fs::rename(&dir, &dir_bak)?;
+        let old_lmdb = Lmdb::new(&dir_bak)?;
+        let new_lmdb = Lmdb::new(&dir)?;
+
+        let old_align = old_lmdb.get_if_events_are_aligned()?;
+
+        let event_map_file = format!("{}/event.map", &config.data_directory);
+        let event_map_file_bak = format!("{}/event.map.bak", &config.data_directory);
+        fs::rename(&event_map_file, &event_map_file_bak)?;
+
+        let old_event_store = EventStore::new(event_map_file_bak, old_align)?;
+        let new_event_store = EventStore::new(event_map_file, true)?;
+
+        let old_store = Store {
+            lmdb: old_lmdb,
+            events: old_event_store,
+        };
+
+        old_store.migrate()?;
+
+        let new_store = Store {
+            lmdb: new_lmdb,
+            events: new_event_store,
+        };
+
+        new_store.migrate()?;
+
+        log::info!("Copying data...");
+
+        let old_txn = old_store.lmdb.read_txn()?;
+        let mut new_txn = new_store.lmdb.write_txn()?;
+
+        new_store
+            .lmdb
+            .set_if_events_are_aligned(&mut new_txn, true)?;
+
+        // Iterate through all IDs and copy and index all of those events
+        for i in old_store.lmdb.i_iter(&old_txn)? {
+            let (_key, val) = i?;
+            //let id = Id(key[0..32].try_into().unwrap());
+            let old_offset: usize = val;
+            let event = old_store.events.get_event_by_offset(old_offset)?;
+            let new_offset = new_store.events.store_event(&event)?;
+            new_store.lmdb.index(&mut new_txn, &event, new_offset)?;
+        }
+
+        // Copy deleted IDs
+        let mut deleted = old_store.lmdb.dump_deleted()?;
+        for id in deleted.drain(..) {
+            new_store.lmdb.mark_deleted(&mut new_txn, id)?;
+        }
+
+        new_txn.commit()?;
+
+        // Copy approved events
+        let mut approvals = old_store.dump_event_approvals()?;
+        for (id, approval) in approvals.drain(..) {
+            new_store.mark_event_approval(id, approval)?;
+        }
+
+        // Copy approved pubkeys
+        let mut approvals = old_store.dump_pubkey_approvals()?;
+        for (pubkey, approval) in approvals.drain(..) {
+            new_store.mark_pubkey_approval(pubkey, approval)?;
+        }
+
+        // Copy ip data
+        let mut ipdata = old_store.lmdb.dump_ip_data()?;
+        for (hashedip, ipdata) in ipdata.drain(..) {
+            new_store.update_ip_data(hashedip, &ipdata)?;
+        }
+
+        new_store.lmdb.sync()?;
+
+        log::info!("done.");
+
+        Ok(())
     }
 
     /// Sync the data to disk. This happens periodically, but sometimes it's useful to force
