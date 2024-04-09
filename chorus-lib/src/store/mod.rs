@@ -34,10 +34,7 @@ impl Store {
         // This is in migrations.rs
         store.migrate()?;
 
-        {
-            let txn = store.lmdb.read_txn()?;
-            store.lmdb.log_stats(&txn);
-        }
+        store.lmdb.log_stats()?;
 
         Ok(store)
     }

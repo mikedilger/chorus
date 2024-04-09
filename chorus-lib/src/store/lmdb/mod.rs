@@ -148,11 +148,12 @@ impl Lmdb {
         Ok(self.env.write_txn()?)
     }
 
-    pub fn log_stats(&self, txn: &RoTxn) {
-        if let Ok(count) = self.i_index.len(txn) {
+    pub fn log_stats(&self) -> Result<(), Error> {
+        let txn = self.read_txn()?;
+        if let Ok(count) = self.i_index.len(&txn) {
             log::info!("Index: id ({} entries, {} bytes)", count, count * (32 + 8));
         }
-        if let Ok(count) = self.ci_index.len(txn) {
+        if let Ok(count) = self.ci_index.len(&txn) {
             log::info!(
                 "Index: created_at+id ({} entries, {} bytes)",
                 count,
@@ -160,35 +161,35 @@ impl Lmdb {
             );
         }
 
-        if let Ok(count) = self.tc_index.len(txn) {
+        if let Ok(count) = self.tc_index.len(&txn) {
             log::info!(
                 "Index: tag+created_at+id ({} entries, {} bytes)",
                 count,
                 count * (223 + 8)
             );
         }
-        if let Ok(count) = self.ac_index.len(txn) {
+        if let Ok(count) = self.ac_index.len(&txn) {
             log::info!(
                 "Index: author+created_at+id ({} entries, {} bytes)",
                 count,
                 count * (72 + 8)
             );
         }
-        if let Ok(count) = self.akc_index.len(txn) {
+        if let Ok(count) = self.akc_index.len(&txn) {
             log::info!(
                 "Index: author+kind+created_at+id ({} entries, {} bytes)",
                 count,
                 count * (74 + 8)
             );
         }
-        if let Ok(count) = self.atc_index.len(txn) {
+        if let Ok(count) = self.atc_index.len(&txn) {
             log::info!(
                 "Index: author+tags+created_at+id ({} entries, {} bytes)",
                 count,
                 count * (255 + 8)
             );
         }
-        if let Ok(count) = self.ktc_index.len(txn) {
+        if let Ok(count) = self.ktc_index.len(&txn) {
             log::info!(
                 "Index: kind+tags+created_at+id ({} entries, {} bytes)",
                 count,
@@ -196,12 +197,14 @@ impl Lmdb {
             );
         }
 
-        if let Ok(count) = self.deleted_ids.len(txn) {
+        if let Ok(count) = self.deleted_ids.len(&txn) {
             log::info!("{} deleted events", count);
         }
-        if let Ok(count) = self.ip_data.len(txn) {
+        if let Ok(count) = self.ip_data.len(&txn) {
             log::info!("{count} IP addresses reputationally tracked");
         }
+
+        Ok(())
     }
 
     pub fn get_migration_level(&self, txn: &RoTxn<'_>) -> Result<u32, Error> {
