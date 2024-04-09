@@ -304,7 +304,12 @@ async fn handle_http_request(
 ) -> Result<Response<Body>, Error> {
     let ua = match request.headers().get("user-agent") {
         Some(ua) => ua.to_str().unwrap_or("NON-UTF8-HEADER").to_owned(),
-        None => "".to_owned(),
+        None => "(no user-agent)".to_owned(),
+    };
+
+    let origin = match request.headers().get("origin") {
+        Some(o) => o.to_str().unwrap_or("NON-UTF8-HEADER").to_owned(),
+        None => "(no origin)".to_owned(),
     };
 
     if hyper_tungstenite::is_upgrade_request(&request) {
@@ -340,10 +345,11 @@ async fn handle_http_request(
                     // as server messages
                     log::info!(
                         target: "Server",
-                        "{}: TOTAL={}, New Connection: {}",
+                        "{}: TOTAL={}, New Connection: {}, {}",
                         peer,
                         old_num_websockets + 1,
-                        ua
+                        origin,
+                        ua,
                     );
 
                     // Everybody gets a ban on disconnect to prevent rapid reconnection
