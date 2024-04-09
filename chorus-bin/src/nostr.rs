@@ -488,6 +488,12 @@ pub fn screen_outgoing_event(
         return event_flags.tags_current_user || event_flags.author_is_current_user;
     }
 
+    // Forbid (and delete) if it has an expired expiration tag
+    if matches!(event.is_expired(), Ok(true)) {
+        let _ = GLOBALS.store.get().unwrap().delete_event(event.id());
+        return false;
+    }
+
     // Allow if an open relay
     if GLOBALS.config.read().open_relay {
         return true;

@@ -35,20 +35,20 @@ pub async fn serve_nip11(peer: HashedPeer) -> Result<Response<Body>, Error> {
 fn build_rid(config: &Config) -> String {
     let mut rid: String = String::with_capacity(255);
 
-    const SUPPORTED_NIPS: [u8; 7] = [
+    const SUPPORTED_NIPS: [u8; 8] = [
         1,  // nostr
         4,  // DMs
         9,  // Event Deletion
         11, // relay information document
+        40, // Expiration Timestamp
         42, // AUTH
         59, // GiftWrap
         65, // Relay List Metadata
     ];
-    const _UNSUPPORTED_NIPS: [u8; 8] = [
+    const _UNSUPPORTED_NIPS: [u8; 7] = [
         26, // Delegated Event Signing
         28, // Public Chat
         29, // Relay-based Groups
-        40, // Expiration Timestamp
         45, // Counting results
         50, // SEARCH
         94, // File Metadata
