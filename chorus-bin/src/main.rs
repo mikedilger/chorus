@@ -130,13 +130,16 @@ async fn main() -> Result<(), Error> {
                     (tcp_stream, hashed_peer)
                 };
 
-                let ip_data = GLOBALS.store.get().unwrap().get_ip_data(hashed_peer.ip())?;
-                if ip_data.is_banned() {
-                    log::debug!(target: "Client",
-                                "{}: Blocking reconnection until {}",
-                                hashed_peer.ip(),
-                                ip_data.ban_until);
-                    continue;
+                // Possibly IP block
+                if ! GLOBALS.config.read().dont_ip_block {
+                    let ip_data = GLOBALS.store.get().unwrap().get_ip_data(hashed_peer.ip())?;
+                    if ip_data.is_banned() {
+                        log::debug!(target: "Client",
+                                    "{}: Blocking reconnection until {}",
+                                    hashed_peer.ip(),
+                                    ip_data.ban_until);
+                        continue;
+                    }
                 }
 
                 if let Some(tls_acceptor) = &maybe_tls_acceptor {
@@ -546,9 +549,9 @@ impl WebSocketService {
                     log::error!(target: "Client", "{}: {e}", self.peer);
                     if !matches!(e.inner, ChorusError::AuthRequired) {
                         if msg.len() < 2048 {
-                            log::error!(target: "Client", "{}:   msg was {}", self.peer, msg);
+                            log::warn!(target: "Client", "{}:   msg was {}", self.peer, msg);
                         } else {
-                            log::error!(target: "Client", "{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
+                            log::warn!(target: "Client", "{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
                         }
                     }
                     if !self.replied {

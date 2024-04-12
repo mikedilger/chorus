@@ -189,3 +189,10 @@ Possible values are: Trace, Debug, Info, Warn, Error
 
 Default is Info
 
+### dont_ip_block
+
+Chorus normally blocks IP addresses for a short period preventing quick reconnections, and for a longer period if the previous connection ended in some error condition.
+
+By setting this variable to true, it will allow all connections.
+
+Default is false.

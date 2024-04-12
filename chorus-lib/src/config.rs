@@ -30,6 +30,7 @@ pub struct FriendlyConfig {
     pub server_log_level: String,
     pub library_log_level: String,
     pub client_log_level: String,
+    pub dont_ip_block: bool,
 }
 
 impl Default for FriendlyConfig {
@@ -58,6 +59,7 @@ impl Default for FriendlyConfig {
             server_log_level: "Info".to_string(),
             library_log_level: "Info".to_string(),
             client_log_level: "Info".to_string(),
+            dont_ip_block: false,
         }
     }
 }
@@ -88,6 +90,7 @@ impl FriendlyConfig {
             server_log_level,
             library_log_level,
             client_log_level,
+            dont_ip_block,
         } = self;
 
         let mut public_key: Option<Pubkey> = None;
@@ -134,6 +137,7 @@ impl FriendlyConfig {
             server_log_level,
             library_log_level,
             client_log_level,
+            dont_ip_block,
         })
     }
 }
@@ -164,6 +168,7 @@ pub struct Config {
     pub server_log_level: log::LevelFilter,
     pub library_log_level: log::LevelFilter,
     pub client_log_level: log::LevelFilter,
+    pub dont_ip_block: bool,
 }
 
 impl Default for Config {
