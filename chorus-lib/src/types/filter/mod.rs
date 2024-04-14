@@ -49,7 +49,7 @@ impl<'a> Filter<'a> {
         if input.len() < ARRAYS_OFFSET {
             return Err(ChorusError::EndOfInput.into());
         }
-        let len = parse_u16!(input, 0) as usize;
+        let len = parse_u32!(input, 0) as usize;
         if input.len() < len {
             return Err(ChorusError::EndOfInput.into());
         }
