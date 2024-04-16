@@ -54,8 +54,8 @@ impl Default for FriendlyConfig {
             verify_events: true,
             allow_scraping: false,
             allow_scrape_if_limited_to: 100,
-            allow_scrape_if_max_seconds: 3600,
-            max_subscriptions: 32,
+            allow_scrape_if_max_seconds: 7200,
+            max_subscriptions: 128,
             serve_ephemeral: true,
             serve_relay_lists: true,
             server_log_level: "Info".to_string(),
@@ -63,7 +63,7 @@ impl Default for FriendlyConfig {
             client_log_level: "Info".to_string(),
             enable_ip_blocking: true,
             minimum_ban_seconds: 1,
-            timeout_seconds: 30,
+            timeout_seconds: 60,
         }
     }
 }

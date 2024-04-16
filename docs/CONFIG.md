@@ -141,7 +141,7 @@ This is a u64 number of seconds indicating a filter time range under which a scr
 
 See `allow_scraping` to learn the definition of a scrape.
 
-The default is 3600.
+The default is 7200.
 
 ### max_subscriptions
 
@@ -151,7 +151,7 @@ If you set this too low, clients will be incentivised to resubmit updated subscr
 
 It is strongly recommended to not go below 16.
 
-Default is 32.
+Default is 128.
 
 ### serve_ephemeral
 
@@ -213,4 +213,4 @@ Default is 1
 
 Number of seconds beyond which chorus times out a client that has no open subscriptions.
 
-Default is 30
+Default is 60
