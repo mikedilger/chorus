@@ -23,3 +23,6 @@ serve_relay_lists = true
 server_log_level = "Info"
 library_log_level = "Info"
 client_log_level = "Warn"
+enable_ip_blocking = true
+minimum_ban_seconds = 1
+timeout_seconds = 30

@@ -189,10 +189,28 @@ Possible values are: Trace, Debug, Info, Warn, Error
 
 Default is Info
 
-### dont_ip_block
+### enable_ip_blocking
+
+Whether to block incoming connections based on recent prior behavior
 
 Chorus normally blocks IP addresses for a short period preventing quick reconnections, and for a longer period if the previous connection ended in some error condition.
 
-By setting this variable to true, it will allow all connections.
+By setting this variable to false, it will allow all connections, incluing poorly behaving clients that reconnect over and over in a tight loop.
 
-Default is false.
+Default is true
+
+### minimum_ban_seconds
+
+Number of seconds to ban an IP address after disconnection.
+
+Enforcing this minimum ban prevents clients from immediately reconnecting which can cause tight loops.
+
+Only relevant if enable_ip_blocking is true.
+
+Default is 1
+
+### timeout_seconds
+
+Number of seconds beyond which chorus times out a client that has no open subscriptions.
+
+Default is 30

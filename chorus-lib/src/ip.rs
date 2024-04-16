@@ -123,13 +123,17 @@ pub struct IpData {
 }
 
 impl IpData {
-    pub fn update_on_session_close(&mut self, session_exit: SessionExit) -> u64 {
+    pub fn update_on_session_close(
+        &mut self,
+        session_exit: SessionExit,
+        minimum_ban_seconds: u64,
+    ) -> u64 {
         // Update reputation
         self.reputation.update(session_exit);
 
         // Compute ban_until
         let mut until = Time::now();
-        let seconds = self.ban_seconds(session_exit);
+        let seconds = self.ban_seconds(session_exit, minimum_ban_seconds);
         until.0 += seconds;
 
         self.ban_until = Time(self.ban_until.0.max(until.0));
@@ -141,14 +145,14 @@ impl IpData {
         self.ban_until > Time::now()
     }
 
-    fn ban_seconds(&self, session_exit: SessionExit) -> u64 {
+    fn ban_seconds(&self, session_exit: SessionExit, minimum_ban_seconds: u64) -> u64 {
         let multiplier = self.reputation.ban_multiplier();
 
         match session_exit {
-            SessionExit::Ok => 2,
-            SessionExit::ErrorExit => 2 + (2.0 * multiplier) as u64,
-            SessionExit::TooManyErrors => 2 + (5.0 * multiplier) as u64,
-            SessionExit::Timeout => 2 + (4.0 * multiplier) as u64,
+            SessionExit::Ok => minimum_ban_seconds,
+            SessionExit::ErrorExit => minimum_ban_seconds + (2.0 * multiplier) as u64,
+            SessionExit::TooManyErrors => minimum_ban_seconds + (5.0 * multiplier) as u64,
+            SessionExit::Timeout => minimum_ban_seconds + (1.0 * multiplier) as u64,
         }
     }
 }

@@ -131,7 +131,7 @@ async fn main() -> Result<(), Error> {
                 };
 
                 // Possibly IP block
-                if ! GLOBALS.config.read().dont_ip_block {
+                if GLOBALS.config.read().enable_ip_blocking {
                     let ip_data = GLOBALS.store.get().unwrap().get_ip_data(hashed_peer.ip())?;
                     if ip_data.is_banned() {
                         log::debug!(target: "Client",
@@ -394,9 +394,12 @@ async fn handle_http_request(
                     let old_num_websockets = GLOBALS.num_clients.fetch_sub(1, Ordering::SeqCst);
 
                     // Update ip data (including ban time)
+                    // if GLOBALS.config.read().enable_ip_blocking {
                     let mut ban_seconds = 0;
+                    let minimum_ban_seconds = GLOBALS.config.read().minimum_ban_seconds;
                     if let Ok(mut ip_data) = GLOBALS.store.get().unwrap().get_ip_data(peer.ip()) {
-                        ban_seconds = ip_data.update_on_session_close(session_exit);
+                        ban_seconds =
+                            ip_data.update_on_session_close(session_exit, minimum_ban_seconds);
                         let _ = GLOBALS
                             .store
                             .get()
@@ -460,7 +463,9 @@ impl WebSocketService {
 
         let mut last_message_at = Instant::now();
 
-        let mut interval = tokio::time::interval(Duration::from_secs(5));
+        let timeout_seconds = GLOBALS.config.read().timeout_seconds;
+
+        let mut interval = tokio::time::interval(Duration::from_secs(1));
         let _ = interval.tick().await; // consume the first tick
         tokio::pin!(interval);
 
@@ -469,8 +474,8 @@ impl WebSocketService {
                 instant = interval.tick() => {
                     // Drop them if they have no subscriptions
                     if self.subscriptions.is_empty() {
-                        // And they are idle for 5 seconds with no subscriptions
-                        if last_message_at + Duration::from_secs(5) < instant {
+                        // And they are idle for timeout_seconds with no subscriptions
+                        if last_message_at + Duration::from_secs(timeout_seconds) < instant {
                             self.websocket.send(Message::Close(None)).await?;
                             return Err(ChorusError::TimedOut.into());
                         }
