@@ -150,9 +150,9 @@ impl IpData {
 
         match session_exit {
             SessionExit::Ok => minimum_ban_seconds,
+            SessionExit::Timeout => minimum_ban_seconds,
             SessionExit::ErrorExit => minimum_ban_seconds + (2.0 * multiplier) as u64,
             SessionExit::TooManyErrors => minimum_ban_seconds + (5.0 * multiplier) as u64,
-            SessionExit::Timeout => minimum_ban_seconds + (1.0 * multiplier) as u64,
         }
     }
 }
