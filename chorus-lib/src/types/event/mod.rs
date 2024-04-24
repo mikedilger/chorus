@@ -205,7 +205,9 @@ impl PartialOrd for Event<'_> {
 
 impl Ord for Event<'_> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.created_at().cmp(&other.created_at())
+        self.created_at()
+            .cmp(&other.created_at())
+            .then(self.id().cmp(&other.id()))
     }
 }
 
