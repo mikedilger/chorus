@@ -24,6 +24,10 @@ impl Store {
     /// Setup persistent storage
     pub fn new(config: &Config) -> Result<Store, Error> {
         let dir = format!("{}/lmdb", &config.data_directory);
+
+        // Create the lmdb subdir if it doesn't exist, ignoring errors
+        let _ = std::fs::create_dir(&dir);
+
         let lmdb = Lmdb::new(&dir)?;
 
         let events_are_aligned = lmdb.get_if_events_are_aligned()?;
