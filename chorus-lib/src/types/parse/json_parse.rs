@@ -118,7 +118,6 @@ pub fn read_kind(input: &[u8], inposp: &mut usize) -> Result<u16, Error> {
     }
 }
 
-// HELP written for event only
 // From the outer bracket through to the character after the close outer bracket
 // returns the size of data written to the output
 pub fn read_tags_array(
@@ -234,10 +233,19 @@ pub fn read_tag(
     output: &mut [u8],
     outposp: &mut usize,
 ) -> Result<(), Error> {
-    verify_char(input, b'"', inposp)?;
-
     let countpos = *outposp;
     *outposp += 2;
+
+    // handle empty tag
+    if input[*inposp] == b']' {
+        *inposp += 1;
+        put(output, countpos, 0_u16.to_ne_bytes().as_slice())?;
+
+        return Ok(());
+    }
+
+    verify_char(input, b'"', inposp)?;
+
     let mut num_strings: usize = 1;
     loop {
         // read string
@@ -336,7 +344,11 @@ pub fn burn_string(input: &[u8], inposp: &mut usize) -> Result<(), Error> {
 // ending on the character following the close brace
 pub fn burn_tag(input: &[u8], inposp: &mut usize) -> Result<(), Error> {
     eat_whitespace(input, inposp);
-    // assuming that every tag must have at least one string
+    // handle empty tag
+    if input[*inposp] == b']' {
+        *inposp += 1;
+        return Ok(());
+    }
     verify_char(input, b'"', inposp)?;
     burn_string(input, inposp)?;
     eat_whitespace(input, inposp);

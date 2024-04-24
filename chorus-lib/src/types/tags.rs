@@ -1,4 +1,5 @@
 use crate::error::{ChorusError, Error};
+use crate::types::parse::json_parse::read_tags_array;
 use std::fmt;
 
 /*
@@ -30,6 +31,15 @@ impl<'a> Tags<'a> {
             return Err(ChorusError::EndOfInput.into());
         }
         Ok(Tags(&input[0..len]))
+    }
+
+    /// Parse JSON input into a Tags.
+    ///
+    /// Returns the count of consumed input bytes and the Tags
+    pub fn from_json(json: &[u8], output_buffer: &'a mut [u8]) -> Result<(usize, Tags<'a>), Error> {
+        let mut inpos: usize = 0;
+        let tags_size = read_tags_array(json, &mut inpos, output_buffer)?;
+        Ok((inpos, Tags(&output_buffer[..tags_size])))
     }
 
     // This copies
@@ -283,5 +293,40 @@ mod test {
             format!("{tags}"),
             r#"[["Hello world!","Hello","world!"],["p","ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49"]]"#
         );
+    }
+
+    #[test]
+    fn test_tags_from_json() {
+        let mut output: Vec<u8> = Vec::with_capacity(4096);
+        output.resize(4096, 0);
+
+        let json = r#"[["Hello world!","Hello","world!"],["p","ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49"]]"#;
+
+        let (_, tags) = Tags::from_json(json.as_bytes(), &mut output).unwrap();
+
+        assert_eq!(tags.get_string(0, 0), Some(b"Hello world!".as_slice()));
+        assert_eq!(tags.get_string(0, 1), Some(b"Hello".as_slice()));
+        assert_eq!(tags.get_string(0, 2), Some(b"world!".as_slice()));
+        assert_eq!(tags.get_string(0, 3), None);
+        assert_eq!(tags.get_string(1, 0), Some(b"p".as_slice()));
+        assert_eq!(
+            tags.get_string(1, 1),
+            Some(b"ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49".as_slice())
+        );
+        assert_eq!(tags.get_string(1, 2), None);
+        assert_eq!(tags.get_string(2, 0), None);
+    }
+
+    #[test]
+    fn test_empty_tag() {
+        let mut output: Vec<u8> = Vec::with_capacity(256);
+        output.resize(256, 0);
+
+        let json = r#"[[]]"#;
+        let (_, _tags) = Tags::from_json(json.as_bytes(), &mut output).unwrap();
+
+        let json = r#"[["-"],[]]"#;
+        let (_, tags) = Tags::from_json(json.as_bytes(), &mut output).unwrap();
+        assert_eq!(tags.get_string(0, 0), Some(b"-".as_slice()));
     }
 }
