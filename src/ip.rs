@@ -1,4 +1,4 @@
-use crate::types::Time;
+use pocket_types::Time;
 use speedy::{Readable, Writable};
 use std::net::{IpAddr, SocketAddr};
 
@@ -118,7 +118,7 @@ impl IpReputation {
 // Memory-only short-term record of IP handling
 #[derive(Debug, Clone, Default, Readable, Writable)]
 pub struct IpData {
-    pub ban_until: Time,
+    pub ban_until: u64,
     pub reputation: IpReputation,
 }
 
@@ -134,15 +134,15 @@ impl IpData {
         // Compute ban_until
         let mut until = Time::now();
         let seconds = self.ban_seconds(session_exit, minimum_ban_seconds);
-        until.0 += seconds;
+        until = until + seconds;
 
-        self.ban_until = Time(self.ban_until.0.max(until.0));
+        self.ban_until = self.ban_until.max(until.as_u64());
 
         seconds
     }
 
     pub fn is_banned(&self) -> bool {
-        self.ban_until > Time::now()
+        Time::from_u64(self.ban_until) > Time::now()
     }
 
     fn ban_seconds(&self, session_exit: SessionExit, minimum_ban_seconds: u64) -> u64 {

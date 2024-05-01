@@ -1,6 +1,6 @@
+use crate::config::Config;
+use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
-use chorus_lib::config::Config;
-use chorus_lib::error::{ChorusError, Error};
 use rustls::{Certificate, PrivateKey};
 use std::fs::File;
 use std::io::BufReader;

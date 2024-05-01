@@ -1,7 +1,7 @@
+use crate::config::Config;
+use crate::error::Error;
 use crate::globals::GLOBALS;
-use chorus_lib::config::Config;
-use chorus_lib::error::Error;
-use chorus_lib::ip::HashedPeer;
+use crate::ip::HashedPeer;
 use hyper::{Body, Request, Response, StatusCode};
 
 pub async fn serve_http(peer: HashedPeer, request: Request<Body>) -> Result<Response<Body>, Error> {

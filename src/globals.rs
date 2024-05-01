@@ -1,8 +1,8 @@
-use chorus_lib::config::Config;
-use chorus_lib::store::Store;
+use crate::config::Config;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
+use pocket_db::Store;
 use std::sync::atomic::{AtomicU64, AtomicUsize};
 use std::sync::OnceLock;
 use std::time::Instant;
@@ -22,7 +22,7 @@ pub struct Globals {
     /// Every handler needs to listen to it and check if the incoming event matches any
     /// subscribed fitlers for their client, and if so, send the event to their client under
     /// that subscription.
-    pub new_events: BroadcastSender<usize>,
+    pub new_events: BroadcastSender<u64>,
 
     pub num_clients: AtomicUsize,
     pub shutting_down: WatchSender<bool>,

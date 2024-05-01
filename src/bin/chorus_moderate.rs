@@ -1,10 +1,7 @@
-use chorus_lib::config::{Config, FriendlyConfig};
-use chorus_lib::error::Error;
-use chorus_lib::store::Store;
-use chorus_lib::types::{Event, Filter, Kind};
+use chorus::error::Error;
+use pocket_types::{Event, Filter, Kind};
 use std::env;
-use std::fs::OpenOptions;
-use std::io::{Read, Write};
+use std::io::Write;
 
 fn main() -> Result<(), Error> {
     // Get args (config path)
@@ -15,35 +12,25 @@ fn main() -> Result<(), Error> {
     let _ = args.next(); // ignore program name
     let config_path = args.next().unwrap();
 
-    // Read config file
-    let mut file = OpenOptions::new().read(true).open(config_path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    let friendly_config: FriendlyConfig = toml::from_str(&contents)?;
-    let mut config: Config = friendly_config.into_config()?;
-
-    env_logger::Builder::new()
-        .filter_level(config.library_log_level)
-        .filter(Some("Server"), config.server_log_level)
-        .filter(Some("Client"), config.client_log_level)
-        .format_target(true)
-        .format_module_path(false)
-        .format_timestamp_millis()
-        .init();
-
-    log::debug!(target: "Server", "Loaded config file.");
-
+    let mut config = chorus::load_config(config_path)?;
     // Force allow of scraping (this program is a scraper)
     config.allow_scraping = true;
 
-    // Setup store
-    let store = Store::new(&config)?;
+    chorus::setup_logging(&config);
+
+    let store = chorus::setup_store(&config)?;
 
     let mut buffer: [u8; 128] = [0; 128];
     let (_incount, _outcount, filter) = Filter::from_json(b"{}", &mut buffer)?;
-    let screen = |_: &Event<'_>| -> bool { true };
+    let screen = |_: &Event| -> bool { true };
 
-    let mut events = store.find_events(filter, screen, &config)?;
+    let mut events = store.find_events(
+        filter,
+        config.allow_scraping,
+        config.allow_scrape_if_limited_to,
+        config.allow_scrape_if_max_seconds,
+        screen,
+    )?;
 
     let mut stdout = std::io::stdout();
     let stdin = std::io::stdin();
@@ -51,12 +38,12 @@ fn main() -> Result<(), Error> {
 
     'eventloop: for event in events.drain(..) {
         // Skip DMs which don't need approval
-        if event.kind() == Kind(4) || event.kind() == Kind(1059) {
+        if event.kind() == Kind::from(4) || event.kind() == Kind::from(1059) {
             continue;
         }
 
         // Skip relay lists which don't need approval
-        if event.kind() == Kind(10002) {
+        if event.kind() == Kind::from(10002) {
             continue;
         }
 
@@ -75,18 +62,27 @@ fn main() -> Result<(), Error> {
         //println!("{s}");
 
         // Skip if event marked approved
-        if matches!(store.get_event_approval(event.id()), Ok(Some(true))) {
+        if matches!(
+            chorus::get_event_approval(&store, event.id()),
+            Ok(Some(true))
+        ) {
             continue;
         }
 
         // Skip if pubkey marked approved
-        if matches!(store.get_pubkey_approval(event.pubkey()), Ok(Some(true))) {
+        if matches!(
+            chorus::get_pubkey_approval(&store, event.pubkey()),
+            Ok(Some(true))
+        ) {
             continue;
         }
 
         // Delete if pubkey marked banned
-        if matches!(store.get_pubkey_approval(event.pubkey()), Ok(Some(false))) {
-            store.delete_event(event.id())?;
+        if matches!(
+            chorus::get_pubkey_approval(&store, event.pubkey()),
+            Ok(Some(false))
+        ) {
+            store.remove_event(event.id())?;
             continue;
         }
 
@@ -109,24 +105,24 @@ fn main() -> Result<(), Error> {
             }
             match input.bytes().next().unwrap() {
                 b'p' => {
-                    store.mark_pubkey_approval(event.pubkey(), true)?;
+                    chorus::mark_pubkey_approval(&store, event.pubkey(), true)?;
                     println!("User approved.");
                     break;
                 }
                 b'P' => {
-                    store.mark_pubkey_approval(event.pubkey(), false)?;
-                    store.delete_event(event.id())?;
+                    chorus::mark_pubkey_approval(&store, event.pubkey(), false)?;
+                    store.remove_event(event.id())?;
                     println!("User banned.");
                     break;
                 }
                 b'i' => {
-                    store.mark_event_approval(event.id(), true)?;
+                    chorus::mark_event_approval(&store, event.id(), true)?;
                     println!("Event approved.");
                     break;
                 }
                 b'I' => {
-                    store.mark_event_approval(event.id(), false)?;
-                    store.delete_event(event.id())?;
+                    chorus::mark_event_approval(&store, event.id(), false)?;
+                    store.remove_event(event.id())?;
                     println!("Event banned.");
                     break;
                 }

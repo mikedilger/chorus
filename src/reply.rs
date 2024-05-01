@@ -1,4 +1,4 @@
-use crate::types::{Event, Id};
+use pocket_types::{Event, Id};
 use std::fmt;
 
 pub enum NostrReplyPrefix {
@@ -31,7 +31,7 @@ impl fmt::Display for NostrReplyPrefix {
 
 pub enum NostrReply<'a> {
     Auth(String),
-    Event(&'a str, Event<'a>),
+    Event(&'a str, &'a Event),
     Ok(Id, bool, NostrReplyPrefix, String),
     Eose(&'a str),
     Closed(&'a str, NostrReplyPrefix, String),

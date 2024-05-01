@@ -1,240 +1,46 @@
+pub mod config;
+pub mod error;
 pub mod globals;
+pub mod ip;
 pub mod nostr;
+pub mod reply;
 pub mod tls;
 pub mod web;
 
+use crate::config::{Config, FriendlyConfig};
+use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
+use crate::ip::{HashedIp, HashedPeer, IpData, SessionExit};
+use crate::reply::NostrReply;
 use crate::tls::MaybeTlsStream;
-use chorus_lib::config::{Config, FriendlyConfig};
-use chorus_lib::error::{ChorusError, Error};
-use chorus_lib::ip::{HashedIp, HashedPeer, SessionExit};
-use chorus_lib::reply::NostrReply;
-use chorus_lib::store::Store;
-use chorus_lib::types::{OwnedFilter, Pubkey};
 use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::service::Service;
 use hyper::upgrade::Upgraded;
 use hyper::{Body, Request, Response};
-use hyper_tungstenite::{tungstenite, WebSocketStream};
+use hyper_tungstenite::tungstenite;
+use hyper_tungstenite::WebSocketStream;
+use pocket_db::Store;
+use pocket_types::{Id, OwnedFilter, Pubkey};
+use speedy::{Readable, Writable};
 use std::collections::HashMap;
-use std::env;
 use std::error::Error as StdError;
 use std::fs::OpenOptions;
 use std::future::Future;
 use std::io::Read;
 use std::net::IpAddr;
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::atomic::Ordering;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use textnonce::TextNonce;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::net::TcpStream;
 use tokio::time::Instant;
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::Message;
 
-#[tokio::main]
-async fn main() -> Result<(), Error> {
-    // Get args (config path)
-    let mut args = env::args();
-    if args.len() <= 1 {
-        panic!("USAGE: chorus <config_path>");
-    }
-    let _ = args.next(); // ignore program name
-    let config_path = args.next().unwrap();
-
-    // Read config file
-    let mut file = OpenOptions::new().read(true).open(config_path.clone())?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    let friendly_config: FriendlyConfig = toml::from_str(&contents)?;
-    let config: Config = friendly_config.into_config()?;
-
-    env_logger::Builder::new()
-        .filter_level(config.library_log_level)
-        .filter(Some("Server"), config.server_log_level)
-        .filter(Some("Client"), config.client_log_level)
-        .format_target(true)
-        .format_module_path(false)
-        .format_timestamp_millis()
-        .init();
-
-    log::debug!(target: "Server", "Loaded config file.");
-
-    // Log host name
-    log::info!(target: "Server", "HOSTNAME = {}", config.hostname);
-
-    // Setup store
-    let store = Store::new(&config)?;
-    let _ = GLOBALS.store.set(store);
-
-    // TLS setup
-    let maybe_tls_acceptor = if config.use_tls {
-        log::info!(target: "Server", "Using TLS");
-        Some(tls::tls_acceptor(&config)?)
-    } else {
-        log::info!(target: "Server", "Not using TLS");
-        None
-    };
-
-    // Bind listener to port
-    let listener = TcpListener::bind((&*config.ip_address, config.port)).await?;
-    log::info!(target: "Server", "Running on {}:{}", config.ip_address, config.port);
-
-    // Store config into GLOBALS
-    *GLOBALS.config.write() = config;
-
-    let mut interrupt_signal = signal(SignalKind::interrupt())?;
-    let mut quit_signal = signal(SignalKind::quit())?;
-    let mut terminate_signal = signal(SignalKind::terminate())?;
-    let mut hup_signal = signal(SignalKind::hangup())?;
-
-    loop {
-        tokio::select! {
-            // Exits gracefully upon exit-type signals
-            v = interrupt_signal.recv() => if v.is_some() {
-                log::info!(target: "Server", "SIGINT");
-                break;
-            },
-            v = quit_signal.recv() => if v.is_some() {
-                log::info!(target: "Server", "SIGQUIT");
-                break;
-            },
-            v = terminate_signal.recv() => if v.is_some() {
-                log::info!(target: "Server", "SIGTERM");
-                break;
-            },
-
-            // Reload config on HUP
-            v = hup_signal.recv() => if v.is_some() {
-                log::info!(target: "Server", "SIGHUP: Reloading configuration");
-
-                // Reload the config file
-                let mut file = OpenOptions::new().read(true).open(config_path.clone())?;
-                let mut contents = String::new();
-                file.read_to_string(&mut contents)?;
-                let friendly_config: FriendlyConfig = toml::from_str(&contents)?;
-                let config: Config = friendly_config.into_config()?;
-
-                *GLOBALS.config.write() = config;
-
-                print_stats();
-            },
-
-            // Accepts network connections and spawn a task to serve each one
-            v = listener.accept() => {
-                let (tcp_stream, hashed_peer) = {
-                    let (tcp_stream, peer_addr) = v?;
-                    let hashed_peer = HashedPeer::new(peer_addr);
-                    (tcp_stream, hashed_peer)
-                };
-
-                // Possibly IP block
-                if GLOBALS.config.read().enable_ip_blocking {
-                    let ip_data = GLOBALS.store.get().unwrap().get_ip_data(hashed_peer.ip())?;
-                    if ip_data.is_banned() {
-                        log::debug!(target: "Client",
-                                    "{}: Blocking reconnection until {}",
-                                    hashed_peer.ip(),
-                                    ip_data.ban_until);
-                        continue;
-                    }
-                }
-
-                if let Some(tls_acceptor) = &maybe_tls_acceptor {
-                    let tls_acceptor_clone = tls_acceptor.clone();
-                    tokio::spawn(async move {
-                        match tls_acceptor_clone.accept(tcp_stream).await {
-                            Err(e) => log::error!(
-                                target: "Client",
-                                "{}: {}", hashed_peer, e
-                            ),
-                            Ok(tls_stream) => {
-                                if let Err(e) = serve(MaybeTlsStream::Rustls(tls_stream), hashed_peer).await {
-                                    log::error!(
-                                        target: "Client",
-                                        "{}: {}", hashed_peer, e
-                                    );
-                                }
-                            }
-                        }
-                    });
-                } else {
-                    serve(MaybeTlsStream::Plain(tcp_stream), hashed_peer).await?;
-                }
-            }
-        };
-    }
-
-    // Pre-sync in case something below hangs up
-    let _ = GLOBALS.store.get().unwrap().sync();
-
-    // Set the shutting down signal
-    let _ = GLOBALS.shutting_down.send(true);
-
-    // Wait for active websockets to shutdown gracefully
-    let mut num_clients = GLOBALS.num_clients.load(Ordering::Relaxed);
-    if num_clients != 0 {
-        log::info!(target: "Server", "Waiting for {num_clients} websockets to shutdown...");
-
-        // We will check if all clients have shutdown every 25ms
-        let interval = tokio::time::interval(Duration::from_millis(25));
-        tokio::pin!(interval);
-
-        while num_clients != 0 {
-            // If we get another shutdown signal, stop waiting for websockets
-            tokio::select! {
-                v = interrupt_signal.recv() => if v.is_some() {
-                    break;
-                },
-                v = quit_signal.recv() => if v.is_some() {
-                    break;
-                },
-                v = terminate_signal.recv() => if v.is_some() {
-                    break;
-                },
-                _instant = interval.tick() => {
-                    num_clients = GLOBALS.num_clients.load(Ordering::Relaxed);
-                    continue;
-                }
-            }
-        }
-    }
-
-    log::info!(target: "Server", "Syncing and shutting down.");
-    let _ = GLOBALS.store.get().unwrap().sync();
-
-    print_stats();
-
-    Ok(())
-}
-
-fn print_stats() {
-    let mut runtime: u64 = GLOBALS.start_time.elapsed().as_secs();
-    if runtime < 1 {
-        runtime = 1;
-    }
-    log::info!(
-        target: "Server",
-        "Runtime: {} seconds", runtime
-    );
-    log::info!(
-        target: "Server",
-        "Inbound: {} bytes ({} B/s)",
-        GLOBALS.bytes_inbound.load(Ordering::Relaxed),
-        (GLOBALS.bytes_inbound.load(Ordering::Relaxed) as f32) / (runtime as f32)
-    );
-    log::info!(
-        target: "Server",
-        "Outbound: {} bytes ({} B/s)",
-        GLOBALS.bytes_outbound.load(Ordering::Relaxed),
-        (GLOBALS.bytes_outbound.load(Ordering::Relaxed) as f32) / (runtime as f32)
-    );
-}
-
-// Serve a single network connection
-async fn serve(stream: MaybeTlsStream<TcpStream>, peer: HashedPeer) -> Result<(), Error> {
+/// Serve a single network connection
+pub async fn serve(stream: MaybeTlsStream<TcpStream>, peer: HashedPeer) -> Result<(), Error> {
     // Serve the network stream with our http server and our HttpService
     let service = HttpService { peer };
 
@@ -397,14 +203,10 @@ async fn handle_http_request(
                     // if GLOBALS.config.read().enable_ip_blocking {
                     let mut ban_seconds = 0;
                     let minimum_ban_seconds = GLOBALS.config.read().minimum_ban_seconds;
-                    if let Ok(mut ip_data) = GLOBALS.store.get().unwrap().get_ip_data(peer.ip()) {
+                    if let Ok(mut ip_data) = get_ip_data(GLOBALS.store.get().unwrap(), peer.ip()) {
                         ban_seconds =
                             ip_data.update_on_session_close(session_exit, minimum_ban_seconds);
-                        let _ = GLOBALS
-                            .store
-                            .get()
-                            .unwrap()
-                            .update_ip_data(peer.ip(), &ip_data);
+                        let _ = update_ip_data(GLOBALS.store.get().unwrap(), peer.ip(), &ip_data);
                     }
 
                     // we cheat somewhat and log these websocket open and close messages
@@ -512,7 +314,7 @@ impl WebSocketService {
     }
 
     // If the event matches a subscription they have open, send them the event
-    async fn handle_new_event(&mut self, new_event_offset: usize) -> Result<(), Error> {
+    async fn handle_new_event(&mut self, new_event_offset: u64) -> Result<(), Error> {
         if self.subscriptions.is_empty() {
             return Ok(());
         }
@@ -523,13 +325,13 @@ impl WebSocketService {
             .unwrap()
             .get_event_by_offset(new_event_offset)?;
 
-        let event_flags = nostr::event_flags(&event, &self.user);
+        let event_flags = nostr::event_flags(event, &self.user);
         let authorized_user = nostr::authorized_user(&self.user);
 
         'subs: for (subid, filters) in self.subscriptions.iter() {
             for filter in filters.iter() {
-                if filter.as_filter()?.event_matches(&event)?
-                    && nostr::screen_outgoing_event(&event, &event_flags, authorized_user)
+                if filter.event_matches(event)?
+                    && nostr::screen_outgoing_event(event, &event_flags, authorized_user)
                 {
                     let message = NostrReply::Event(subid, event);
                     self.websocket
@@ -608,4 +410,221 @@ impl WebSocketService {
 
         Ok(())
     }
+}
+
+/// Print statistics
+pub fn print_stats() {
+    let mut runtime: u64 = GLOBALS.start_time.elapsed().as_secs();
+    if runtime < 1 {
+        runtime = 1;
+    }
+    log::info!(
+        target: "Server",
+        "Runtime: {} seconds", runtime
+    );
+    log::info!(
+        target: "Server",
+        "Inbound: {} bytes ({} B/s)",
+        GLOBALS.bytes_inbound.load(Ordering::Relaxed),
+        (GLOBALS.bytes_inbound.load(Ordering::Relaxed) as f32) / (runtime as f32)
+    );
+    log::info!(
+        target: "Server",
+        "Outbound: {} bytes ({} B/s)",
+        GLOBALS.bytes_outbound.load(Ordering::Relaxed),
+        (GLOBALS.bytes_outbound.load(Ordering::Relaxed) as f32) / (runtime as f32)
+    );
+}
+
+/// Load config file
+pub fn load_config<P: AsRef<Path>>(config_path: P) -> Result<Config, Error> {
+    // Read config file
+    let mut file = OpenOptions::new().read(true).open(config_path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let friendly_config: FriendlyConfig = toml::from_str(&contents)?;
+    let config: Config = friendly_config.into_config()?;
+    Ok(config)
+}
+
+/// Setup logging
+pub fn setup_logging(config: &Config) {
+    env_logger::Builder::new()
+        .filter_level(config.library_log_level)
+        .filter(Some("Server"), config.server_log_level)
+        .filter(Some("Client"), config.client_log_level)
+        .format_target(true)
+        .format_module_path(false)
+        .format_timestamp_millis()
+        .init();
+
+    log::debug!(target: "Server", "Loaded config file.");
+}
+
+/// Setup storage
+pub fn setup_store(config: &Config) -> Result<Store, Error> {
+    let store = Store::new(
+        &config.data_directory,
+        vec![
+            "approved-events",  // id.as_slice() -> u8(bool)
+            "approved-pubkeys", // pubkey.as_slice() -> u8(bool)
+            "ip_data",          // HashedIp.0 -> IpData
+        ],
+    )?;
+    Ok(store)
+}
+
+/// Get IpData from storage about this remote HashedIp
+pub fn get_ip_data(store: &Store, ip: HashedIp) -> Result<IpData, Error> {
+    let ip_data = store
+        .extra_table("ip_data")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable("ip_data")))?;
+    let txn = store.read_txn()?;
+    let key = &ip.0;
+    let bytes = match ip_data.get(&txn, key)? {
+        Some(b) => b,
+        None => return Ok(Default::default()),
+    };
+    Ok(IpData::read_from_buffer(bytes)?)
+}
+
+/// Get IpData in storage about this remote HashedIp
+pub fn update_ip_data(store: &Store, ip: HashedIp, data: &IpData) -> Result<(), Error> {
+    let ip_data = store
+        .extra_table("ip_data")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable("ip_data")))?;
+    let mut txn = store.write_txn()?;
+    let key = &ip.0;
+    let bytes = data.write_to_vec()?;
+    ip_data.put(&mut txn, key, &bytes)?;
+    txn.commit()?;
+    Ok(())
+}
+
+/// Dump all IpData from storage
+pub fn dump_ip_data(store: &Store) -> Result<Vec<(HashedIp, IpData)>, Error> {
+    let ip_data = store
+        .extra_table("ip_data")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable("ip_data")))?;
+    let txn = store.read_txn()?;
+    let mut output: Vec<(HashedIp, IpData)> = Vec::new();
+    for i in ip_data.iter(&txn)? {
+        let (key, val) = i?;
+        let hashedip = HashedIp::from_bytes(key);
+        let data = IpData::read_from_buffer(val)?;
+        output.push((hashedip, data));
+    }
+    Ok(output)
+}
+
+/// Mark an event as approved or not
+pub fn mark_event_approval(store: &Store, id: Id, approval: bool) -> Result<(), Error> {
+    let approved_events = store
+        .extra_table("approved-events")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "approved-events",
+        )))?;
+    let mut txn = store.write_txn()?;
+    approved_events.put(&mut txn, id.as_slice(), &[approval as u8])?;
+    txn.commit()?;
+    Ok(())
+}
+
+/// Clear an event approval status
+pub fn clear_event_approval(store: &Store, id: Id) -> Result<(), Error> {
+    let approved_events = store
+        .extra_table("approved-events")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "approved-events",
+        )))?;
+    let mut txn = store.write_txn()?;
+    approved_events.delete(&mut txn, id.as_slice())?;
+    txn.commit()?;
+    Ok(())
+}
+
+/// Fetch an event approval status
+pub fn get_event_approval(store: &Store, id: Id) -> Result<Option<bool>, Error> {
+    let approved_events = store
+        .extra_table("approved-events")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "approved-events",
+        )))?;
+    let txn = store.read_txn()?;
+    Ok(approved_events.get(&txn, id.as_slice())?.map(|u| u[0] != 0)) // FIXME in case data is zero length this will panic
+}
+
+/// Dump all event approval statuses
+pub fn dump_event_approvals(store: &Store) -> Result<Vec<(Id, bool)>, Error> {
+    let mut output: Vec<(Id, bool)> = Vec::new();
+    let approved_events = store
+        .extra_table("approved-events")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "approved-events",
+        )))?;
+    let txn = store.read_txn()?;
+    for i in approved_events.iter(&txn)? {
+        let (key, val) = i?;
+        let id = Id::from_bytes(key.try_into().unwrap());
+        let approval: bool = val[0] != 0; // FIXME in case data is zero length this will panic
+        output.push((id, approval));
+    }
+    Ok(output)
+}
+
+/// Mark a pubkey as approved or not
+pub fn mark_pubkey_approval(store: &Store, pubkey: Pubkey, approval: bool) -> Result<(), Error> {
+    let approved_pubkeys = store
+        .extra_table("approved-pubkeys")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "approved-pubkeys",
+        )))?;
+    let mut txn = store.write_txn()?;
+    approved_pubkeys.put(&mut txn, pubkey.as_slice(), &[approval as u8])?;
+    txn.commit()?;
+    Ok(())
+}
+
+/// Clear a pubkey approval status
+pub fn clear_pubkey_approval(store: &Store, pubkey: Pubkey) -> Result<(), Error> {
+    let approved_pubkeys = store
+        .extra_table("approved-pubkeys")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "approved-pubkeys",
+        )))?;
+    let mut txn = store.write_txn()?;
+    approved_pubkeys.delete(&mut txn, pubkey.as_slice())?;
+    txn.commit()?;
+    Ok(())
+}
+
+/// Fetch a pubkey approval status
+pub fn get_pubkey_approval(store: &Store, pubkey: Pubkey) -> Result<Option<bool>, Error> {
+    let approved_pubkeys = store
+        .extra_table("approved-pubkeys")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "approved-pubkeys",
+        )))?;
+    let txn = store.read_txn()?;
+    Ok(approved_pubkeys
+        .get(&txn, pubkey.as_slice())?
+        .map(|u| u[0] != 0)) // FIXME in case data is zero length this will panic
+}
+
+/// Dump all pubkey approval statuses
+pub fn dump_pubkey_approvals(store: &Store) -> Result<Vec<(Pubkey, bool)>, Error> {
+    let mut output: Vec<(Pubkey, bool)> = Vec::new();
+    let approved_pubkeys = store
+        .extra_table("approved-pubkeys")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "approved-pubkeys",
+        )))?;
+    let txn = store.read_txn()?;
+    for i in approved_pubkeys.iter(&txn)? {
+        let (key, val) = i?;
+        let pubkey = Pubkey::from_bytes(key.try_into().unwrap());
+        let approval: bool = val[0] != 0; // FIXME in case data is zero length this will panic
+        output.push((pubkey, approval));
+    }
+    Ok(output)
 }

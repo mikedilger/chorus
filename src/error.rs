@@ -47,7 +47,7 @@ pub enum ChorusError {
     ChannelRecv(tokio::sync::broadcast::error::RecvError),
 
     // Channel Send
-    ChannelSend(tokio::sync::broadcast::error::SendError<usize>),
+    ChannelSend(tokio::sync::broadcast::error::SendError<u64>),
 
     // Config
     Config(toml::de::Error),
@@ -100,8 +100,8 @@ pub enum ChorusError {
     // JSON Escape Surrogate
     JsonEscapeSurrogate,
 
-    // LMDB
-    Lmdb(heed::Error),
+    // Missing Table
+    MissingTable(&'static str),
 
     // No private key
     NoPrivateKey,
@@ -111,6 +111,15 @@ pub enum ChorusError {
 
     // Protected Event
     ProtectedEvent,
+
+    // Pocket Db Error
+    PocketDb(pocket_db::Error),
+
+    // Pocket Db Heed Error
+    PocketDbHeed(pocket_db::heed::Error),
+
+    // Pocket Types Error
+    PocketType(pocket_types::Error),
 
     // Range error
     RangeError,
@@ -190,9 +199,12 @@ impl std::fmt::Display for ChorusError {
                 f,
                 "JSON string escape surrogate (ancient style) is not supported"
             ),
-            ChorusError::Lmdb(e) => write!(f, "{e}"),
+            ChorusError::MissingTable(t) => write!(f, "Missing table: {t}"),
             ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
             ChorusError::NoSuchSubscription => write!(f, "No such subscription"),
+            ChorusError::PocketDb(e) => write!(f, "{e}"),
+            ChorusError::PocketDbHeed(e) => write!(f, "{e}"),
+            ChorusError::PocketType(e) => write!(f, "{e}"),
             ChorusError::ProtectedEvent => write!(f, "Protected event"),
             ChorusError::RangeError => write!(f, "Range error"),
             ChorusError::Restricted => write!(f, "Restricted"),
@@ -220,7 +232,9 @@ impl StdError for ChorusError {
             ChorusError::Http(e) => Some(e),
             ChorusError::Hyper(e) => Some(e),
             ChorusError::Io(e) => Some(e),
-            ChorusError::Lmdb(e) => Some(e),
+            ChorusError::PocketDb(e) => Some(e),
+            ChorusError::PocketDbHeed(e) => Some(e),
+            ChorusError::PocketType(e) => Some(e),
             ChorusError::Rustls(e) => Some(e),
             ChorusError::Speedy(e) => Some(e),
             ChorusError::Tungstenite(e) => Some(e),
@@ -261,9 +275,12 @@ impl ChorusError {
             ChorusError::JsonBadStringChar(_) => 0.2,
             ChorusError::JsonEscape => 0.2,
             ChorusError::JsonEscapeSurrogate => 0.05,
-            ChorusError::Lmdb(_) => 0.0,
+            ChorusError::MissingTable(_) => 0.0,
             ChorusError::NoPrivateKey => 0.0,
             ChorusError::NoSuchSubscription => 0.05,
+            ChorusError::PocketDb(_) => 0.0,
+            ChorusError::PocketDbHeed(_) => 0.0,
+            ChorusError::PocketType(_) => 0.0,
             ChorusError::ProtectedEvent => 0.35,
             ChorusError::RangeError => 0.0,
             ChorusError::Restricted => 0.1,
@@ -308,9 +325,9 @@ impl From<tokio::sync::broadcast::error::RecvError> for Error {
     }
 }
 
-impl From<tokio::sync::broadcast::error::SendError<usize>> for Error {
+impl From<tokio::sync::broadcast::error::SendError<u64>> for Error {
     #[track_caller]
-    fn from(err: tokio::sync::broadcast::error::SendError<usize>) -> Self {
+    fn from(err: tokio::sync::broadcast::error::SendError<u64>) -> Self {
         Error {
             inner: ChorusError::ChannelSend(err),
             location: std::panic::Location::caller(),
@@ -368,11 +385,31 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<heed::Error> for Error {
+impl From<pocket_db::Error> for Error {
     #[track_caller]
-    fn from(err: heed::Error) -> Self {
+    fn from(err: pocket_db::Error) -> Self {
         Error {
-            inner: ChorusError::Lmdb(err),
+            inner: ChorusError::PocketDb(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<pocket_db::heed::Error> for Error {
+    #[track_caller]
+    fn from(err: pocket_db::heed::Error) -> Self {
+        Error {
+            inner: ChorusError::PocketDbHeed(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<pocket_types::Error> for Error {
+    #[track_caller]
+    fn from(err: pocket_types::Error) -> Self {
+        Error {
+            inner: ChorusError::PocketType(err),
             location: std::panic::Location::caller(),
         }
     }

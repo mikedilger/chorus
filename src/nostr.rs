@@ -1,12 +1,11 @@
+use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
+use crate::reply::{NostrReply, NostrReplyPrefix};
 use crate::WebSocketService;
-use chorus_lib::error::{ChorusError, Error};
-use chorus_lib::reply::{NostrReply, NostrReplyPrefix};
-use chorus_lib::types::parse::json_escape::json_unescape;
-use chorus_lib::types::parse::json_parse::*;
-use chorus_lib::types::{Event, Filter, Kind, OwnedFilter, Pubkey, Time};
 use futures::SinkExt;
 use hyper_tungstenite::tungstenite::Message;
+use pocket_types::json::{eat_whitespace, json_unescape, verify_char};
+use pocket_types::{Event, Filter, Kind, OwnedFilter, Pubkey, Time};
 use url::Url;
 
 impl WebSocketService {
@@ -75,8 +74,7 @@ impl WebSocketService {
             inpos += incount;
             outpos += outcount;
 
-            let filterbytes = filter.as_bytes().to_owned();
-            filters.push(OwnedFilter(filterbytes));
+            filters.push(filter.to_owned());
         }
 
         if let Err(e) = self.req_inner(&subid, filters).await {
@@ -116,12 +114,14 @@ impl WebSocketService {
         if user.is_none() {
             for filter in filters.iter() {
                 // If any DM kinds were requested
-                if filter.as_filter()?.num_kinds() == 0
-                    || filter.as_filter()?.kinds().any(|k| k.0 == 4 || k.0 == 1059)
+                if filter.num_kinds() == 0
+                    || filter
+                        .kinds()
+                        .any(|k| k.as_u16() == 4 || k.as_u16() == 1059)
                 {
                     // They need to AUTH first to request DMs
                     let reply = NostrReply::Closed(
-                        &subid,
+                        subid,
                         NostrReplyPrefix::AuthRequired,
                         "DM kinds were included in the REQ".to_owned(),
                     );
@@ -140,7 +140,7 @@ impl WebSocketService {
 
         // Serve events matching subscription
         {
-            let mut events: Vec<Event> = Vec::new();
+            let mut events: Vec<&Event> = Vec::new();
 
             for filter in filters.iter() {
                 let screen = |event: &Event| {
@@ -149,11 +149,13 @@ impl WebSocketService {
                 };
                 let filter_events = {
                     let config = &*GLOBALS.config.read();
-                    GLOBALS
-                        .store
-                        .get()
-                        .unwrap()
-                        .find_events(filter.as_filter()?, screen, config)?
+                    GLOBALS.store.get().unwrap().find_events(
+                        filter,
+                        config.allow_scraping,
+                        config.allow_scrape_if_limited_to,
+                        config.allow_scrape_if_max_seconds,
+                        screen,
+                    )?
                 };
                 events.extend(filter_events);
             }
@@ -261,9 +263,9 @@ impl WebSocketService {
         let authorized_user = authorized_user(&user);
 
         // Delineate the event back out of the session buffer
-        let event = Event::delineate(&self.buffer)?;
+        let event = unsafe { Event::delineate(&self.buffer)? };
 
-        let event_flags = event_flags(&event, &user);
+        let event_flags = event_flags(event, &user);
 
         if !event_flags.author_is_an_authorized_user || GLOBALS.config.read().verify_events {
             // Verify the event is valid (id is hash, signature is valid)
@@ -273,7 +275,7 @@ impl WebSocketService {
         }
 
         // Screen the event to see if we are willing to accept it
-        if !screen_incoming_event(&event, event_flags, authorized_user).await? {
+        if !screen_incoming_event(event, event_flags, authorized_user).await? {
             if self.user.is_some() {
                 return Err(ChorusError::Restricted.into());
             } else {
@@ -282,7 +284,7 @@ impl WebSocketService {
         }
 
         // Store and index the event
-        let offset = GLOBALS.store.get().unwrap().store_event(&event)?;
+        let offset = GLOBALS.store.get().unwrap().store_event(event)?;
         GLOBALS.new_events.send(offset)?; // advertise the new event
 
         Ok(())
@@ -349,14 +351,14 @@ impl WebSocketService {
 
     async fn auth_inner(&mut self) -> Result<(), Error> {
         // Delineate the event back out of the session buffer
-        let event = Event::delineate(&self.buffer)?;
+        let event = unsafe { Event::delineate(&self.buffer)? };
 
         // Verify the event (even if config.verify_events is off, because this is
         // strictly necessary for AUTH)
         event.verify()?;
 
         // Verify the event is the right kind
-        if event.kind() != Kind(22242) {
+        if event.kind() != Kind::from(22242) {
             return Err(ChorusError::AuthFailure("Wrong event kind".to_string()).into());
         }
 
@@ -402,7 +404,7 @@ impl WebSocketService {
         }
 
         // Verify the created_at timestamp is within reason
-        let timediff = (Time::now().0 as i64).abs_diff(event.created_at().0 as i64);
+        let timediff = (Time::now().as_u64() as i64).abs_diff(event.created_at().as_u64() as i64);
         if timediff > 600 {
             return Err(
                 ChorusError::AuthFailure("Time is more than 10 minutes off".to_string()).into(),
@@ -417,27 +419,17 @@ impl WebSocketService {
 }
 
 async fn screen_incoming_event(
-    event: &Event<'_>,
+    event: &Event,
     event_flags: EventFlags,
     authorized_user: bool,
 ) -> Result<bool, Error> {
     // Reject if event approval is false
-    if let Some(false) = GLOBALS
-        .store
-        .get()
-        .unwrap()
-        .get_event_approval(event.id())?
-    {
+    if let Some(false) = crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id())? {
         return Err(ChorusError::BannedEvent.into());
     }
 
     // Reject if pubkey approval is false
-    if let Some(false) = GLOBALS
-        .store
-        .get()
-        .unwrap()
-        .get_pubkey_approval(event.pubkey())?
-    {
+    if let Some(false) = crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey())? {
         return Err(ChorusError::BannedUser.into());
     }
 
@@ -463,7 +455,7 @@ async fn screen_incoming_event(
     }
 
     // Accept relay lists from anybody
-    if event.kind() == Kind(10002) && GLOBALS.config.read().serve_relay_lists {
+    if event.kind() == Kind::from(10002) && GLOBALS.config.read().serve_relay_lists {
         return Ok(true);
     }
 
@@ -494,19 +486,19 @@ async fn screen_incoming_event(
 }
 
 pub fn screen_outgoing_event(
-    event: &Event<'_>,
+    event: &Event,
     event_flags: &EventFlags,
     authorized_user: bool,
 ) -> bool {
     // Forbid if it is a private event (DM or GiftWrap) and theey are neither the recipient
     // nor the author
-    if event.kind() == Kind(4) || event.kind() == Kind(1059) {
+    if event.kind() == Kind::from(4) || event.kind() == Kind::from(1059) {
         return event_flags.tags_current_user || event_flags.author_is_current_user;
     }
 
     // Forbid (and delete) if it has an expired expiration tag
     if matches!(event.is_expired(), Ok(true)) {
-        let _ = GLOBALS.store.get().unwrap().delete_event(event.id());
+        let _ = GLOBALS.store.get().unwrap().remove_event(event.id());
         return false;
     }
 
@@ -516,7 +508,7 @@ pub fn screen_outgoing_event(
     }
 
     // Allow Relay Lists
-    if event.kind() == Kind(10002) && GLOBALS.config.read().serve_relay_lists {
+    if event.kind() == Kind::from(10002) && GLOBALS.config.read().serve_relay_lists {
         return true;
     }
 
@@ -536,16 +528,12 @@ pub fn screen_outgoing_event(
     }
 
     // Allow if event is explicitly approved
-    if let Ok(Some(true)) = GLOBALS.store.get().unwrap().get_event_approval(event.id()) {
+    if let Ok(Some(true)) = crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id()) {
         return true;
     }
 
     // Allow if author is explicitly approved
-    if let Ok(Some(true)) = GLOBALS
-        .store
-        .get()
-        .unwrap()
-        .get_pubkey_approval(event.pubkey())
+    if let Ok(Some(true)) = crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey())
     {
         return true;
     }
@@ -568,7 +556,7 @@ pub struct EventFlags {
     pub tags_current_user: bool,
 }
 
-pub fn event_flags(event: &Event<'_>, user: &Option<Pubkey>) -> EventFlags {
+pub fn event_flags(event: &Event, user: &Option<Pubkey>) -> EventFlags {
     let author_is_an_authorized_user = GLOBALS.config.read().user_keys.contains(&event.pubkey());
 
     let author_is_current_user = match user {

@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::types::Pubkey;
+use pocket_types::Pubkey;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use url::Host;
