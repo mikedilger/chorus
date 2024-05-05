@@ -113,14 +113,30 @@ impl WebSocketService {
         let user = self.user;
         let authorized_user = authorized_user(&user);
 
+        if user.is_none() {
+            for filter in filters.iter() {
+                // If any DM kinds were requested
+                if filter.as_filter()?.num_kinds() == 0
+                    || filter.as_filter()?.kinds().any(|k| k.0 == 4 || k.0 == 1059)
+                {
+                    // They need to AUTH first to request DMs
+                    let reply = NostrReply::Closed(
+                        &subid,
+                        NostrReplyPrefix::AuthRequired,
+                        "DM kinds were included in the REQ".to_owned(),
+                    );
+                    self.websocket.send(Message::text(reply.as_json())).await?;
+                    self.replied = true;
+                    return Ok(());
+                }
+            }
+        }
+
         // NOTE on private events (DMs, GiftWraps)
-        // Most relays check if you are seeking them, and of which pubkey, and if you are
-        // not AUTHed as that pubkey you get a 'auth-required', or if you are AUTHed as
-        // a different pubkey you get a 'restricted'.
-        // We take a different tack. You can ask for these events, and we even load them,
-        // but then we filter them out in screen_outgoing_event() and don't send events they
-        // aren't supposed to see. This prevents sending errors and having them ask again. It
-        // is also faster as we don't have to do any filter analysis at this point in the code.
+        // As seen above, we will send CLOSED auth-required if they ask for DMs and are not
+        // AUTHed yet.
+        // But we never send 'restricted'. We don't analyze the filter far enough to know.
+        // Instead we rely on screen_outgoing_event() to remove events they shouldn't see.
 
         // Serve events matching subscription
         {
