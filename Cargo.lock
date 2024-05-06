@@ -435,8 +435,9 @@ checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
 
 [[package]]
 name = "heed"
-version = "0.20.0-alpha.9"
-source = "git+https://github.com/meilisearch/heed?rev=036ac23f73a021894974b9adc815bc95b3e0482a#036ac23f73a021894974b9adc815bc95b3e0482a"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7a300b0deeb2957162d7752b0f063b3be1c88333af5bb4e7a57d8fb3716f50b"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -453,13 +454,15 @@ dependencies = [
 
 [[package]]
 name = "heed-traits"
-version = "0.20.0-alpha.9"
-source = "git+https://github.com/meilisearch/heed?rev=036ac23f73a021894974b9adc815bc95b3e0482a#036ac23f73a021894974b9adc815bc95b3e0482a"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb3130048d404c57ce5a1ac61a903696e8fcde7e8c2991e9fcfc1f27c3ef74ff"
 
 [[package]]
 name = "heed-types"
-version = "0.20.0-alpha.9"
-source = "git+https://github.com/meilisearch/heed?rev=036ac23f73a021894974b9adc815bc95b3e0482a#036ac23f73a021894974b9adc815bc95b3e0482a"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cb0d6ba3700c9a57e83c013693e3eddb68a6d9b6781cacafc62a0d992e8ddb3"
 dependencies = [
  "bincode",
  "byteorder",
@@ -613,8 +616,9 @@ checksum = "01cda141df6706de531b6c46c3a33ecca755538219bd484262fa09410c13539c"
 
 [[package]]
 name = "lmdb-master-sys"
-version = "0.1.0"
-source = "git+https://github.com/meilisearch/heed?rev=036ac23f73a021894974b9adc815bc95b3e0482a#036ac23f73a021894974b9adc815bc95b3e0482a"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc9048db3a58c0732d7236abc4909058f9d2708cfb6d7d047eb895fddec6419a"
 dependencies = [
  "cc",
  "doxygen-rs",
@@ -812,9 +816,10 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 [[package]]
 name = "pocket-db"
 version = "0.1.0"
-source = "git+https://github.com/mikedilger/pocket?branch=master#257d096fb3ed2347f30b6c0b93346dff6f8ee395"
+source = "git+https://github.com/mikedilger/pocket?branch=master#73b2964ab23507cb8e1f7b6eabbb7dedfbc9c8df"
 dependencies = [
  "heed",
+ "libc",
  "mmap-append",
  "pocket-types",
 ]
@@ -822,7 +827,7 @@ dependencies = [
 [[package]]
 name = "pocket-types"
 version = "0.1.0"
-source = "git+https://github.com/mikedilger/pocket?branch=master#257d096fb3ed2347f30b6c0b93346dff6f8ee395"
+source = "git+https://github.com/mikedilger/pocket?branch=master#73b2964ab23507cb8e1f7b6eabbb7dedfbc9c8df"
 dependencies = [
  "derive_more",
  "secp256k1",
