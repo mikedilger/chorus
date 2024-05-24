@@ -1,4 +1,6 @@
 use crate::config::Config;
+use crate::ip::HashedIp;
+use dashmap::DashMap;
 use hyper::server::conn::Http;
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
@@ -24,7 +26,8 @@ pub struct Globals {
     /// that subscription.
     pub new_events: BroadcastSender<u64>,
 
-    pub num_clients: AtomicUsize,
+    pub num_connections: AtomicUsize,
+    pub num_connections_per_ip: DashMap<HashedIp, usize>,
     pub shutting_down: WatchSender<bool>,
 }
 
@@ -46,7 +49,8 @@ lazy_static! {
             http_server,
             rid: OnceLock::new(),
             new_events,
-            num_clients: AtomicUsize::new(0),
+            num_connections: AtomicUsize::new(0),
+            num_connections_per_ip: DashMap::new(),
             shutting_down,
         }
     };

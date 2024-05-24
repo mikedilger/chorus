@@ -17,7 +17,7 @@ fn main() -> Result<(), Error> {
     println!("Chorus must NOT be running when you do this.");
     println!("Proceed? (break out with ^C, or press <ENTER> to proceed)");
     let stdin = std::io::stdin();
-    let _  = stdin.lock().lines().next().unwrap().unwrap();
+    let _ = stdin.lock().lines().next().unwrap().unwrap();
 
     let store = chorus::setup_store(&config)?;
     let pre_stats = store.stats()?;

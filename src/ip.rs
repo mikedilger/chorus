@@ -2,7 +2,7 @@ use pocket_types::Time;
 use speedy::{Readable, Writable};
 use std::net::{IpAddr, SocketAddr};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct HashedIp(pub [u8; 20], bool);
 
 impl std::fmt::Display for HashedIp {

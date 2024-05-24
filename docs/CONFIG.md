@@ -214,3 +214,9 @@ Default is 1
 Number of seconds beyond which chorus times out a client that has no open subscriptions.
 
 Default is 60
+
+### max_connections_per_ip
+
+Maximum number of websocket connections per IP address
+
+Default is 2

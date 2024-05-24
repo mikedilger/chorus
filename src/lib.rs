@@ -16,6 +16,7 @@ use crate::tls::MaybeTlsStream;
 use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::service::Service;
 use hyper::upgrade::Upgraded;
+use hyper::StatusCode;
 use hyper::{Body, Request, Response};
 use hyper_tungstenite::tungstenite;
 use hyper_tungstenite::WebSocketStream;
@@ -121,6 +122,15 @@ async fn handle_http_request(
         None => "(no origin)".to_owned(),
     };
 
+    let max_conn = GLOBALS.config.read().max_connections_per_ip;
+    if let Some(cur) = GLOBALS.num_connections_per_ip.get(&peer.ip()) {
+        if *cur.value() >= max_conn {
+            return Ok(Response::builder()
+                .status(StatusCode::TOO_MANY_REQUESTS)
+                .body(Body::empty())?);
+        }
+    }
+
     if hyper_tungstenite::is_upgrade_request(&request) {
         let web_socket_config = WebSocketConfig {
             max_write_buffer_size: 1024 * 1024,  // 1 MB
@@ -147,8 +157,15 @@ async fn handle_http_request(
                         replied: false,
                     };
 
-                    // Increment count of active websockets
-                    let old_num_websockets = GLOBALS.num_clients.fetch_add(1, Ordering::SeqCst);
+                    // Increment connection count
+                    let old_num_websockets = GLOBALS.num_connections.fetch_add(1, Ordering::SeqCst);
+
+                    // Increment per-ip connection count
+                    GLOBALS
+                        .num_connections_per_ip
+                        .entry(peer.ip())
+                        .and_modify(|count| *count += 1)
+                        .or_insert(1);
 
                     // we cheat somewhat and log these websocket open and close messages
                     // as server messages
@@ -197,7 +214,19 @@ async fn handle_http_request(
                     }
 
                     // Decrement count of active websockets
-                    let old_num_websockets = GLOBALS.num_clients.fetch_sub(1, Ordering::SeqCst);
+                    let old_num_websockets = GLOBALS.num_connections.fetch_sub(1, Ordering::SeqCst);
+
+                    // Decrement per-ip connection count
+                    match GLOBALS.num_connections_per_ip.get_mut(&peer.ip()) {
+                        Some(mut refmut) => {
+                            if *refmut.value_mut() > 0 {
+                                *refmut.value_mut() -= 1;
+                            } else {
+                                unreachable!("The connection should be in the map")
+                            }
+                        }
+                        None => unreachable!("The connection count should be greater than zero"),
+                    };
 
                     // Update ip data (including ban time)
                     // if GLOBALS.config.read().enable_ip_blocking {

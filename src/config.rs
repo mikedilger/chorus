@@ -33,6 +33,7 @@ pub struct FriendlyConfig {
     pub enable_ip_blocking: bool,
     pub minimum_ban_seconds: u64,
     pub timeout_seconds: u64,
+    pub max_connections_per_ip: usize,
 }
 
 impl Default for FriendlyConfig {
@@ -64,6 +65,7 @@ impl Default for FriendlyConfig {
             enable_ip_blocking: true,
             minimum_ban_seconds: 1,
             timeout_seconds: 60,
+            max_connections_per_ip: 2,
         }
     }
 }
@@ -97,6 +99,7 @@ impl FriendlyConfig {
             enable_ip_blocking,
             minimum_ban_seconds,
             timeout_seconds,
+            max_connections_per_ip,
         } = self;
 
         let mut public_key: Option<Pubkey> = None;
@@ -146,6 +149,7 @@ impl FriendlyConfig {
             enable_ip_blocking,
             minimum_ban_seconds,
             timeout_seconds,
+            max_connections_per_ip,
         })
     }
 }
@@ -179,6 +183,7 @@ pub struct Config {
     pub enable_ip_blocking: bool,
     pub minimum_ban_seconds: u64,
     pub timeout_seconds: u64,
+    pub max_connections_per_ip: usize,
 }
 
 impl Default for Config {

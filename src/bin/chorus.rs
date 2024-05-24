@@ -136,15 +136,15 @@ async fn main() -> Result<(), Error> {
     let _ = GLOBALS.shutting_down.send(true);
 
     // Wait for active websockets to shutdown gracefully
-    let mut num_clients = GLOBALS.num_clients.load(Ordering::Relaxed);
-    if num_clients != 0 {
-        log::info!(target: "Server", "Waiting for {num_clients} websockets to shutdown...");
+    let mut num_connections = GLOBALS.num_connections.load(Ordering::Relaxed);
+    if num_connections != 0 {
+        log::info!(target: "Server", "Waiting for {num_connections} websockets to shutdown...");
 
         // We will check if all clients have shutdown every 25ms
         let interval = tokio::time::interval(Duration::from_millis(25));
         tokio::pin!(interval);
 
-        while num_clients != 0 {
+        while num_connections != 0 {
             // If we get another shutdown signal, stop waiting for websockets
             tokio::select! {
                 v = interrupt_signal.recv() => if v.is_some() {
@@ -157,7 +157,7 @@ async fn main() -> Result<(), Error> {
                     break;
                 },
                 _instant = interval.tick() => {
-                    num_clients = GLOBALS.num_clients.load(Ordering::Relaxed);
+                    num_connections = GLOBALS.num_connections.load(Ordering::Relaxed);
                     continue;
                 }
             }
