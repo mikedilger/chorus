@@ -423,13 +423,18 @@ impl WebSocketService {
                 // No need to send a reply: tungstenite takes care of this for you.
                 if let Some(msg) = &msg {
                     log::debug!(target: "Client",
-                        "{}: Received close message with code {} and message: {}",
+                        "{}: Received websocket close message with code {} and message: {}",
                         self.peer,
                         msg.code,
                         msg.reason
                     );
                 } else {
-                    log::debug!(target: "Client", "{}: Received close message", self.peer);
+                    log::debug!(
+                        target: "Client",
+                        "{}: Received websocket close message with code {}",
+                        self.peer,
+                        msg.code
+                    );
                 }
             }
             Message::Frame(_msg) => {
