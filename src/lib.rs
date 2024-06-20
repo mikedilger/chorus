@@ -431,9 +431,8 @@ impl WebSocketService {
                 } else {
                     log::debug!(
                         target: "Client",
-                        "{}: Received websocket close message with code {}",
+                        "{}: Received websocket close message",
                         self.peer,
-                        msg.code
                     );
                 }
             }
