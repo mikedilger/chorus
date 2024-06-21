@@ -260,7 +260,7 @@ async fn handle_http_request(
         if let Some(accept) = request.headers().get("Accept") {
             if let Ok(s) = accept.to_str() {
                 if s == "application/nostr+json" {
-                    return web::serve_nip11(peer).await;
+                    return web::nip11::serve_nip11(peer).await;
                 }
             }
         }
