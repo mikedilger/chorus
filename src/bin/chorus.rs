@@ -3,7 +3,6 @@ use chorus::counting_stream::CountingStream;
 use chorus::error::Error;
 use chorus::globals::GLOBALS;
 use chorus::ip::HashedPeer;
-use chorus::FullStream;
 use std::env;
 use std::fs::OpenOptions;
 use std::io::Read;
@@ -109,10 +108,13 @@ async fn main() -> Result<(), Error> {
 
                 let maybe_tls_acceptor_clone = maybe_tls_acceptor.clone();
                 tokio::spawn(async move {
-                    let stream: Box<dyn FullStream> = match maybe_tls_acceptor_clone {
+                    match maybe_tls_acceptor_clone {
                         Some(tls_acceptor) => {
                             match tls_acceptor.accept(counting_stream).await {
-                                Ok(stream) => Box::new(stream),
+                                Ok(stream) => {
+                                    let io = hyper_util::rt::TokioIo::new(stream);
+                                    chorus::serve(io, hashed_peer).await;
+                                },
                                 Err(e) => {
                                     log::error!(
                                         target: "Client",
@@ -122,9 +124,11 @@ async fn main() -> Result<(), Error> {
                                 }
                             }
                         },
-                        None => Box::new(counting_stream)
+                        None => {
+                            let io = hyper_util::rt::TokioIo::new(counting_stream);
+                            chorus::serve(io, hashed_peer).await;
+                        }
                     };
-                    chorus::serve(stream, hashed_peer).await;
                 });
             }
         };

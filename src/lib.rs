@@ -9,7 +9,6 @@ pub mod tls;
 pub mod web;
 
 use crate::config::{Config, FriendlyConfig};
-use crate::counting_stream::CountingStream;
 use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
 use crate::ip::{HashedIp, HashedPeer, IpData, SessionExit};
@@ -39,25 +38,22 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use textnonce::TextNonce;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::TcpStream;
 use tokio::time::Instant;
-use tokio_rustls::server::TlsStream;
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::Message;
 
-pub trait FullStream: AsyncRead + AsyncWrite + Unpin + Send {}
-impl FullStream for CountingStream<TcpStream> {}
-impl FullStream for TlsStream<CountingStream<TcpStream>> {}
-
 /// Serve a single network connection
-pub async fn serve(stream: Box<dyn FullStream>, peer: HashedPeer) {
+pub async fn serve<T>(stream: TokioIo<T>, peer: HashedPeer)
+where
+    T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     // Serve the network stream with our http server and our ChorusService
     let service = ChorusService { peer };
 
-    let io = hyper_util::rt::TokioIo::new(stream);
-
     let http1builder = GLOBALS.http1builder.clone();
-    let connection = http1builder.serve_connection(io, service).with_upgrades();
+    let connection = http1builder
+        .serve_connection(stream, service)
+        .with_upgrades();
 
     // If our service exits with an error, log the error
     if let Err(he) = connection.await {
