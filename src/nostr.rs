@@ -455,7 +455,9 @@ async fn screen_incoming_event(
     }
 
     // Accept relay lists from anybody
-    if event.kind() == Kind::from(10002) && GLOBALS.config.read().serve_relay_lists {
+    if GLOBALS.config.read().serve_relay_lists
+        && (event.kind() == Kind::from(10002) || event.kind() == Kind::from(10050))
+    {
         return Ok(true);
     }
 
@@ -508,7 +510,9 @@ pub fn screen_outgoing_event(
     }
 
     // Allow Relay Lists
-    if event.kind() == Kind::from(10002) && GLOBALS.config.read().serve_relay_lists {
+    if GLOBALS.config.read().serve_relay_lists
+        && (event.kind() == Kind::from(10002) || event.kind() == Kind::from(10050))
+    {
         return true;
     }
 
