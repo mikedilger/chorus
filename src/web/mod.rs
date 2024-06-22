@@ -2,9 +2,14 @@ mod nip11;
 
 use crate::error::Error;
 use crate::ip::HashedPeer;
-use hyper::{Body, Request, Response, StatusCode};
+use http_body_util::Full;
+use hyper::body::{Bytes, Incoming};
+use hyper::{Request, Response, StatusCode};
 
-pub async fn serve_http(peer: HashedPeer, request: Request<Body>) -> Result<Response<Body>, Error> {
+pub async fn serve_http(
+    peer: HashedPeer,
+    request: Request<Incoming>,
+) -> Result<Response<Full<Bytes>>, Error> {
     // check for Accept header of application/nostr+json
     if let Some(accept) = request.headers().get("Accept") {
         if let Ok(s) = accept.to_str() {

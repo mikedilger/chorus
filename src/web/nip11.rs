@@ -2,9 +2,11 @@ use crate::config::Config;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::ip::HashedPeer;
-use hyper::{Body, Response, StatusCode};
+use http_body_util::Full;
+use hyper::body::Bytes;
+use hyper::{Response, StatusCode};
 
-pub async fn serve_nip11(peer: HashedPeer) -> Result<Response<Body>, Error> {
+pub async fn serve_nip11(peer: HashedPeer) -> Result<Response<Full<Bytes>>, Error> {
     log::debug!(target: "Client", "{}: sent NIP-11", peer);
     let rid = {
         let config = &*GLOBALS.config.read();

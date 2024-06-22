@@ -15,12 +15,16 @@ use crate::globals::GLOBALS;
 use crate::ip::{HashedIp, HashedPeer, IpData, SessionExit};
 use crate::reply::NostrReply;
 use futures::{sink::SinkExt, stream::StreamExt};
+use http_body_util::Full;
+use hyper::body::{Bytes, Incoming};
+use hyper::server::conn::http1;
 use hyper::service::Service;
 use hyper::upgrade::Upgraded;
 use hyper::StatusCode;
-use hyper::{Body, Request, Response};
+use hyper::{Request, Response};
 use hyper_tungstenite::tungstenite;
 use hyper_tungstenite::WebSocketStream;
+use hyper_util::rt::TokioIo;
 use pocket_db::Store;
 use pocket_types::{Id, OwnedFilter, Pubkey};
 use speedy::{Readable, Writable};
@@ -33,7 +37,6 @@ use std::net::IpAddr;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::atomic::Ordering;
-use std::task::{Context, Poll};
 use std::time::Duration;
 use textnonce::TextNonce;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -49,25 +52,16 @@ impl FullStream for TlsStream<CountingStream<TcpStream>> {}
 
 /// Serve a single network connection
 pub async fn serve(stream: Box<dyn FullStream>, peer: HashedPeer) {
-    // Serve the network stream with our http server and our HttpService
-    let service = HttpService { peer };
+    // Serve the network stream with our http server and our ChorusService
+    let service = ChorusService { peer };
 
-    let mut http_server = hyper::server::conn::Http::new();
-    http_server.http1_only(true);
-    http_server.http1_keep_alive(true);
-    let connection = http_server
-        .serve_connection(stream, service)
-        .with_upgrades();
+    let io = hyper_util::rt::TokioIo::new(stream);
 
-    /* hyper 1
     let mut http1builder = http1::Builder::new();
     http1builder.half_close(true);
     http1builder.keep_alive(true);
     http1builder.header_read_timeout(Duration::from_secs(5));
-    let connection = http1builder
-        .serve_connection(stream, service)
-        .with_upgrades();
-     */
+    let connection = http1builder.serve_connection(io, service).with_upgrades();
 
     // If our service exits with an error, log the error
     if let Err(he) = connection.await {
@@ -87,22 +81,18 @@ pub async fn serve(stream: Box<dyn FullStream>, peer: HashedPeer) {
 }
 
 // This is our per-connection HTTP service
-struct HttpService {
+struct ChorusService {
     peer: HashedPeer,
 }
 
-impl Service<Request<Body>> for HttpService {
-    type Response = Response<Body>;
+impl Service<Request<Incoming>> for ChorusService {
+    type Response = Response<Full<Bytes>>;
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
-    fn poll_ready(&mut self, _: &mut Context) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
     // This is called for each HTTP request made by the client
     // NOTE: it is not called for each websocket message once upgraded.
-    fn call(&mut self, req: Request<Body>) -> Self::Future {
+    fn call(&self, req: Request<Incoming>) -> Self::Future {
         let mut peer = self.peer;
 
         // If chorus is behind a proxy that sets an "X-Real-Ip" header, we use
@@ -125,8 +115,8 @@ impl Service<Request<Body>> for HttpService {
 
 async fn handle_http_request(
     peer: HashedPeer,
-    mut request: Request<Body>,
-) -> Result<Response<Body>, Error> {
+    mut request: Request<Incoming>,
+) -> Result<Response<Full<Bytes>>, Error> {
     let ua = match request.headers().get("user-agent") {
         Some(ua) => ua.to_str().unwrap_or("NON-UTF8-HEADER").to_owned(),
         None => "(no user-agent)".to_owned(),
@@ -142,7 +132,7 @@ async fn handle_http_request(
         if *cur.value() >= max_conn {
             return Ok(Response::builder()
                 .status(StatusCode::TOO_MANY_REQUESTS)
-                .body(Body::empty())?);
+                .body(Full::new(Bytes::new()))?);
         }
     }
 
@@ -279,7 +269,7 @@ struct WebSocketService {
     pub peer: HashedPeer,
     pub subscriptions: HashMap<String, Vec<OwnedFilter>>,
     pub buffer: Vec<u8>,
-    pub websocket: WebSocketStream<Upgraded>,
+    pub websocket: WebSocketStream<TokioIo<Upgraded>>,
     pub challenge: String,
     pub user: Option<Pubkey>,
     pub error_punishment: f32,
