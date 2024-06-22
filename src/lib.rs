@@ -17,7 +17,6 @@ use crate::reply::NostrReply;
 use futures::{sink::SinkExt, stream::StreamExt};
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
-use hyper::server::conn::http1;
 use hyper::service::Service;
 use hyper::upgrade::Upgraded;
 use hyper::StatusCode;
@@ -57,10 +56,7 @@ pub async fn serve(stream: Box<dyn FullStream>, peer: HashedPeer) {
 
     let io = hyper_util::rt::TokioIo::new(stream);
 
-    let mut http1builder = http1::Builder::new();
-    http1builder.half_close(true);
-    http1builder.keep_alive(true);
-    http1builder.header_read_timeout(Duration::from_secs(5));
+    let http1builder = GLOBALS.http1builder.clone();
     let connection = http1builder.serve_connection(io, service).with_upgrades();
 
     // If our service exits with an error, log the error

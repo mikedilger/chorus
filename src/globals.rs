@@ -1,12 +1,13 @@
 use crate::config::Config;
 use crate::ip::HashedIp;
 use dashmap::DashMap;
+use hyper::server::conn::http1;
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
 use pocket_db::Store;
 use std::sync::atomic::{AtomicU64, AtomicUsize};
 use std::sync::OnceLock;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::sync::broadcast::Sender as BroadcastSender;
 use tokio::sync::watch::Sender as WatchSender;
 
@@ -16,6 +17,7 @@ pub struct Globals {
     pub bytes_outbound: AtomicU64,
     pub config: RwLock<Config>,
     pub store: OnceLock<Store>,
+    pub http1builder: http1::Builder,
     pub rid: OnceLock<String>,
 
     /// This is a broadcast channel where new incoming events are advertised by their offset.
@@ -34,12 +36,18 @@ lazy_static! {
         let (new_events, _) = tokio::sync::broadcast::channel(512);
         let (shutting_down, _) = tokio::sync::watch::channel(false);
 
+        let mut http1builder = http1::Builder::new();
+        http1builder.half_close(true);
+        http1builder.keep_alive(true);
+        http1builder.header_read_timeout(Duration::from_secs(5));
+
         Globals {
             start_time: Instant::now(),
             bytes_inbound: AtomicU64::new(0),
             bytes_outbound: AtomicU64::new(0),
             config: RwLock::new(Default::default()),
             store: OnceLock::new(),
+            http1builder,
             rid: OnceLock::new(),
             new_events,
             num_connections: AtomicUsize::new(0),
