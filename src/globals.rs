@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::ip::HashedIp;
 use dashmap::DashMap;
-use hyper::server::conn::Http;
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
 use pocket_db::Store;
@@ -17,7 +16,6 @@ pub struct Globals {
     pub bytes_outbound: AtomicU64,
     pub config: RwLock<Config>,
     pub store: OnceLock<Store>,
-    pub http_server: Http,
     pub rid: OnceLock<String>,
 
     /// This is a broadcast channel where new incoming events are advertised by their offset.
@@ -33,10 +31,6 @@ pub struct Globals {
 
 lazy_static! {
     pub static ref GLOBALS: Globals = {
-        let mut http_server = hyper::server::conn::Http::new();
-        http_server.http1_only(true);
-        http_server.http1_keep_alive(true);
-
         let (new_events, _) = tokio::sync::broadcast::channel(512);
         let (shutting_down, _) = tokio::sync::watch::channel(false);
 
@@ -46,7 +40,6 @@ lazy_static! {
             bytes_outbound: AtomicU64::new(0),
             config: RwLock::new(Default::default()),
             store: OnceLock::new(),
-            http_server,
             rid: OnceLock::new(),
             new_events,
             num_connections: AtomicUsize::new(0),

@@ -48,34 +48,42 @@ impl FullStream for CountingStream<TcpStream> {}
 impl FullStream for TlsStream<CountingStream<TcpStream>> {}
 
 /// Serve a single network connection
-pub async fn serve(stream: Box<dyn FullStream>, peer: HashedPeer) -> Result<(), Error> {
+pub async fn serve(stream: Box<dyn FullStream>, peer: HashedPeer) {
     // Serve the network stream with our http server and our HttpService
     let service = HttpService { peer };
 
-    let connection = GLOBALS
-        .http_server
+    let mut http_server = hyper::server::conn::Http::new();
+    http_server.http1_only(true);
+    http_server.http1_keep_alive(true);
+    let connection = http_server
         .serve_connection(stream, service)
         .with_upgrades();
 
-    tokio::spawn(async move {
-        // If our service exits with an error, log the error
-        if let Err(he) = connection.await {
-            if let Some(src) = he.source() {
-                if &*format!("{}", src) == "Transport endpoint is not connected (os error 107)" {
-                    // do nothing
-                } else {
-                    // Print in detail
-                    log::error!(target: "Client", "{}: {:?}", peer, src);
-                }
-            } else {
-                // Print in less detail
-                let e: Error = he.into();
-                log::error!(target: "Client", "{}: {}", peer, e);
-            }
-        }
-    });
+    /* hyper 1
+    let mut http1builder = http1::Builder::new();
+    http1builder.half_close(true);
+    http1builder.keep_alive(true);
+    http1builder.header_read_timeout(Duration::from_secs(5));
+    let connection = http1builder
+        .serve_connection(stream, service)
+        .with_upgrades();
+     */
 
-    Ok(())
+    // If our service exits with an error, log the error
+    if let Err(he) = connection.await {
+        if let Some(src) = he.source() {
+            if &*format!("{}", src) == "Transport endpoint is not connected (os error 107)" {
+                // do nothing
+            } else {
+                // Print in detail
+                log::error!(target: "Client", "{}: {:?}", peer, src);
+            }
+        } else {
+            // Print in less detail
+            let e: Error = he.into();
+            log::error!(target: "Client", "{}: {}", peer, e);
+        }
+    }
 }
 
 // This is our per-connection HTTP service

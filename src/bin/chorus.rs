@@ -124,18 +124,8 @@ async fn main() -> Result<(), Error> {
                         },
                         None => Box::new(counting_stream)
                     };
-                    if let Err(e) = chorus::serve(stream, hashed_peer).await {
-                        log::error!(
-                            target: "Client",
-                            "{}: {}", hashed_peer, e
-                        );
-                    }
+                    chorus::serve(stream, hashed_peer).await;
                 });
-
-                //Err(e) => log::error!(
-                //target: "Client",
-                //"{}: {}", hashed_peer, e
-                //),
             }
         };
     }
