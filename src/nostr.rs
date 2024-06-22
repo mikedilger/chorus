@@ -113,9 +113,9 @@ impl WebSocketService {
 
         if user.is_none() {
             for filter in filters.iter() {
-                // If any DM kinds were requested
-                if filter.num_kinds() == 0
-                    || filter
+                // If any DM kinds were requested, complain.
+                // But if NO kinds were requested, we will just silently not return DMs (elsewhere)
+                if filter
                         .kinds()
                         .any(|k| k.as_u16() == 4 || k.as_u16() == 1059)
                 {
