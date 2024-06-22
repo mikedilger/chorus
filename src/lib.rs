@@ -1,4 +1,5 @@
 pub mod config;
+pub mod counting_stream;
 pub mod error;
 pub mod globals;
 pub mod ip;
@@ -8,6 +9,7 @@ pub mod tls;
 pub mod web;
 
 use crate::config::{Config, FriendlyConfig};
+use crate::counting_stream::CountingStream;
 use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
 use crate::ip::{HashedIp, HashedPeer, IpData, SessionExit};
@@ -42,8 +44,8 @@ use tungstenite::protocol::WebSocketConfig;
 use tungstenite::Message;
 
 pub trait FullStream: AsyncRead + AsyncWrite + Unpin + Send {}
-impl FullStream for TcpStream {}
-impl FullStream for TlsStream<TcpStream> {}
+impl FullStream for CountingStream<TcpStream> {}
+impl FullStream for TlsStream<CountingStream<TcpStream>> {}
 
 /// Serve a single network connection
 pub async fn serve(stream: Box<dyn FullStream>, peer: HashedPeer) -> Result<(), Error> {

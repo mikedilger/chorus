@@ -1,4 +1,5 @@
 use chorus::config::{Config, FriendlyConfig};
+use chorus::counting_stream::CountingStream;
 use chorus::error::Error;
 use chorus::globals::GLOBALS;
 use chorus::ip::HashedPeer;
@@ -92,6 +93,8 @@ async fn main() -> Result<(), Error> {
                     (tcp_stream, hashed_peer)
                 };
 
+                let counting_stream = CountingStream(tcp_stream);
+
                 // Possibly IP block
                 if GLOBALS.config.read().enable_ip_blocking {
                     let ip_data = chorus::get_ip_data(GLOBALS.store.get().unwrap(), hashed_peer.ip())?;
@@ -108,7 +111,7 @@ async fn main() -> Result<(), Error> {
                 tokio::spawn(async move {
                     let stream: Box<dyn FullStream> = match maybe_tls_acceptor_clone {
                         Some(tls_acceptor) => {
-                            match tls_acceptor.accept(tcp_stream).await {
+                            match tls_acceptor.accept(counting_stream).await {
                                 Ok(stream) => Box::new(stream),
                                 Err(e) => {
                                     log::error!(
@@ -119,7 +122,7 @@ async fn main() -> Result<(), Error> {
                                 }
                             }
                         },
-                        None => Box::new(tcp_stream)
+                        None => Box::new(counting_stream)
                     };
                     if let Err(e) = chorus::serve(stream, hashed_peer).await {
                         log::error!(
