@@ -2,7 +2,7 @@ use chorus::config::{Config, FriendlyConfig};
 use chorus::error::Error;
 use chorus::globals::GLOBALS;
 use chorus::ip::HashedPeer;
-use chorus::tls::MaybeTlsStream;
+use chorus::FullStream;
 use std::env;
 use std::fs::OpenOptions;
 use std::io::Read;
@@ -104,27 +104,35 @@ async fn main() -> Result<(), Error> {
                     }
                 }
 
-                if let Some(tls_acceptor) = &maybe_tls_acceptor {
-                    let tls_acceptor_clone = tls_acceptor.clone();
-                    tokio::spawn(async move {
-                        match tls_acceptor_clone.accept(tcp_stream).await {
-                            Err(e) => log::error!(
-                                target: "Client",
-                                "{}: {}", hashed_peer, e
-                            ),
-                            Ok(tls_stream) => {
-                                if let Err(e) = chorus::serve(MaybeTlsStream::Rustls(tls_stream), hashed_peer).await {
+                let maybe_tls_acceptor_clone = maybe_tls_acceptor.clone();
+                tokio::spawn(async move {
+                    let stream: Box<dyn FullStream> = match maybe_tls_acceptor_clone {
+                        Some(tls_acceptor) => {
+                            match tls_acceptor.accept(tcp_stream).await {
+                                Ok(stream) => Box::new(stream),
+                                Err(e) => {
                                     log::error!(
                                         target: "Client",
-                                        "{}: {}", hashed_peer, e
+                                        "{}: TLS accept: {}", hashed_peer, e
                                     );
+                                    return;
                                 }
                             }
-                        }
-                    });
-                } else {
-                    chorus::serve(MaybeTlsStream::Plain(tcp_stream), hashed_peer).await?;
-                }
+                        },
+                        None => Box::new(tcp_stream)
+                    };
+                    if let Err(e) = chorus::serve(stream, hashed_peer).await {
+                        log::error!(
+                            target: "Client",
+                            "{}: {}", hashed_peer, e
+                        );
+                    }
+                });
+
+                //Err(e) => log::error!(
+                //target: "Client",
+                //"{}: {}", hashed_peer, e
+                //),
             }
         };
     }

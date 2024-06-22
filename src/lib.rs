@@ -12,7 +12,6 @@ use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
 use crate::ip::{HashedIp, HashedPeer, IpData, SessionExit};
 use crate::reply::NostrReply;
-use crate::tls::MaybeTlsStream;
 use futures::{sink::SinkExt, stream::StreamExt};
 use hyper::service::Service;
 use hyper::upgrade::Upgraded;
@@ -35,13 +34,19 @@ use std::sync::atomic::Ordering;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use textnonce::TextNonce;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::time::Instant;
+use tokio_rustls::server::TlsStream;
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::Message;
 
+pub trait FullStream: AsyncRead + AsyncWrite + Unpin + Send {}
+impl FullStream for TcpStream {}
+impl FullStream for TlsStream<TcpStream> {}
+
 /// Serve a single network connection
-pub async fn serve(stream: MaybeTlsStream<TcpStream>, peer: HashedPeer) -> Result<(), Error> {
+pub async fn serve(stream: Box<dyn FullStream>, peer: HashedPeer) -> Result<(), Error> {
     // Serve the network stream with our http server and our HttpService
     let service = HttpService { peer };
 
