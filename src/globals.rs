@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::ip::HashedIp;
 use dashmap::DashMap;
 use hyper::server::conn::http1;
+use hyper_util::rt::tokio::TokioTimer;
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
 use pocket_db::Store;
@@ -39,6 +40,7 @@ lazy_static! {
         let mut http1builder = http1::Builder::new();
         http1builder.half_close(true);
         http1builder.keep_alive(true);
+        http1builder.timer(TokioTimer::new());
         http1builder.header_read_timeout(Duration::from_secs(5));
 
         Globals {
