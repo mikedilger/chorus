@@ -34,6 +34,9 @@ pub enum ChorusError {
     // User is banned
     BannedUser,
 
+    // Base64 Decode Error
+    Base64Decode(base64::DecodeError),
+
     // Channel Recv
     ChannelRecv(tokio::sync::broadcast::error::RecvError),
 
@@ -52,6 +55,9 @@ pub enum ChorusError {
     // Event is Invalid
     EventIsInvalid(String),
 
+    // From UTF8
+    FromUtf8(std::string::FromUtf8Error),
+
     // Http
     Http(hyper::http::Error),
 
@@ -66,6 +72,9 @@ pub enum ChorusError {
 
     // I/O
     Io(std::io::Error),
+
+    // Management Authorization failure
+    ManagementAuthFailure(String),
 
     // Missing Table
     MissingTable(&'static str),
@@ -132,17 +141,20 @@ impl std::fmt::Display for ChorusError {
             ChorusError::AuthRequired => write!(f, "AUTH required"),
             ChorusError::BannedEvent => write!(f, "Event is banned"),
             ChorusError::BannedUser => write!(f, "User is banned"),
+            ChorusError::Base64Decode(e) => write!(f, "{e}"),
             ChorusError::ChannelRecv(e) => write!(f, "{e}"),
             ChorusError::ChannelSend(e) => write!(f, "{e}"),
             ChorusError::Config(e) => write!(f, "{e}"),
             ChorusError::Crypto(e) => write!(f, "{e}"),
             ChorusError::ErrorClose => write!(f, "Closing due to error(s)"),
             ChorusError::EventIsInvalid(s) => write!(f, "Event is invalid: {s}"),
+            ChorusError::FromUtf8(e) => write!(f, "{e}"),
             ChorusError::Http(e) => write!(f, "{e}"),
             ChorusError::Hyper(e) => write!(f, "{e}"),
             ChorusError::InvalidUri(e) => write!(f, "{e}"),
             ChorusError::InvalidUriParts(e) => write!(f, "{e}"),
             ChorusError::Io(e) => write!(f, "{e}"),
+            ChorusError::ManagementAuthFailure(s) => write!(f, "Authorization failure: {s}"),
             ChorusError::MissingTable(t) => write!(f, "Missing table: {t}"),
             ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
             ChorusError::NoSuchSubscription => write!(f, "No such subscription"),
@@ -199,17 +211,20 @@ impl ChorusError {
             ChorusError::AuthRequired => 0.0,
             ChorusError::BannedEvent => 0.1,
             ChorusError::BannedUser => 0.2,
+            ChorusError::Base64Decode(_) => 0.0,
             ChorusError::ChannelRecv(_) => 0.0,
             ChorusError::ChannelSend(_) => 0.0,
             ChorusError::Config(_) => 0.0,
             ChorusError::Crypto(_) => 0.1,
             ChorusError::ErrorClose => 1.0,
             ChorusError::EventIsInvalid(_) => 0.2,
+            ChorusError::FromUtf8(_) => 0.2,
             ChorusError::Http(_) => 0.0,
             ChorusError::Hyper(_) => 0.0,
             ChorusError::InvalidUri(_) => 0.0,
             ChorusError::InvalidUriParts(_) => 0.0,
             ChorusError::Io(_) => 0.0,
+            ChorusError::ManagementAuthFailure(_) => 0.0,
             ChorusError::MissingTable(_) => 0.0,
             ChorusError::NoPrivateKey => 0.0,
             ChorusError::NoSuchSubscription => 0.05,
@@ -435,6 +450,26 @@ impl From<serde_json::Error> for Error {
     fn from(err: serde_json::Error) -> Self {
         Error {
             inner: ChorusError::SerdeJson(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<std::string::FromUtf8Error> for Error {
+    #[track_caller]
+    fn from(err: std::string::FromUtf8Error) -> Self {
+        Error {
+            inner: ChorusError::FromUtf8(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<base64::DecodeError> for Error {
+    #[track_caller]
+    fn from(err: base64::DecodeError) -> Self {
+        Error {
+            inner: ChorusError::Base64Decode(err),
             location: std::panic::Location::caller(),
         }
     }

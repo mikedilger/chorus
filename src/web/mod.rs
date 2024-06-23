@@ -1,3 +1,4 @@
+mod management;
 mod nip11;
 
 use crate::error::Error;
@@ -15,6 +16,9 @@ pub async fn serve_http(
         if let Ok(s) = accept.to_str() {
             if s == "application/nostr+json" {
                 return nip11::serve_nip11(peer).await;
+            }
+            if s == "application/nostr+json+rpc" {
+                return management::handle(peer, request).await;
             }
         }
     }
