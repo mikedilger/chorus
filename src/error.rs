@@ -28,20 +28,11 @@ pub enum ChorusError {
     // Auth required
     AuthRequired,
 
-    // Bad event id
-    BadEventId,
-
-    // Bad hex input
-    BadHexInput,
-
     // Event is banned
     BannedEvent,
 
     // User is banned
     BannedUser,
-
-    // Output buffer too small
-    BufferTooSmall,
 
     // Channel Recv
     ChannelRecv(tokio::sync::broadcast::error::RecvError),
@@ -54,15 +45,6 @@ pub enum ChorusError {
 
     // Crypto
     Crypto(secp256k1::Error),
-
-    // Deleted event
-    Deleted,
-
-    // Duplicate event
-    Duplicate,
-
-    // End of Input
-    EndOfInput,
 
     // Closing on error(s)
     ErrorClose,
@@ -78,27 +60,6 @@ pub enum ChorusError {
 
     // I/O
     Io(std::io::Error),
-
-    // JSON Bad (general)
-    JsonBad(&'static str, usize),
-
-    // JSON Bad Character
-    JsonBadCharacter(char, usize, char),
-
-    // JSON Bad Event
-    JsonBadEvent(&'static str, usize),
-
-    // JSON Bad Filter
-    JsonBadFilter(&'static str, usize),
-
-    // JSON Bad String Character
-    JsonBadStringChar(u32),
-
-    // JSON Escape
-    JsonEscape,
-
-    // JSON Escape Surrogate
-    JsonEscapeSurrogate,
 
     // Missing Table
     MissingTable(&'static str),
@@ -120,9 +81,6 @@ pub enum ChorusError {
 
     // Pocket Types Error
     PocketType(pocket_types::Error),
-
-    // Range error
-    RangeError,
 
     // Restricted
     Restricted,
@@ -163,42 +121,17 @@ impl std::fmt::Display for ChorusError {
         match self {
             ChorusError::AuthFailure(s) => write!(f, "AUTH failure: {s}"),
             ChorusError::AuthRequired => write!(f, "AUTH required"),
-            ChorusError::BadEventId => write!(f, "Bad event id, does not match hash"),
-            ChorusError::BadHexInput => write!(f, "Bad hex input"),
             ChorusError::BannedEvent => write!(f, "Event is banned"),
             ChorusError::BannedUser => write!(f, "User is banned"),
-            ChorusError::BufferTooSmall => write!(f, "Output buffer too small"),
             ChorusError::ChannelRecv(e) => write!(f, "{e}"),
             ChorusError::ChannelSend(e) => write!(f, "{e}"),
             ChorusError::Config(e) => write!(f, "{e}"),
             ChorusError::Crypto(e) => write!(f, "{e}"),
-            ChorusError::Deleted => write!(f, "Event was previously deleted"),
-            ChorusError::Duplicate => write!(f, "Duplicate event"),
-            ChorusError::EndOfInput => write!(f, "End of input"),
             ChorusError::ErrorClose => write!(f, "Closing due to error(s)"),
             ChorusError::EventIsInvalid(s) => write!(f, "Event is invalid: {s}"),
             ChorusError::Http(e) => write!(f, "{e}"),
             ChorusError::Hyper(e) => write!(f, "{e}"),
             ChorusError::Io(e) => write!(f, "{e}"),
-            ChorusError::JsonBad(err, pos) => write!(f, "JSON bad: {err} at position {pos}"),
-            ChorusError::JsonBadCharacter(c, pos, ec) => write!(
-                f,
-                "JSON bad character: {c} at position {pos}, {ec} was expected"
-            ),
-            ChorusError::JsonBadEvent(err, pos) => {
-                write!(f, "JSON bad event: {err} at position {pos}")
-            }
-            ChorusError::JsonBadFilter(err, pos) => {
-                write!(f, "JSON bad filter: {err} at position {pos}")
-            }
-            ChorusError::JsonBadStringChar(ch) => {
-                write!(f, "JSON string bad character: codepoint {ch}")
-            }
-            ChorusError::JsonEscape => write!(f, "JSON string escape error"),
-            ChorusError::JsonEscapeSurrogate => write!(
-                f,
-                "JSON string escape surrogate (ancient style) is not supported"
-            ),
             ChorusError::MissingTable(t) => write!(f, "Missing table: {t}"),
             ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
             ChorusError::NoSuchSubscription => write!(f, "No such subscription"),
@@ -206,7 +139,6 @@ impl std::fmt::Display for ChorusError {
             ChorusError::PocketDbHeed(e) => write!(f, "{e}"),
             ChorusError::PocketType(e) => write!(f, "{e}"),
             ChorusError::ProtectedEvent => write!(f, "Protected event"),
-            ChorusError::RangeError => write!(f, "Range error"),
             ChorusError::Restricted => write!(f, "Restricted"),
             ChorusError::Rustls(e) => write!(f, "{e}"),
             ChorusError::TimedOut => write!(f, "Timed out"),
@@ -251,30 +183,17 @@ impl ChorusError {
         match self {
             ChorusError::AuthFailure(_) => 0.25,
             ChorusError::AuthRequired => 0.0,
-            ChorusError::BadEventId => 0.1,
-            ChorusError::BadHexInput => 0.4,
             ChorusError::BannedEvent => 0.1,
             ChorusError::BannedUser => 0.2,
-            ChorusError::BufferTooSmall => 0.0,
             ChorusError::ChannelRecv(_) => 0.0,
             ChorusError::ChannelSend(_) => 0.0,
             ChorusError::Config(_) => 0.0,
             ChorusError::Crypto(_) => 0.1,
-            ChorusError::Deleted => 0.1,
-            ChorusError::Duplicate => 0.01,
-            ChorusError::EndOfInput => 0.4,
             ChorusError::ErrorClose => 1.0,
             ChorusError::EventIsInvalid(_) => 0.2,
             ChorusError::Http(_) => 0.0,
             ChorusError::Hyper(_) => 0.0,
             ChorusError::Io(_) => 0.0,
-            ChorusError::JsonBad(_, _) => 0.2,
-            ChorusError::JsonBadCharacter(_, _, _) => 0.2,
-            ChorusError::JsonBadEvent(_, _) => 0.2,
-            ChorusError::JsonBadFilter(_, _) => 0.2,
-            ChorusError::JsonBadStringChar(_) => 0.2,
-            ChorusError::JsonEscape => 0.2,
-            ChorusError::JsonEscapeSurrogate => 0.05,
             ChorusError::MissingTable(_) => 0.0,
             ChorusError::NoPrivateKey => 0.0,
             ChorusError::NoSuchSubscription => 0.05,
@@ -282,7 +201,6 @@ impl ChorusError {
             ChorusError::PocketDbHeed(_) => 0.0,
             ChorusError::PocketType(_) => 0.0,
             ChorusError::ProtectedEvent => 0.35,
-            ChorusError::RangeError => 0.0,
             ChorusError::Restricted => 0.1,
             ChorusError::Rustls(_) => 0.0,
             ChorusError::TimedOut => 0.1,

@@ -211,15 +211,6 @@ impl WebSocketService {
                     NostrReplyPrefix::AuthRequired,
                     PERSONAL_MSG.to_owned(),
                 ),
-                ChorusError::Duplicate => {
-                    NostrReply::Ok(id, true, NostrReplyPrefix::Duplicate, "".to_string())
-                }
-                ChorusError::Deleted => NostrReply::Ok(
-                    id,
-                    false,
-                    NostrReplyPrefix::Blocked,
-                    "That event is deleted".to_string(),
-                ),
                 ChorusError::EventIsInvalid(ref why) => {
                     log::error!(target: "Client", "{}: {}", self.peer, e);
                     NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, why.to_string())
@@ -245,6 +236,18 @@ impl WebSocketService {
                     NostrReplyPrefix::Blocked,
                     "Author has been banned".to_string(),
                 ),
+                ChorusError::PocketDb(ref pe) => match pe.inner {
+                    pocket_db::InnerError::Deleted => NostrReply::Ok(
+                        id,
+                        false,
+                        NostrReplyPrefix::Blocked,
+                        "That event  is deleted".to_string(),
+                    ),
+                    pocket_db::InnerError::Duplicate => {
+                        NostrReply::Ok(id, true, NostrReplyPrefix::Duplicate, "".to_string())
+                    }
+                    _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
+                },
                 _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
             };
             self.websocket.send(Message::text(reply.as_json())).await?;
