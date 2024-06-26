@@ -28,6 +28,9 @@ pub enum ChorusError {
     // Auth required
     AuthRequired,
 
+    // Bad request
+    BadRequest(String),
+
     // Event is banned
     BannedEvent,
 
@@ -139,6 +142,7 @@ impl std::fmt::Display for ChorusError {
         match self {
             ChorusError::AuthFailure(s) => write!(f, "AUTH failure: {s}"),
             ChorusError::AuthRequired => write!(f, "AUTH required"),
+            ChorusError::BadRequest(s) => write!(f, "Bad Request: {s}"),
             ChorusError::BannedEvent => write!(f, "Event is banned"),
             ChorusError::BannedUser => write!(f, "User is banned"),
             ChorusError::Base64Decode(e) => write!(f, "{e}"),
@@ -209,6 +213,7 @@ impl ChorusError {
         match self {
             ChorusError::AuthFailure(_) => 0.25,
             ChorusError::AuthRequired => 0.0,
+            ChorusError::BadRequest(_) => 0.1,
             ChorusError::BannedEvent => 0.1,
             ChorusError::BannedUser => 0.2,
             ChorusError::Base64Decode(_) => 0.0,
