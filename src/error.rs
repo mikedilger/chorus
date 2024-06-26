@@ -29,7 +29,7 @@ pub enum ChorusError {
     AuthRequired,
 
     // Bad request
-    BadRequest(String),
+    BadRequest(&'static str),
 
     // Event is banned
     BannedEvent,
@@ -84,6 +84,9 @@ pub enum ChorusError {
 
     // No private key
     NoPrivateKey,
+
+    // Not Implemented
+    NotImplemented,
 
     // No such subscription
     NoSuchSubscription,
@@ -161,6 +164,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::ManagementAuthFailure(s) => write!(f, "Authorization failure: {s}"),
             ChorusError::MissingTable(t) => write!(f, "Missing table: {t}"),
             ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
+            ChorusError::NotImplemented => write!(f, "Not implemented"),
             ChorusError::NoSuchSubscription => write!(f, "No such subscription"),
             ChorusError::PocketDb(e) => write!(f, "{e}"),
             ChorusError::PocketDbHeed(e) => write!(f, "{e}"),
@@ -209,6 +213,14 @@ impl StdError for ChorusError {
 }
 
 impl ChorusError {
+    #[track_caller]
+    pub fn into_err(self) -> Error {
+        Error {
+            inner: self,
+            location: std::panic::Location::caller(),
+        }
+    }
+
     pub fn punishment(&self) -> f32 {
         match self {
             ChorusError::AuthFailure(_) => 0.25,
@@ -232,6 +244,7 @@ impl ChorusError {
             ChorusError::ManagementAuthFailure(_) => 0.0,
             ChorusError::MissingTable(_) => 0.0,
             ChorusError::NoPrivateKey => 0.0,
+            ChorusError::NotImplemented => 0.0,
             ChorusError::NoSuchSubscription => 0.05,
             ChorusError::PocketDb(_) => 0.0,
             ChorusError::PocketDbHeed(_) => 0.0,
