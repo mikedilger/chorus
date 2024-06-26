@@ -260,6 +260,7 @@ dependencies = [
  "rustls-pki-types",
  "secp256k1 0.29.0",
  "serde",
+ "serde_json",
  "speedy",
  "tempfile",
  "textnonce",

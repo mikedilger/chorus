@@ -97,6 +97,9 @@ pub enum ChorusError {
     // Filter is underspecified
     Scraper,
 
+    // Serde JSON
+    SerdeJson(serde_json::Error),
+
     // Speedy
     Speedy(speedy::Error),
 
@@ -144,6 +147,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::TimedOut => write!(f, "Timed out"),
             ChorusError::Tungstenite(e) => write!(f, "{e}"),
             ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
+            ChorusError::SerdeJson(e) => write!(f, "{e}"),
             ChorusError::Speedy(e) => write!(f, "{e}"),
             ChorusError::TooManySubscriptions => write!(f, "Too many subscriptions"),
             ChorusError::UrlParse(e) => write!(f, "{e}"),
@@ -206,6 +210,7 @@ impl ChorusError {
             ChorusError::TimedOut => 0.1,
             ChorusError::Tungstenite(_) => 0.0,
             ChorusError::Scraper => 0.4,
+            ChorusError::SerdeJson(_) => 0.0,
             ChorusError::Speedy(_) => 0.0,
             ChorusError::TooManySubscriptions => 0.1,
             ChorusError::UrlParse(_) => 0.1,
@@ -388,6 +393,16 @@ impl From<speedy::Error> for Error {
     fn from(err: speedy::Error) -> Self {
         Error {
             inner: ChorusError::Speedy(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    #[track_caller]
+    fn from(err: serde_json::Error) -> Self {
+        Error {
+            inner: ChorusError::SerdeJson(err),
             location: std::panic::Location::caller(),
         }
     }
