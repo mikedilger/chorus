@@ -103,6 +103,12 @@ These are the public keys (hex format) of your relay's authorized users. See [BE
 
 Default is `[]`
 
+### moderator_hex_keys
+
+These are the public keys (hex format) of your relay's moderators. Moderators can moderate the relay using the [NIP 86: Relay Management API](https://github.com/nostr-protocol/nips/pull/1325)
+
+Default is `[]`
+
 ### verify_events
 
 This is a boolean indicating whether or not chorus verifies incoming events.

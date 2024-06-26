@@ -110,6 +110,15 @@ key_pem_path = "/opt/chorus/etc/tls/privkey.pem"
 user_hex_keys = []
 
 
+# These are the public keys (hex format) of your relay's moderators.
+# Moderators can moderate the relay using the following NIP PR:
+# https://github.com/nostr-protocol/nips/pull/1325
+#
+# Default is []
+#
+moderator_hex_keys = []
+
+
 # This is a boolean indicating whether or not chorus verifies incoming events.
 #
 # This setting only skips verification of events that are submitted by AUTHed and

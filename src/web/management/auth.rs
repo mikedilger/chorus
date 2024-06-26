@@ -55,6 +55,16 @@ pub async fn check_auth(request: Request<Incoming>) -> Result<Value, Error> {
         return s_err(&format!("Authorization event is invalid: {}", e));
     }
 
+    // Nostr event must be signed by a moderator
+    if !GLOBALS
+        .config
+        .read()
+        .moderator_keys
+        .contains(&event.pubkey())
+    {
+        return s_err("Authorization failed as user is not a moderator");
+    }
+
     // Event kind must be 27235
     if event.kind().as_u16() != 27235 {
         return s_err("Authorization event not kind 27235");
