@@ -116,8 +116,8 @@ impl WebSocketService {
                 // If any DM kinds were requested, complain.
                 // But if NO kinds were requested, we will just silently not return DMs (elsewhere)
                 if filter
-                        .kinds()
-                        .any(|k| k.as_u16() == 4 || k.as_u16() == 1059)
+                    .kinds()
+                    .any(|k| k.as_u16() == 4 || k.as_u16() == 1059)
                 {
                     // They need to AUTH first to request DMs
                     let reply = NostrReply::Closed(
