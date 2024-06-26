@@ -1,4 +1,5 @@
 use crate::error::Error;
+use hyper::http::uri::{Authority, Scheme, Uri};
 use pocket_types::Pubkey;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -192,5 +193,21 @@ impl Default for Config {
 
         // We know the default config passes into_config without error:
         friendly.into_config().unwrap()
+    }
+}
+
+impl Config {
+    pub fn url(&self, inner: Uri, http: bool) -> Result<Uri, Error> {
+        let mut uri_parts = inner.into_parts();
+        let scheme = match (self.use_tls, http) {
+            (false, false) => Scheme::from_str("ws").unwrap(),
+            (true, false) => Scheme::from_str("wss").unwrap(),
+            (false, true) => Scheme::HTTP,
+            (true, true) => Scheme::HTTPS,
+        };
+        uri_parts.scheme = Some(scheme);
+        let authority = Authority::from_str(&format!("{}:{}", self.hostname, self.port))?;
+        uri_parts.authority = Some(authority);
+        Ok(Uri::from_parts(uri_parts)?)
     }
 }

@@ -58,6 +58,12 @@ pub enum ChorusError {
     // Hyper
     Hyper(hyper::Error),
 
+    // Invalid URI
+    InvalidUri(hyper::http::uri::InvalidUri),
+
+    // Invalid URI Parts
+    InvalidUriParts(hyper::http::uri::InvalidUriParts),
+
     // I/O
     Io(std::io::Error),
 
@@ -134,6 +140,8 @@ impl std::fmt::Display for ChorusError {
             ChorusError::EventIsInvalid(s) => write!(f, "Event is invalid: {s}"),
             ChorusError::Http(e) => write!(f, "{e}"),
             ChorusError::Hyper(e) => write!(f, "{e}"),
+            ChorusError::InvalidUri(e) => write!(f, "{e}"),
+            ChorusError::InvalidUriParts(e) => write!(f, "{e}"),
             ChorusError::Io(e) => write!(f, "{e}"),
             ChorusError::MissingTable(t) => write!(f, "Missing table: {t}"),
             ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
@@ -167,6 +175,8 @@ impl StdError for ChorusError {
             ChorusError::Crypto(e) => Some(e),
             ChorusError::Http(e) => Some(e),
             ChorusError::Hyper(e) => Some(e),
+            ChorusError::InvalidUri(e) => Some(e),
+            ChorusError::InvalidUriParts(e) => Some(e),
             ChorusError::Io(e) => Some(e),
             ChorusError::PocketDb(e) => Some(e),
             ChorusError::PocketDbHeed(e) => Some(e),
@@ -197,6 +207,8 @@ impl ChorusError {
             ChorusError::EventIsInvalid(_) => 0.2,
             ChorusError::Http(_) => 0.0,
             ChorusError::Hyper(_) => 0.0,
+            ChorusError::InvalidUri(_) => 0.0,
+            ChorusError::InvalidUriParts(_) => 0.0,
             ChorusError::Io(_) => 0.0,
             ChorusError::MissingTable(_) => 0.0,
             ChorusError::NoPrivateKey => 0.0,
@@ -293,6 +305,26 @@ impl From<hyper::Error> for Error {
     fn from(err: hyper::Error) -> Self {
         Error {
             inner: ChorusError::Hyper(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<hyper::http::uri::InvalidUri> for Error {
+    #[track_caller]
+    fn from(err: hyper::http::uri::InvalidUri) -> Self {
+        Error {
+            inner: ChorusError::InvalidUri(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<hyper::http::uri::InvalidUriParts> for Error {
+    #[track_caller]
+    fn from(err: hyper::http::uri::InvalidUriParts) -> Self {
+        Error {
+            inner: ChorusError::InvalidUriParts(err),
             location: std::panic::Location::caller(),
         }
     }
