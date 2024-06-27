@@ -4,7 +4,7 @@ use crate::ip::HashedPeer;
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response, StatusCode};
-use pocket_types::Pubkey;
+use pocket_types::{Id, Pubkey};
 use serde_json::{json, Map, Value};
 mod auth;
 
@@ -89,7 +89,17 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
     match &*method {
         "supportedmethods" => {
             return Ok(Some(json!({
-                "result": ["allowpubkey", "banpubkey", "listallowedpubkeys", "listbannedpubkeys", "supportedmethods"]
+                "result": [
+                    "allowevent",
+                    "allowpubkey",
+                    "banevent",
+                    "banpubkey",
+                    "listallowedevents",
+                    "listallowedpubkeys",
+                    "listbannedevents",
+                    "listbannedpubkeys",
+                    "supportedmethods"
+                ]
             })));
         }
 
@@ -137,10 +147,49 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
             })));
         }
         // Events
-        "banevent" => return Err(ChorusError::NotImplemented.into()),
-        "listbannedevents" => return Err(ChorusError::NotImplemented.into()),
-        "allowevent" => return Err(ChorusError::NotImplemented.into()),
-        "listallowedevents" => return Err(ChorusError::NotImplemented.into()),
+        "banevent" => {
+            let id = get_id_param(obj)?;
+            crate::mark_event_approval(GLOBALS.store.get().unwrap(), id, false)?;
+            return Ok(None);
+        }
+        "allowevent" => {
+            let id = get_id_param(obj)?;
+            crate::mark_event_approval(GLOBALS.store.get().unwrap(), id, true)?;
+            return Ok(None);
+        }
+        "listbannedevents" => {
+            let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
+            let ids: Vec<String> = approvals
+                .iter()
+                .filter_map(|(id, appr)| {
+                    if *appr {
+                        None
+                    } else {
+                        Some(id.as_hex_string().unwrap())
+                    }
+                })
+                .collect();
+            return Ok(Some(json!({
+                "result": ids
+            })));
+        }
+        "listallowedevents" => {
+            let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
+            let ids: Vec<String> = approvals
+                .iter()
+                .filter_map(|(id, appr)| {
+                    if *appr {
+                        Some(id.as_hex_string().unwrap())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            return Ok(Some(json!({
+                "result": ids
+            })));
+        }
+
         "listeventsneedingmoderation" => return Err(ChorusError::NotImplemented.into()),
 
         // Kinds
@@ -175,4 +224,18 @@ fn get_pubkey_param(obj: &Map<String, Value>) -> Result<Pubkey, Error> {
         .ok_or(ChorusError::BadRequest("Pubkey parameter is wrong type").into_err())?;
     Ok(Pubkey::read_hex(pubkey_text.as_bytes())
         .map_err(|_| ChorusError::BadRequest("Pubkey could not be parsed").into_err())?)
+}
+
+fn get_id_param(obj: &Map<String, Value>) -> Result<Id, Error> {
+    let id_text = obj
+        .get("params")
+        .ok_or(ChorusError::BadRequest("Params field missing").into_err())?
+        .as_array()
+        .ok_or(ChorusError::BadRequest("Params not an array").into_err())?
+        .get(0)
+        .ok_or(ChorusError::BadRequest("Missing ID parameter").into_err())?
+        .as_str()
+        .ok_or(ChorusError::BadRequest("ID parameter is wrong type").into_err())?;
+    Ok(Id::read_hex(id_text.as_bytes())
+        .map_err(|_| ChorusError::BadRequest("ID could not be parsed").into_err())?)
 }
