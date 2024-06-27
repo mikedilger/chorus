@@ -89,7 +89,7 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
     match &*method {
         "supportedmethods" => {
             return Ok(Some(json!({
-                "result": ["allowpubkey", "banpubkey", "supportedmethods"]
+                "result": ["allowpubkey", "banpubkey", "listallowedpubkeys", "listbannedpubkeys", "supportedmethods"]
             })));
         }
 
@@ -104,9 +104,38 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
             crate::mark_pubkey_approval(GLOBALS.store.get().unwrap(), pk, true)?;
             return Ok(None);
         }
-        "listbannedpubkeys" => return Err(ChorusError::NotImplemented.into()),
-        "listallowedpubkeys" => return Err(ChorusError::NotImplemented.into()),
-
+        "listbannedpubkeys" => {
+            let approvals = crate::dump_pubkey_approvals(GLOBALS.store.get().unwrap())?;
+            let pubkeys: Vec<String> = approvals
+                .iter()
+                .filter_map(|(pk, appr)| {
+                    if *appr {
+                        None
+                    } else {
+                        Some(pk.as_hex_string().unwrap())
+                    }
+                })
+                .collect();
+            return Ok(Some(json!({
+                "result": pubkeys
+            })));
+        }
+        "listallowedpubkeys" => {
+            let approvals = crate::dump_pubkey_approvals(GLOBALS.store.get().unwrap())?;
+            let pubkeys: Vec<String> = approvals
+                .iter()
+                .filter_map(|(pk, appr)| {
+                    if *appr {
+                        Some(pk.as_hex_string().unwrap())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            return Ok(Some(json!({
+                "result": pubkeys
+            })));
+        }
         // Events
         "banevent" => return Err(ChorusError::NotImplemented.into()),
         "listbannedevents" => return Err(ChorusError::NotImplemented.into()),
