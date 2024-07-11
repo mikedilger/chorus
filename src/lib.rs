@@ -189,6 +189,23 @@ async fn handle_http_request(
                                 // No big deal, still SessionExit::Ok
                                 msg = "Reset";
                             }
+                            ChorusError::Tungstenite(tungstenite::error::Error::Io(
+                                ref ioerror,
+                            )) => {
+                                match ioerror.kind() {
+                                    std::io::ErrorKind::ConnectionReset |
+                                    std::io::ErrorKind::ConnectionAborted |
+                                    std::io::ErrorKind::UnexpectedEof => {
+                                        // no biggie.
+                                        msg = "Reset";
+                                    }
+                                    _ => {
+                                        log::error!(target: "Client", "{}: {}", peer, e);
+                                        session_exit = SessionExit::ErrorExit;
+                                        msg = "Error Exited";
+                                    }
+                                }
+                            }
                             ChorusError::ErrorClose => {
                                 session_exit = SessionExit::TooManyErrors;
                                 msg = "Errored Out";
