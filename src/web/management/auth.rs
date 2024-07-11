@@ -81,17 +81,6 @@ pub async fn check_auth(request: Request<Incoming>) -> Result<Value, Error> {
 
     let tags = event.tags()?;
 
-    // Tag 'method' must be POST
-    if let Some(method) = tags.get_value(b"method") {
-        if method != b"POST" && method != b"post" {
-            return s_err(
-                "Authorization event did not authorize POST (and only POST is supported here)",
-            );
-        }
-    } else {
-        return s_err("Authorization event method missing");
-    }
-
     // Tag 'u' must be the current URL
     if let Some(u) = tags.get_value(b"u") {
         let auth_url = String::from_utf8(u.to_owned())?;
