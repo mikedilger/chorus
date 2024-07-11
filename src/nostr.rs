@@ -90,9 +90,9 @@ impl WebSocketService {
                     )
                 }
                 ChorusError::Scraper => {
-                    NostrReply::Closed(&subid, NostrReplyPrefix::Invalid, format!("{e}"))
+                    NostrReply::Closed(&subid, NostrReplyPrefix::Invalid, format!("{}", e.inner))
                 }
-                _ => NostrReply::Closed(&subid, NostrReplyPrefix::Error, format!("{e}")),
+                _ => NostrReply::Closed(&subid, NostrReplyPrefix::Error, format!("{}", e.inner)),
             };
             self.websocket.send(Message::text(reply.as_json())).await?;
             self.replied = true;
@@ -241,14 +241,14 @@ impl WebSocketService {
                         id,
                         false,
                         NostrReplyPrefix::Blocked,
-                        "That event  is deleted".to_string(),
+                        "That event is deleted".to_string(),
                     ),
                     pocket_db::InnerError::Duplicate => {
                         NostrReply::Ok(id, true, NostrReplyPrefix::Duplicate, "".to_string())
                     }
-                    _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
+                    _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e.inner)),
                 },
-                _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e)),
+                _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e.inner)),
             };
             self.websocket.send(Message::text(reply.as_json())).await?;
             self.replied = true;
@@ -337,9 +337,9 @@ impl WebSocketService {
         if let Err(e) = self.auth_inner().await {
             let reply = match e.inner {
                 ChorusError::AuthFailure(_) => {
-                    NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, format!("{e}"))
+                    NostrReply::Ok(id, false, NostrReplyPrefix::Invalid, format!("{}", e.inner))
                 }
-                _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{e}")),
+                _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e.inner)),
             };
             self.websocket.send(Message::text(reply.as_json())).await?;
             self.replied = true;
