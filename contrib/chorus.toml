@@ -258,6 +258,6 @@ timeout_seconds = 60
 
 # Maximum number of websocket connections per IP address
 #
-# Default is 2
+# Default is 5
 #
-max_connections_per_ip = 2
+max_connections_per_ip = 5

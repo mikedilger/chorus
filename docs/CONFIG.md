@@ -225,4 +225,4 @@ Default is 60
 
 Maximum number of websocket connections per IP address
 
-Default is 2
+Default is 5

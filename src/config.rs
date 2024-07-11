@@ -68,7 +68,7 @@ impl Default for FriendlyConfig {
             enable_ip_blocking: true,
             minimum_ban_seconds: 1,
             timeout_seconds: 60,
-            max_connections_per_ip: 2,
+            max_connections_per_ip: 5,
         }
     }
 }
