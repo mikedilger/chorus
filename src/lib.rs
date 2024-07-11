@@ -379,7 +379,7 @@ impl WebSocketService {
                         }
                     }
                     if !self.replied {
-                        let reply = NostrReply::Notice(format!("error: {}", e));
+                        let reply = NostrReply::Notice(format!("error: {}", e.inner));
                         self.websocket.send(Message::text(reply.as_json())).await?;
                     }
                     if self.error_punishment >= 1.0 {
