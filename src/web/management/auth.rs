@@ -46,8 +46,7 @@ pub async fn check_auth(request: Request<Incoming>) -> Result<Value, Error> {
     let event_bytes = BASE64_STANDARD.decode(base64event)?;
 
     // Authorization header base64 must decode to a nostr Event
-    let mut buffer = Vec::with_capacity(base64event.len());
-    buffer.resize(base64event.len(), 0);
+    let mut buffer = vec![0; base64event.len()];
     let (_size, event) = Event::from_json(&event_bytes, &mut buffer)?;
 
     // Nostr event must be valid

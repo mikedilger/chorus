@@ -193,9 +193,9 @@ async fn handle_http_request(
                                 ref ioerror,
                             )) => {
                                 match ioerror.kind() {
-                                    std::io::ErrorKind::ConnectionReset |
-                                    std::io::ErrorKind::ConnectionAborted |
-                                    std::io::ErrorKind::UnexpectedEof => {
+                                    std::io::ErrorKind::ConnectionReset
+                                    | std::io::ErrorKind::ConnectionAborted
+                                    | std::io::ErrorKind::UnexpectedEof => {
                                         // no biggie.
                                         msg = "Reset";
                                     }

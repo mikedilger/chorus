@@ -120,7 +120,6 @@ async fn main() -> Result<(), Error> {
                                         target: "Client",
                                         "{}: TLS accept: {}", hashed_peer, e
                                     );
-                                    return;
                                 }
                             }
                         },

@@ -67,7 +67,7 @@ pub async fn handle(
                     StatusCode::INTERNAL_SERVER_ERROR,
                 ),
             };
-            return respond(result, status);
+            respond(result, status)
         }
     }
 }
@@ -87,32 +87,30 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
     };
 
     match &*method {
-        "supportedmethods" => {
-            return Ok(Some(json!({
-                "result": [
-                    "allowevent",
-                    "allowpubkey",
-                    "banevent",
-                    "banpubkey",
-                    "listallowedevents",
-                    "listallowedpubkeys",
-                    "listbannedevents",
-                    "listbannedpubkeys",
-                    "supportedmethods"
-                ]
-            })));
-        }
+        "supportedmethods" => Ok(Some(json!({
+            "result": [
+                "allowevent",
+                "allowpubkey",
+                "banevent",
+                "banpubkey",
+                "listallowedevents",
+                "listallowedpubkeys",
+                "listbannedevents",
+                "listbannedpubkeys",
+                "supportedmethods"
+            ]
+        }))),
 
         // Pubkeys
         "banpubkey" => {
             let pk = get_pubkey_param(obj)?;
             crate::mark_pubkey_approval(GLOBALS.store.get().unwrap(), pk, false)?;
-            return Ok(None);
+            Ok(None)
         }
         "allowpubkey" => {
             let pk = get_pubkey_param(obj)?;
             crate::mark_pubkey_approval(GLOBALS.store.get().unwrap(), pk, true)?;
-            return Ok(None);
+            Ok(None)
         }
         "listbannedpubkeys" => {
             let approvals = crate::dump_pubkey_approvals(GLOBALS.store.get().unwrap())?;
@@ -126,9 +124,9 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                     }
                 })
                 .collect();
-            return Ok(Some(json!({
+            Ok(Some(json!({
                 "result": pubkeys
-            })));
+            })))
         }
         "listallowedpubkeys" => {
             let approvals = crate::dump_pubkey_approvals(GLOBALS.store.get().unwrap())?;
@@ -142,20 +140,20 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                     }
                 })
                 .collect();
-            return Ok(Some(json!({
+            Ok(Some(json!({
                 "result": pubkeys
-            })));
+            })))
         }
         // Events
         "banevent" => {
             let id = get_id_param(obj)?;
             crate::mark_event_approval(GLOBALS.store.get().unwrap(), id, false)?;
-            return Ok(None);
+            Ok(None)
         }
         "allowevent" => {
             let id = get_id_param(obj)?;
             crate::mark_event_approval(GLOBALS.store.get().unwrap(), id, true)?;
-            return Ok(None);
+            Ok(None)
         }
         "listbannedevents" => {
             let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
@@ -169,9 +167,9 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                     }
                 })
                 .collect();
-            return Ok(Some(json!({
+            Ok(Some(json!({
                 "result": ids
-            })));
+            })))
         }
         "listallowedevents" => {
             let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
@@ -185,30 +183,30 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                     }
                 })
                 .collect();
-            return Ok(Some(json!({
+            Ok(Some(json!({
                 "result": ids
-            })));
+            })))
         }
 
-        "listeventsneedingmoderation" => return Err(ChorusError::NotImplemented.into()),
+        "listeventsneedingmoderation" => Err(ChorusError::NotImplemented.into()),
 
         // Kinds
-        "allowkind" => return Err(ChorusError::NotImplemented.into()),
-        "disallowkind" => return Err(ChorusError::NotImplemented.into()),
-        "listbannedkinds" => return Err(ChorusError::NotImplemented.into()),
-        "listallowedkinds" => return Err(ChorusError::NotImplemented.into()),
+        "allowkind" => Err(ChorusError::NotImplemented.into()),
+        "disallowkind" => Err(ChorusError::NotImplemented.into()),
+        "listbannedkinds" => Err(ChorusError::NotImplemented.into()),
+        "listallowedkinds" => Err(ChorusError::NotImplemented.into()),
 
         // IP addresses
-        "blockip" => return Err(ChorusError::NotImplemented.into()),
-        "unblockip" => return Err(ChorusError::NotImplemented.into()),
-        "listblockedips" => return Err(ChorusError::NotImplemented.into()),
+        "blockip" => Err(ChorusError::NotImplemented.into()),
+        "unblockip" => Err(ChorusError::NotImplemented.into()),
+        "listblockedips" => Err(ChorusError::NotImplemented.into()),
 
         // Config
-        "changerelayname" => return Err(ChorusError::NotImplemented.into()),
-        "changerelaydescription" => return Err(ChorusError::NotImplemented.into()),
-        "changerelayicon" => return Err(ChorusError::NotImplemented.into()),
+        "changerelayname" => Err(ChorusError::NotImplemented.into()),
+        "changerelaydescription" => Err(ChorusError::NotImplemented.into()),
+        "changerelayicon" => Err(ChorusError::NotImplemented.into()),
 
-        _ => return Err(ChorusError::NotImplemented.into()),
+        _ => Err(ChorusError::NotImplemented.into()),
     }
 }
 
@@ -218,12 +216,12 @@ fn get_pubkey_param(obj: &Map<String, Value>) -> Result<Pubkey, Error> {
         .ok_or(ChorusError::BadRequest("Params field missing").into_err())?
         .as_array()
         .ok_or(ChorusError::BadRequest("Params not an array").into_err())?
-        .get(0)
+        .first()
         .ok_or(ChorusError::BadRequest("Missing pubkey parameter").into_err())?
         .as_str()
         .ok_or(ChorusError::BadRequest("Pubkey parameter is wrong type").into_err())?;
-    Ok(Pubkey::read_hex(pubkey_text.as_bytes())
-        .map_err(|_| ChorusError::BadRequest("Pubkey could not be parsed").into_err())?)
+    Pubkey::read_hex(pubkey_text.as_bytes())
+        .map_err(|_| ChorusError::BadRequest("Pubkey could not be parsed").into_err())
 }
 
 fn get_id_param(obj: &Map<String, Value>) -> Result<Id, Error> {
@@ -232,10 +230,10 @@ fn get_id_param(obj: &Map<String, Value>) -> Result<Id, Error> {
         .ok_or(ChorusError::BadRequest("Params field missing").into_err())?
         .as_array()
         .ok_or(ChorusError::BadRequest("Params not an array").into_err())?
-        .get(0)
+        .first()
         .ok_or(ChorusError::BadRequest("Missing ID parameter").into_err())?
         .as_str()
         .ok_or(ChorusError::BadRequest("ID parameter is wrong type").into_err())?;
-    Ok(Id::read_hex(id_text.as_bytes())
-        .map_err(|_| ChorusError::BadRequest("ID could not be parsed").into_err())?)
+    Id::read_hex(id_text.as_bytes())
+        .map_err(|_| ChorusError::BadRequest("ID could not be parsed").into_err())
 }
