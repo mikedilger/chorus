@@ -38,7 +38,6 @@ lazy_static! {
         let (shutting_down, _) = tokio::sync::watch::channel(false);
 
         let mut http1builder = http1::Builder::new();
-        http1builder.half_close(true);
         http1builder.keep_alive(true);
         http1builder.timer(TokioTimer::new());
         http1builder.header_read_timeout(Duration::from_secs(5));
