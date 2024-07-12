@@ -36,6 +36,14 @@ your relay host name.
 
 Default is localhost
 
+### chorus_is_behind_a_proxy
+
+If chorus is behind a proxy like nginx, set this to true. In this case chorus will look for and
+trust the `X-Real-Ip` HTTP request header to get the real IP of the client. This header MUST exist
+or the connection will not be served.
+
+Default is false.
+
 ### use_tls
 
 If true, chorus will handle TLS, running over HTTPS.  If false, chorus run over HTTP.
@@ -58,7 +66,7 @@ systemd service copies letsencrypt TLS certificates into this position on start.
 
 ### key_pem_path
 
-This is the path to yoru TLS private key file.
+This is the path to your TLS private key file.
 
 If `use_tls` is false, this value is irrelevant.
 

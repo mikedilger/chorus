@@ -34,6 +34,15 @@ port = 443
 hostname = "localhost"
 
 
+# If chorus is behind a proxy like nginx, set this to true. In this case chorus will look for and
+# trust the `X-Real-Ip` HTTP request header to get the real IP of the client. This header MUST exist
+# or the connection will not be served.
+#
+# Default is false.
+#
+chorus_is_behind_a_proxy = false
+
+
 # If true, chorus will handle TLS, running over HTTPS. If false, chorus run over HTTP.
 #
 # If you are proxying via nginx, normally you will set this to false and allow nginx to handle TLS.

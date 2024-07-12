@@ -4,6 +4,7 @@ data_directory = "./sample"
 ip_address = "127.0.0.1"
 port = 8080
 hostname = "localhost"
+chorus_is_behind_a_proxy = false
 use_tls = false
 certchain_pem_path = "tls/fullchain.pem"
 key_pem_path = "tls/privkey.pem"

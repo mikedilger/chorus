@@ -85,23 +85,49 @@ impl Service<Request<Incoming>> for ChorusService {
     // This is called for each HTTP request made by the client
     // NOTE: it is not called for each websocket message once upgraded.
     fn call(&self, req: Request<Incoming>) -> Self::Future {
-        let mut peer = self.peer;
+        let mut hashed_peer = self.peer;
 
-        // If chorus is behind a proxy that sets an "X-Real-Ip" header, we use
-        // that ip address instead (otherwise their log file will just say "127.0.0.1"
-        // for every peer)
-        if peer.ip().is_loopback() {
+        let failvalue =
+            |c: ChorusError| -> Self::Future { Box::pin(futures::future::ready(Err(c.into()))) };
+
+        if GLOBALS.config.read().chorus_is_behind_a_proxy {
+            // If chorus is behind a proxy that sets an "X-Real-Ip" header, we use
+            // that ip address instead (otherwise their log file will just give the proxy IP
+            // for every peer)
+            //
+            // This header must be found and be valid for us to proceed
             if let Some(rip) = req.headers().get("x-real-ip") {
                 if let Ok(ripstr) = rip.to_str() {
                     if let Ok(ipaddr) = ripstr.parse::<IpAddr>() {
                         let hashed_ip = HashedIp::new(ipaddr);
-                        peer = HashedPeer::from_parts(hashed_ip, peer.port());
+                        hashed_peer = HashedPeer::from_parts(hashed_ip, hashed_peer.port());
+                    } else {
+                        return failvalue(ChorusError::BadRealIpHeader(ripstr.to_owned()));
+                    }
+                } else {
+                    return failvalue(ChorusError::BadRealIpHeaderCharacters);
+                }
+            } else {
+                return failvalue(ChorusError::RealIpHeaderMissing);
+            }
+
+            // Possibly IP block late (if behind a proxy)
+            if GLOBALS.config.read().enable_ip_blocking {
+                if let Ok(ip_data) =
+                    crate::get_ip_data(GLOBALS.store.get().unwrap(), hashed_peer.ip())
+                {
+                    if ip_data.is_banned() {
+                        log::debug!(target: "Client",
+                                    "{}: Blocking reconnection until {}",
+                                    hashed_peer.ip(),
+                                    ip_data.ban_until);
+                        return failvalue(ChorusError::BlockedIp);
                     }
                 }
             }
         }
 
-        Box::pin(async move { handle_http_request(peer, req).await })
+        Box::pin(async move { handle_http_request(hashed_peer, req).await })
     }
 }
 

@@ -93,8 +93,10 @@ async fn main() -> Result<(), Error> {
                     (tcp_stream, hashed_peer)
                 };
 
-                // Possibly IP block
-                if GLOBALS.config.read().enable_ip_blocking {
+                // Possibly IP block early
+                if ! GLOBALS.config.read().chorus_is_behind_a_proxy
+                    && GLOBALS.config.read().enable_ip_blocking
+                {
                     let ip_data = chorus::get_ip_data(GLOBALS.store.get().unwrap(), hashed_peer.ip())?;
                     if ip_data.is_banned() {
                         log::debug!(target: "Client",

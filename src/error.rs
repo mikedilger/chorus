@@ -31,6 +31,12 @@ pub enum ChorusError {
     // Bad request
     BadRequest(&'static str),
 
+    // Bad X-Real-Ip header
+    BadRealIpHeader(String),
+
+    // Bad X-Real-Ip header characters
+    BadRealIpHeaderCharacters,
+
     // Event is banned
     BannedEvent,
 
@@ -39,6 +45,9 @@ pub enum ChorusError {
 
     // Base64 Decode Error
     Base64Decode(base64::DecodeError),
+
+    // Blocked IP
+    BlockedIp,
 
     // Channel Recv
     ChannelRecv(tokio::sync::broadcast::error::RecvError),
@@ -103,6 +112,9 @@ pub enum ChorusError {
     // Pocket Types Error
     PocketType(pocket_types::Error),
 
+    // X-Real-Ip header is missing
+    RealIpHeaderMissing,
+
     // Restricted
     Restricted,
 
@@ -146,9 +158,14 @@ impl std::fmt::Display for ChorusError {
             ChorusError::AuthFailure(s) => write!(f, "AUTH failure: {s}"),
             ChorusError::AuthRequired => write!(f, "AUTH required"),
             ChorusError::BadRequest(s) => write!(f, "Bad Request: {s}"),
+            ChorusError::BadRealIpHeader(s) => write!(f, "Bad X-Real-Ip header: {s}"),
+            ChorusError::BadRealIpHeaderCharacters => {
+                write!(f, "Bad X-Real-Ip header (non utf-8 characters)")
+            }
             ChorusError::BannedEvent => write!(f, "Event is banned"),
             ChorusError::BannedUser => write!(f, "User is banned"),
             ChorusError::Base64Decode(e) => write!(f, "{e}"),
+            ChorusError::BlockedIp => write!(f, "IP is temporarily blocked"),
             ChorusError::ChannelRecv(e) => write!(f, "{e}"),
             ChorusError::ChannelSend(e) => write!(f, "{e}"),
             ChorusError::Config(e) => write!(f, "{e}"),
@@ -170,6 +187,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::PocketDbHeed(e) => write!(f, "{e}"),
             ChorusError::PocketType(e) => write!(f, "{e}"),
             ChorusError::ProtectedEvent => write!(f, "Protected event"),
+            ChorusError::RealIpHeaderMissing => write!(f, "X-Real-Ip header is missing"),
             ChorusError::Restricted => write!(f, "Restricted"),
             ChorusError::Rustls(e) => write!(f, "{e}"),
             ChorusError::TimedOut => write!(f, "Timed out"),
@@ -226,9 +244,12 @@ impl ChorusError {
             ChorusError::AuthFailure(_) => 0.25,
             ChorusError::AuthRequired => 0.0,
             ChorusError::BadRequest(_) => 0.1,
+            ChorusError::BadRealIpHeader(_) => 0.0,
+            ChorusError::BadRealIpHeaderCharacters => 0.0,
             ChorusError::BannedEvent => 0.1,
             ChorusError::BannedUser => 0.2,
             ChorusError::Base64Decode(_) => 0.0,
+            ChorusError::BlockedIp => 0.0,
             ChorusError::ChannelRecv(_) => 0.0,
             ChorusError::ChannelSend(_) => 0.0,
             ChorusError::Config(_) => 0.0,
@@ -250,6 +271,7 @@ impl ChorusError {
             ChorusError::PocketDbHeed(_) => 0.0,
             ChorusError::PocketType(_) => 0.0,
             ChorusError::ProtectedEvent => 0.35,
+            ChorusError::RealIpHeaderMissing => 0.0,
             ChorusError::Restricted => 0.1,
             ChorusError::Rustls(_) => 0.0,
             ChorusError::TimedOut => 0.1,
