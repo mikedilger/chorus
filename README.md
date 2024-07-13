@@ -61,6 +61,12 @@ announce upgrade instructions until release.
 
 ## Change Log
 
+### version 1.5.1 (2024-07-14, c9c71311)
+
+- FIX: large non-utf8 messages were attempted to be logged causing a panic
+- FIX: parse errors were not being punished so a nasty client could do a DoS of chorus with
+  simple junk.
+
 ### version 1.5.0 (2024-07-13, 870e470d)
 
 - BREAKING: If you run chorus behind a proxy like nginx, you MUST set the new `chorus_is_behind_a_proxy`
