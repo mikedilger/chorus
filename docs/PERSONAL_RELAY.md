@@ -5,14 +5,14 @@ users, perhaps just yourself.
 
 It hosts your own events and makes them available to the public.
 
-It accepts events that tag your users, but doesn't allow the public to read them back. Only
-your users (after being authenticated) can see them.
+It accepts events that tag your users, but doesn't allow the public to read them back until
+they have passed moderation and until then, only your users (after being authenticated) can see
+them.
 
 One nice thing about a personal relay is that you are in control, and you have a record
 of your events in your possession.
 
-Another nice thing is that you don't have to moderate content, since the only content
-that is served to the public is content that your trusted users created.
+Another nice thing is that you don't have to moderate content if you don't care to.
 
 ## The Dark Side
 
@@ -26,4 +26,4 @@ But who am I to say? You are the sovereign. Here is your personal relay.
 
 ## Open Relay
 
-You can run chorus as an open public relay.  Just set `open_relay` to true in the config.
+You can run chorus as an open public relay. Just set `open_relay` to true in the config.
