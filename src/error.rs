@@ -112,6 +112,9 @@ pub enum ChorusError {
     // Pocket Types Error
     PocketType(pocket_types::Error),
 
+    // Rate limit exceeded
+    RateLimitExceeded,
+
     // X-Real-Ip header is missing
     RealIpHeaderMissing,
 
@@ -186,6 +189,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::PocketDb(e) => write!(f, "{e}"),
             ChorusError::PocketDbHeed(e) => write!(f, "{e}"),
             ChorusError::PocketType(e) => write!(f, "{e}"),
+            ChorusError::RateLimitExceeded => write!(f, "Rate limit exceeded"),
             ChorusError::ProtectedEvent => write!(f, "Protected event"),
             ChorusError::RealIpHeaderMissing => write!(f, "X-Real-Ip header is missing"),
             ChorusError::Restricted => write!(f, "Restricted"),
@@ -270,6 +274,7 @@ impl ChorusError {
             ChorusError::PocketDb(_) => 0.0,
             ChorusError::PocketDbHeed(_) => 0.0,
             ChorusError::PocketType(_) => 0.25,
+            ChorusError::RateLimitExceeded => 1.0,
             ChorusError::ProtectedEvent => 0.35,
             ChorusError::RealIpHeaderMissing => 0.0,
             ChorusError::Restricted => 0.1,

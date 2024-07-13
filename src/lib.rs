@@ -247,6 +247,10 @@ async fn websocket_thread(peer: HashedPeer, websocket: HyperWebsocket, origin: S
                         session_exit = SessionExit::TooManyErrors;
                         msg = "Errored Out";
                     }
+                    ChorusError::RateLimitExceeded => {
+                        session_exit = SessionExit::TooManyErrors; // close enough for now.
+                        msg = "Rate Limit Exceeded";
+                    }
                     ChorusError::TimedOut => {
                         session_exit = SessionExit::Timeout;
                         msg = "Timed Out (with no subscriptions)";
@@ -437,10 +441,12 @@ impl WebSocketService {
 
             // Consume tokens, possibly closing the connection if there are not enough
             if message.len() > self.burst_tokens {
+                log::info!(target: "Client", "{}: Rate limited exceeded", self.peer);
                 let reply = NostrReply::Notice("Rate limit exceeded.".into());
                 self.websocket.send(Message::text(reply.as_json())).await?;
-                self.error_punishment += 1.0;
-                return Err(ChorusError::ErrorClose.into());
+                let error = ChorusError::RateLimitExceeded;
+                self.error_punishment += error.punishment();
+                return Err(error.into());
             } else {
                 self.burst_tokens = self.burst_tokens - message.len();
             }
