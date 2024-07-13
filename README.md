@@ -61,6 +61,11 @@ announce upgrade instructions until release.
 
 ## Change Log
 
+### version 1.5.2 (TBD)
+
+- NEW CONFIG: `throttling_bytes_per_second` how many bytes are allowed per second
+- NEW CONFIG: `throttling_burst` how many bytes can be accepted per connection in a burst
+
 ### version 1.5.1 (2024-07-14, c9c71311)
 
 - FIX: large non-utf8 messages were attempted to be logged causing a panic

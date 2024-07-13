@@ -37,6 +37,8 @@ pub struct FriendlyConfig {
     pub minimum_ban_seconds: u64,
     pub timeout_seconds: u64,
     pub max_connections_per_ip: usize,
+    pub throttling_bytes_per_second: usize,
+    pub throttling_burst: usize,
 }
 
 impl Default for FriendlyConfig {
@@ -71,6 +73,8 @@ impl Default for FriendlyConfig {
             minimum_ban_seconds: 1,
             timeout_seconds: 60,
             max_connections_per_ip: 5,
+            throttling_bytes_per_second: 1024 * 128,
+            throttling_burst: 1024 * 1024 * 4,
         }
     }
 }
@@ -107,6 +111,8 @@ impl FriendlyConfig {
             minimum_ban_seconds,
             timeout_seconds,
             max_connections_per_ip,
+            throttling_bytes_per_second,
+            throttling_burst,
         } = self;
 
         let mut public_key: Option<Pubkey> = None;
@@ -165,6 +171,8 @@ impl FriendlyConfig {
             minimum_ban_seconds,
             timeout_seconds,
             max_connections_per_ip,
+            throttling_bytes_per_second,
+            throttling_burst,
         })
     }
 }
@@ -202,6 +210,8 @@ pub struct Config {
     pub minimum_ban_seconds: u64,
     pub timeout_seconds: u64,
     pub max_connections_per_ip: usize,
+    pub throttling_bytes_per_second: usize,
+    pub throttling_burst: usize,
 }
 
 impl Default for Config {

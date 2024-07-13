@@ -185,6 +185,8 @@ async fn websocket_thread(peer: HashedPeer, websocket: HyperWebsocket, origin: S
                 // We start with a 1-page buffer, and grow it if needed.
                 buffer: vec![0; 4096],
                 websocket,
+                last_message: Instant::now(),
+                burst_tokens: GLOBALS.config.read().throttling_burst,
                 challenge: TextNonce::new().into_string(),
                 user: None,
                 error_punishment: 0.0,
@@ -308,6 +310,8 @@ struct WebSocketService {
     pub subscriptions: HashMap<String, Vec<OwnedFilter>>,
     pub buffer: Vec<u8>,
     pub websocket: WebSocketStream<TokioIo<Upgraded>>,
+    pub last_message: Instant,
+    pub burst_tokens: usize,
     pub challenge: String,
     pub user: Option<Pubkey>,
     pub error_punishment: f32,
@@ -409,6 +413,39 @@ impl WebSocketService {
     }
 
     async fn handle_websocket_message(&mut self, message: Message) -> Result<(), Error> {
+        // Throttling
+        {
+            let (throttling_burst, throttling_bytes_per_second) = {
+                let config = GLOBALS.config.read();
+                (config.throttling_burst, config.throttling_bytes_per_second)
+            };
+
+            // Get (and update) timing
+            let elapsed = self.last_message.elapsed();
+            self.last_message = Instant::now();
+
+            // Grant new tokens
+            let new_tokens = throttling_bytes_per_second
+                * elapsed.as_millis() as usize
+                / 1_000;
+            self.burst_tokens = self.burst_tokens + new_tokens;
+
+            // Cap tokens to a maximum
+            if self.burst_tokens > throttling_burst {
+                self.burst_tokens = throttling_burst;
+            }
+
+            // Consume tokens, possibly closing the connection if there are not enough
+            if message.len() > self.burst_tokens {
+                let reply = NostrReply::Notice("Rate limit exceeded.".into());
+                self.websocket.send(Message::text(reply.as_json())).await?;
+                self.error_punishment += 1.0;
+                return Err(ChorusError::ErrorClose.into());
+            } else {
+                self.burst_tokens = self.burst_tokens - message.len();
+            }
+        }
+
         match message {
             Message::Text(msg) => {
                 log::trace!(target: "Client", "{}: <= {}", self.peer, msg);

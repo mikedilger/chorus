@@ -234,3 +234,21 @@ Default is 60
 Maximum number of websocket connections per IP address
 
 Default is 5
+
+### throttling_bytes_per_second
+
+The maximum rate (excluding bursts) of data that will be accepted over a websocket connection
+(per connection). Beyond this rate (in a sustained way) the connection will be closed.
+
+Default is 131072 bytes per second.
+
+### throttling_burst
+
+The allowable bursts of data beyond the normal rate.
+
+We keep a count of how many bytes they are allowed, and that count starts at this number.
+As bytes are consumed the count goes down, but we refund throttling_bytes_per_second every
+second. If that bucket doesn't have enough, the burst won't be allowed and the connection
+will be closed.
+
+Default is 4194304 bytes.

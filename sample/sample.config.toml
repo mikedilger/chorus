@@ -31,3 +31,5 @@ enable_ip_blocking = true
 minimum_ban_seconds = 1
 timeout_seconds = 60
 max_connections_per_ip = 5
+throttling_bytes_per_second = 131072
+throttling_burst = 4194304
