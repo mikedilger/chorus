@@ -84,7 +84,7 @@ announce upgrade instructions until release.
 
 - Origin header logged
 - CLOSED: auth-required sent if DMs requested and not authenticated yet
-- config: minimum_ban_seconds, timeout_seconds, dont_ip_block
+- config: minimum_ban_seconds, timeout_seconds, enable_ip_blocking
 - default for allow_scrape_if_max_seconds raised from 3600 to 7200
 - default for max_subscriptions raised from 32 to 128
 - timeouts no longer affect ban seconds
