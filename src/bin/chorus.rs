@@ -148,9 +148,11 @@ async fn main() -> Result<(), Error> {
     if num_connections != 0 {
         log::info!(target: "Server", "Waiting for {num_connections} websockets to shutdown...");
 
-        // We will check if all clients have shutdown every 25ms
-        let interval = tokio::time::interval(Duration::from_millis(25));
+        // We will check if all clients have shutdown every 50ms
+        let interval = tokio::time::interval(Duration::from_millis(50));
         tokio::pin!(interval);
+
+        let mut ms = 0;
 
         while num_connections != 0 {
             // If we get another shutdown signal, stop waiting for websockets
@@ -165,6 +167,11 @@ async fn main() -> Result<(), Error> {
                     break;
                 },
                 _instant = interval.tick() => {
+                    ms += 50;
+                    if ms > 5_000 {
+                        log::info!(target: "Server", "Some connections were hung.");
+                        break;
+                    }
                     num_connections = GLOBALS.num_connections.load(Ordering::Relaxed);
                     continue;
                 }
