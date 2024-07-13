@@ -141,7 +141,7 @@ async fn handle_http_request_outer(
         .or_insert(1);
 
     // Get the response, but do not throw error at this point
-    let response = handle_http_request_inner(peer, request);
+    let response = handle_http_request_inner(peer, request).await;
 
     // Decrement connection counts
     match GLOBALS.num_connections_per_ip.get_mut(&peer.ip()) {
@@ -157,7 +157,7 @@ async fn handle_http_request_outer(
     let _ = GLOBALS.num_connections.fetch_sub(1, Ordering::SeqCst);
 
     // Now we return after the counts have gone up and down
-    response.await
+    response
 }
 
 async fn handle_http_request_inner(
@@ -220,7 +220,7 @@ async fn handle_http_request_inner(
                         target: "Server",
                         "{}: TOTAL={}, New Connection: {}, {}",
                         peer,
-                        GLOBALS.num_connections.load(Ordering::Relaxed),
+                        GLOBALS.num_connections.load(Ordering::Acquire),
                         origin,
                         ua,
                     );
@@ -289,7 +289,7 @@ async fn handle_http_request_inner(
                         target: "Server",
                         "{}: TOTAL={}, {}, ban={}s",
                         peer,
-                        GLOBALS.num_connections.load(Ordering::Relaxed),
+                        GLOBALS.num_connections.load(Ordering::Acquire),
                         msg,
                         ban_seconds
                     );
