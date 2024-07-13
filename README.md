@@ -59,7 +59,7 @@ announce upgrade instructions until release.
 
 ## Change Log
 
-### version 1.5.0 (2024-07-13)
+### version 1.5.0 (2024-07-13, 870e470d)
 
 - BREAKING: If you run chorus behind a proxy like nginx, you MUST set the new `chorus_is_behind_a_proxy`
   config variable to true, and your proxy MUST set the `X-Real-IP` header.  If the header is missing,
