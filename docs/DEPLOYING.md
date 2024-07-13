@@ -43,6 +43,7 @@ sudo chown $(id -u) /opt/chorus/src
 cd /opt/chorus/src
 git clone https://github.com/mikedilger/chorus
 cd chorus
+git checkout latest
 ```
 
 Check if you have `rustc` and `cargo` installed. If so, you can skip this part.
@@ -174,6 +175,7 @@ sudo journalctl -f -u chorus.service
 ```
 
 ## Updating
+
 ````bash
 cd /opt/chorus/src/chorus
 git pull

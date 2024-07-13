@@ -49,7 +49,27 @@ However:
 
 [khatru](https://github.com/fiatjaf/khatru)
 
+## Git branches
+
+Use the branch `latest`.
+
+Do not run off of the `master` branch. Master is updated with breaking changes that are
+not only unstable, but which may require you to update your configuration. I will not
+announce upgrade instructions until release.
+
 ## Change Log
+
+### Version 1.4.0 (2024-05-07, 25058ef4)
+
+- Origin header logged
+- CLOSED: auth-required sent if DMs requested and not authenticated yet
+- config: minimum_ban_seconds, timeout_seconds, dont_ip_block
+- default for allow_scrape_if_max_seconds raised from 3600 to 7200
+- default for max_subscriptions raised from 32 to 128
+- timeouts no longer affect ban seconds
+- Internal: switched to pocket for the backend storage
+- creates lmdb subdirectory if missing
+- several bugfixes: filter parsing, empty tags, event ordering, chorus_compress was fixed
 
 ### Version 1.3.0 (2024-04-10, 7883d754)
 
