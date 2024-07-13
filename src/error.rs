@@ -269,7 +269,7 @@ impl ChorusError {
             ChorusError::NoSuchSubscription => 0.05,
             ChorusError::PocketDb(_) => 0.0,
             ChorusError::PocketDbHeed(_) => 0.0,
-            ChorusError::PocketType(_) => 0.0,
+            ChorusError::PocketType(_) => 0.25,
             ChorusError::ProtectedEvent => 0.35,
             ChorusError::RealIpHeaderMissing => 0.0,
             ChorusError::Restricted => 0.1,
