@@ -59,6 +59,27 @@ announce upgrade instructions until release.
 
 ## Change Log
 
+### version 1.5.0 (2024-07-13)
+
+- BREAKING: If you run chorus behind a proxy like nginx, you MUST set the new `chorus_is_behind_a_proxy`
+  config variable to true, and your proxy MUST set the `X-Real-IP` header.  If the header is missing,
+  connections will not be served. If you fail to set the `chorus_is_behind_a_proxy` setting, the proxy
+  IP address will be used directly, generally causing all connections to quickly become banned due to
+  the bad behavior of just one client, or due to too many connections from a single IP.
+- NEW CONFIG: `chorus_is_behind_a_proxy` (please set to true or false)
+- NEW CONFIG: `max_connections_per_ip` (defaults to 5)
+- NEW CONFIG: `moderator_hex_keys` (see next bullet point)
+- A rudimentary Management API is now available using https://github.com/nostr-protocol/nips/pull/1325
+  To use management front ends against chorus, you must add hex pubkeys to `moderator_hex_keys`.
+- Errors about DM kinds are much less common now, as we don't explicitly error unless they specify some set
+  of kinds (we implicitly filter out the DMs still)
+- Accurate count of bytes sent/received (SSL header data is now counted)
+- Kind 10050 dm relay list events are now treated the same way as kind 10002 relay list events.
+- Error message detail (e.g. source code line numbers) is now no longer sent to clients.
+- Some mild errors are now swallowed.
+- Updates of many dependencies, some updates were very large jumps and may change network/http behavior.
+- Receipt of a deleted EVENT now returns OK false (was OK true)
+
 ### Version 1.4.0 (2024-05-07, 25058ef4)
 
 - Origin header logged
