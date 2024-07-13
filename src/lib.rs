@@ -421,7 +421,7 @@ impl WebSocketService {
                         if msg.len() < 2048 {
                             log::warn!(target: "Client", "{}:   msg was {}", self.peer, msg);
                         } else {
-                            log::warn!(target: "Client", "{}:   truncated msg was {} ...", self.peer, &msg[..2048]);
+                            log::warn!(target: "Client", "{}:   msg > 2048 (not shown)", self.peer);
                         }
                     }
                     if !self.replied {
