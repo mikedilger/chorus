@@ -35,9 +35,9 @@ However:
 
 - Chorus is probably faster (more efficient)
 - Chorus has personal relay rules by default
-- Chorus has extensive IP banning to protect your relay from abuse
-- Chorus supports NIP-42 (AUTH), NIP-59 (GiftWrap), NIP-65 (Relay Lists) and PR 1030.
-- Chorus has a moderation tool
+- Chorus has extensive IP banning and rate limiting to protect your relay from abuse
+- Chorus supports NIP-42 (AUTH), NIP-59 (GiftWrap), NIP-65 (Relay Lists) and PR 1030 and PR 1325.
+- Chorus has a moderation cmd line tool and a moderation API (PR 1325)
 
 ### nostream
 
