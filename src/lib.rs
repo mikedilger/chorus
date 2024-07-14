@@ -155,6 +155,27 @@ async fn handle_http_request(
     }
 
     if hyper_tungstenite::is_upgrade_request(&request) {
+        // If the client asks for a Sec-Websocket-Protocol that we don't understand,
+        // Respond with 501 Not Implemented
+        let maybe_protocol: Option<String> = match request.headers().get("sec-websocket-protocol") {
+            None => None,
+            Some(hv) => hv.to_str().ok().map(|s| s.to_owned()),
+        };
+        if let Some(ref protocol) = maybe_protocol {
+            let mut we_can_do_nostr: bool = false;
+            for option in protocol.split(',') {
+                if option.trim() == "nostr" {
+                    we_can_do_nostr = true;
+                    break;
+                }
+            }
+            if !we_can_do_nostr {
+                return Ok(Response::builder()
+                    .status(StatusCode::NOT_IMPLEMENTED)
+                    .body(Full::new(Bytes::new()))?);
+            }
+        }
+
         let web_socket_config = WebSocketConfig {
             max_write_buffer_size: 1024 * 1024,  // 1 MB
             max_message_size: Some(1024 * 1024), // 1 MB
@@ -162,8 +183,17 @@ async fn handle_http_request(
             ..Default::default()
         };
 
-        let (response, websocket) =
+        let (mut response, websocket) =
             hyper_tungstenite::upgrade(&mut request, Some(web_socket_config))?;
+
+        // If the client asked for Sec-Websocket-Protocol, then we already checked it must
+        // have asked for 'nostr', so send that as a response header
+        if maybe_protocol.is_some() {
+            response.headers_mut().insert(
+                http::header::SEC_WEBSOCKET_PROTOCOL,
+                http::header::HeaderValue::from_static("nostr"),
+            );
+        }
 
         // Start the websocket thread
         tokio::spawn(async move { websocket_thread(peer, websocket, origin, ua).await });
