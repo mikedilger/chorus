@@ -323,6 +323,18 @@ struct WebSocketService {
 }
 
 impl WebSocketService {
+    async fn send(&mut self, m: Message) -> Result<(), Error> {
+        // Throttling: we consume burst tokens, but we do not throttle on output
+        if m.len() > self.burst_tokens {
+            self.burst_tokens = 0;
+        } else {
+            self.burst_tokens = self.burst_tokens - m.len();
+        }
+
+        self.replied = true;
+        Ok(self.websocket.send(m).await?)
+    }
+
     async fn handle_websocket_stream(&mut self) -> Result<(), Error> {
         // Subscribe to the shutting down channel
         let mut shutting_down = GLOBALS.shutting_down.subscribe();
@@ -332,7 +344,7 @@ impl WebSocketService {
 
         // Offer AUTH to clients right off the bat
         let reply = NostrReply::Auth(self.challenge.clone());
-        self.websocket.send(Message::text(reply.as_json())).await?;
+        self.send(Message::text(reply.as_json())).await?;
 
         let mut last_message_at = Instant::now();
 
@@ -349,7 +361,7 @@ impl WebSocketService {
                     if self.subscriptions.is_empty() {
                         // And they are idle for timeout_seconds with no subscriptions
                         if last_message_at + Duration::from_secs(timeout_seconds) < instant {
-                            self.websocket.send(Message::Close(None)).await?;
+                            self.send(Message::Close(None)).await?;
                             return Err(ChorusError::TimedOut.into());
                         }
                     }
@@ -375,7 +387,7 @@ impl WebSocketService {
                 },
                 _r = shutting_down.changed() => {
                     // Shutdown the websocket gracefully
-                    self.websocket.send(Message::Close(None)).await?;
+                    self.send(Message::Close(None)).await?;
                     break;
                 },
             }
@@ -405,6 +417,7 @@ impl WebSocketService {
                     && nostr::screen_outgoing_event(event, &event_flags, authorized_user)
                 {
                     let message = NostrReply::Event(subid, event);
+                    // note, this is not currently counted in throttling
                     self.websocket
                         .send(Message::text(message.as_json()))
                         .await?;
@@ -429,9 +442,7 @@ impl WebSocketService {
             self.last_message = Instant::now();
 
             // Grant new tokens
-            let new_tokens = throttling_bytes_per_second
-                * elapsed.as_millis() as usize
-                / 1_000;
+            let new_tokens = throttling_bytes_per_second * elapsed.as_millis() as usize / 1_000;
             self.burst_tokens = self.burst_tokens + new_tokens;
 
             // Cap tokens to a maximum
@@ -443,7 +454,7 @@ impl WebSocketService {
             if message.len() > self.burst_tokens {
                 log::info!(target: "Client", "{}: Rate limited exceeded", self.peer);
                 let reply = NostrReply::Notice("Rate limit exceeded.".into());
-                self.websocket.send(Message::text(reply.as_json())).await?;
+                self.send(Message::text(reply.as_json())).await?;
                 let error = ChorusError::RateLimitExceeded;
                 self.error_punishment += error.punishment();
                 return Err(error.into());
@@ -469,11 +480,11 @@ impl WebSocketService {
                     }
                     if !self.replied {
                         let reply = NostrReply::Notice(format!("error: {}", e.inner));
-                        self.websocket.send(Message::text(reply.as_json())).await?;
+                        self.send(Message::text(reply.as_json())).await?;
                     }
                     if self.error_punishment >= 1.0 {
                         let reply = NostrReply::Notice("Closing due to error(s)".into());
-                        self.websocket.send(Message::text(reply.as_json())).await?;
+                        self.send(Message::text(reply.as_json())).await?;
                         return Err(ChorusError::ErrorClose.into());
                     }
                 }
@@ -482,7 +493,7 @@ impl WebSocketService {
                 let reply = NostrReply::Notice(
                     "binary messages are not processed by this relay".to_owned(),
                 );
-                self.websocket.send(Message::text(reply.as_json())).await?;
+                self.send(Message::text(reply.as_json())).await?;
                 log::info!(target: "Client",
                     "{}: Received unhandled binary message: {:02X?}",
                     self.peer,

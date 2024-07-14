@@ -2,7 +2,6 @@ use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
 use crate::reply::{NostrReply, NostrReplyPrefix};
 use crate::WebSocketService;
-use futures::SinkExt;
 use hyper_tungstenite::tungstenite::Message;
 use pocket_types::json::{eat_whitespace, json_unescape, verify_char};
 use pocket_types::{Event, Filter, Kind, OwnedFilter, Pubkey, Time};
@@ -34,8 +33,7 @@ impl WebSocketService {
         } else {
             log::warn!(target: "Client", "{}: Received unhandled text message: {}", self.peer, msg);
             let reply = NostrReply::Notice("Command unrecognized".to_owned());
-            self.websocket.send(Message::text(reply.as_json())).await?;
-            self.replied = true;
+            self.send(Message::text(reply.as_json())).await?;
         }
 
         Ok(())
@@ -94,8 +92,7 @@ impl WebSocketService {
                 }
                 _ => NostrReply::Closed(&subid, NostrReplyPrefix::Error, format!("{}", e.inner)),
             };
-            self.websocket.send(Message::text(reply.as_json())).await?;
-            self.replied = true;
+            self.send(Message::text(reply.as_json())).await?;
             Err(e)
         } else {
             Ok(())
@@ -125,8 +122,7 @@ impl WebSocketService {
                         NostrReplyPrefix::AuthRequired,
                         "DM kinds were included in the REQ".to_owned(),
                     );
-                    self.websocket.send(Message::text(reply.as_json())).await?;
-                    self.replied = true;
+                    self.send(Message::text(reply.as_json())).await?;
                     return Ok(());
                 }
             }
@@ -168,18 +164,16 @@ impl WebSocketService {
 
             for event in events.drain(..) {
                 let reply = NostrReply::Event(subid, event);
-                self.websocket.send(Message::text(reply.as_json())).await?;
+                self.send(Message::text(reply.as_json())).await?;
             }
 
             // eose
             let reply = NostrReply::Eose(subid);
-            self.websocket.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json())).await?;
         }
 
         // Store subscription
         self.subscriptions.insert(subid.to_owned(), filters);
-
-        self.replied = true;
 
         log::debug!(target: "Client",
             "{}: new subscription \"{subid}\", {} total",
@@ -250,13 +244,11 @@ impl WebSocketService {
                 },
                 _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e.inner)),
             };
-            self.websocket.send(Message::text(reply.as_json())).await?;
-            self.replied = true;
+            self.send(Message::text(reply.as_json())).await?;
             Err(e)
         } else {
             let reply = NostrReply::Ok(id, true, NostrReplyPrefix::None, "".to_string());
-            self.websocket.send(Message::text(reply.as_json())).await?;
-            self.replied = true;
+            self.send(Message::text(reply.as_json())).await?;
             Ok(())
         }
     }
@@ -314,8 +306,7 @@ impl WebSocketService {
             // Remove it, and let them know
             self.subscriptions.remove(subid);
             let reply = NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned());
-            self.websocket.send(Message::text(reply.as_json())).await?;
-            self.replied = true;
+            self.send(Message::text(reply.as_json())).await?;
             Ok(())
         } else {
             Err(ChorusError::NoSuchSubscription.into())
@@ -341,13 +332,11 @@ impl WebSocketService {
                 }
                 _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e.inner)),
             };
-            self.websocket.send(Message::text(reply.as_json())).await?;
-            self.replied = true;
+            self.send(Message::text(reply.as_json())).await?;
             Err(e)
         } else {
             let reply = NostrReply::Ok(id, true, NostrReplyPrefix::None, "".to_string());
-            self.websocket.send(Message::text(reply.as_json())).await?;
-            self.replied = true;
+            self.send(Message::text(reply.as_json())).await?;
             Ok(())
         }
     }
