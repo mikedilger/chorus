@@ -263,6 +263,7 @@ dependencies = [
  "env_logger",
  "futures",
  "hex",
+ "http",
  "http-body-util",
  "hyper",
  "hyper-tungstenite",
