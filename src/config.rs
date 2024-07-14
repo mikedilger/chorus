@@ -73,8 +73,8 @@ impl Default for FriendlyConfig {
             minimum_ban_seconds: 1,
             timeout_seconds: 60,
             max_connections_per_ip: 5,
-            throttling_bytes_per_second: 1024 * 128,
-            throttling_burst: 1024 * 1024 * 4,
+            throttling_bytes_per_second: 1024 * 1024,
+            throttling_burst: 1024 * 1024 * 16,
         }
     }
 }

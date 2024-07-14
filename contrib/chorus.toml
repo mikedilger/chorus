@@ -272,12 +272,13 @@ timeout_seconds = 60
 max_connections_per_ip = 5
 
 
-# The maximum rate (excluding bursts) of data that will be accepted over a websocket connection
-# (per connection). Beyond this rate (in a sustained way) the connection will be closed.
+# The maximum rate (excluding bursts) of data that will be transmitted over a websocket connection
+# (both directions, per connection). Beyond this rate (in a sustained way) the connection will be
+# closed.
 #
-# Default is 131072 bytes per second.
+# Default is 1024576 bytes per second.
 #
-throttling_bytes_per_second = 131072
+throttling_bytes_per_second = 1024576
 
 
 # The allowable bursts of data beyond the normal rate.
@@ -287,6 +288,6 @@ throttling_bytes_per_second = 131072
 # second. If that bucket doesn't have enough, the burst won't be allowed and the connection
 # will be closed.
 #
-# Default is 4194304 bytes.
+# Default is 16777216 bytes.
 #
-throttling_burst = 4194304
+throttling_burst = 16777216

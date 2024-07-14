@@ -237,10 +237,11 @@ Default is 5
 
 ### throttling_bytes_per_second
 
-The maximum rate (excluding bursts) of data that will be accepted over a websocket connection
-(per connection). Beyond this rate (in a sustained way) the connection will be closed.
+The maximum rate (excluding bursts) of data that will be transmitted over a websocket connection
+(both directions, per connection). Beyond this rate (in a sustained way) the connection will be
+closed.
 
-Default is 131072 bytes per second.
+Default is 1024576 bytes per second.
 
 ### throttling_burst
 
@@ -251,4 +252,4 @@ As bytes are consumed the count goes down, but we refund throttling_bytes_per_se
 second. If that bucket doesn't have enough, the burst won't be allowed and the connection
 will be closed.
 
-Default is 4194304 bytes.
+Default is 16777216 bytes.
