@@ -8,7 +8,6 @@ use std::fs::OpenOptions;
 use std::io::Read;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::signal::unix::{signal, SignalKind};
 
@@ -87,7 +86,7 @@ async fn main() -> Result<(), Error> {
 
             // Accepts network connections and spawn a task to serve each one
             v = listener.accept() => {
-                let (mut tcp_stream, hashed_peer) = {
+                let (tcp_stream, hashed_peer) = {
                     let (tcp_stream, peer_addr) = v?;
                     let hashed_peer = HashedPeer::new(peer_addr);
                     (tcp_stream, hashed_peer)
@@ -103,7 +102,8 @@ async fn main() -> Result<(), Error> {
                                     "{}: Blocking reconnection until {}",
                                     hashed_peer.ip(),
                                     ip_data.ban_until);
-                        let _ = tcp_stream.shutdown().await;
+                        // note: no need to shutdown() which only drops the write half.
+                        // the whole thing gets dropped when we continue.
                         continue;
                     }
                 }
