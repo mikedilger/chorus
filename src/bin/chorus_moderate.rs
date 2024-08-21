@@ -52,6 +52,11 @@ fn main() -> Result<(), Error> {
             continue;
         }
 
+        // Skip config data
+        if event.kind() == Kind::from(3) || event.kind() == Kind::from(0) {
+            continue;
+        }
+
         // Skip if the author is authorized user
         if config.user_keys.contains(&event.pubkey()) {
             continue;
