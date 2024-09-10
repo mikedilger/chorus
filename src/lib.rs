@@ -314,13 +314,17 @@ async fn websocket_thread(peer: HashedPeer, websocket: HyperWebsocket, origin: S
             };
 
             // Update ip data (including ban time)
-            // if GLOBALS.config.read().enable_ip_blocking {
-            let mut ban_seconds = 0;
             let minimum_ban_seconds = GLOBALS.config.read().minimum_ban_seconds;
-            if let Ok(mut ip_data) = get_ip_data(GLOBALS.store.get().unwrap(), peer.ip()) {
-                ban_seconds = ip_data.update_on_session_close(session_exit, minimum_ban_seconds);
-                let _ = update_ip_data(GLOBALS.store.get().unwrap(), peer.ip(), &ip_data);
-            }
+            let ban_seconds = if GLOBALS.config.read().enable_ip_blocking {
+                let mut ban_seconds = 0;
+                if let Ok(mut ip_data) = get_ip_data(GLOBALS.store.get().unwrap(), peer.ip()) {
+                    ban_seconds = ip_data.update_on_session_close(session_exit, minimum_ban_seconds);
+                    let _ = update_ip_data(GLOBALS.store.get().unwrap(), peer.ip(), &ip_data);
+                }
+                ban_seconds
+            } else {
+                minimum_ban_seconds
+            };
 
             // we cheat somewhat and log these websocket open and close messages
             // as server messages
