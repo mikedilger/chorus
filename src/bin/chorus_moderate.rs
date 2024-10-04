@@ -18,6 +18,17 @@ fn main() -> Result<(), Error> {
 
     chorus::setup_logging(&config);
 
+    // These kinds don't need approval:
+    let allowed_kinds = vec![
+        Kind::from(4), // Encrypted Direct Message
+        Kind::from(1059), // Giftwrap
+        Kind::from(10002), // Relay list
+        Kind::from(10050), // DM Relay list
+        Kind::from(0), // Metadata
+        Kind::from(3), // Following list
+        Kind::from(7), // Reaction
+    ];
+
     let store = chorus::setup_store(&config)?;
 
     let mut buffer: [u8; 128] = [0; 128];
@@ -37,23 +48,12 @@ fn main() -> Result<(), Error> {
     let mut input = String::new();
 
     'eventloop: for event in events.drain(..) {
-        // Skip DMs which don't need approval
-        if event.kind() == Kind::from(4) || event.kind() == Kind::from(1059) {
-            continue;
-        }
-
-        // Skip relay lists which don't need approval
-        if event.kind() == Kind::from(10002) {
+        if allowed_kinds.contains(&event.kind()) {
             continue;
         }
 
         // Skip ephemeral events which don't need approval
         if event.kind().is_ephemeral() {
-            continue;
-        }
-
-        // Skip config data
-        if event.kind() == Kind::from(3) || event.kind() == Kind::from(0) {
             continue;
         }
 
