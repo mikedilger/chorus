@@ -69,7 +69,7 @@ cargo build --release
 Ok now let's install that (along with the utility binaries):
 
 ```bash
-sudo install --mode=0700 --owner=chorus ./target/release/{chorus,chorus_compress,chorus_dump,chorus_dump_approvals,chorus_moderate} /opt/chorus/sbin/
+sudo install --mode=0700 --owner=chorus ./target/release/{chorus,chorus_compress,chorus_dump,chorus_dump_approvals,chorus_moderate,chorus_cmd} /opt/chorus/sbin/
 ```
 
 Now let's create our config file
@@ -180,7 +180,7 @@ sudo journalctl -f -u chorus.service
 cd /opt/chorus/src/chorus
 git pull
 cargo build --release
-sudo install --mode=0700 --owner=chorus ./target/release/{chorus,chorus_compress,chorus_dump,chorus_dump_approvals,chorus_moderate} /opt/chorus/sbin/
+sudo install --mode=0700 --owner=chorus ./target/release/{chorus,chorus_compress,chorus_dump,chorus_dump_approvals,chorus_moderate,chorus_cmd} /opt/chorus/sbin/
 sudo systemctl restart chorus.service
 ````
 

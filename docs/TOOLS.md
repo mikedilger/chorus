@@ -27,3 +27,9 @@ This shows the public keys you have approved.
 Usage: **chorus_moderate** *<path_to_config_file\>*
 
 This is an interactive tool to moderate events which have been accepted, but which are not authored by a chorus user.  If you chose to approve them, they will become available to the public.
+
+## chorus_cmd
+
+Usage: **chorus_cmd** *<path_to_config_file\>* *<command\>* *[args...]*
+
+Commands available:   delete_by_id (specify the ID in hex),  delete_by_pubkey (specify the pubkey in hex)
