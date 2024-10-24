@@ -70,6 +70,9 @@ pub enum ChorusError {
     // From UTF8
     FromUtf8(std::string::FromUtf8Error),
 
+    // General
+    General(String),
+
     // Http
     Http(hyper::http::Error),
 
@@ -176,6 +179,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::ErrorClose => write!(f, "Closing due to error(s)"),
             ChorusError::EventIsInvalid(s) => write!(f, "Event is invalid: {s}"),
             ChorusError::FromUtf8(e) => write!(f, "{e}"),
+            ChorusError::General(s) => write!(f, "{s}"),
             ChorusError::Http(e) => write!(f, "{e}"),
             ChorusError::Hyper(e) => write!(f, "{e}"),
             ChorusError::InvalidUri(e) => write!(f, "{e}"),
@@ -261,6 +265,7 @@ impl ChorusError {
             ChorusError::ErrorClose => 1.0,
             ChorusError::EventIsInvalid(_) => 0.2,
             ChorusError::FromUtf8(_) => 0.2,
+            ChorusError::General(_) => 0.0,
             ChorusError::Http(_) => 0.0,
             ChorusError::Hyper(_) => 0.0,
             ChorusError::InvalidUri(_) => 0.0,
