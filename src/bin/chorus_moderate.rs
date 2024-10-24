@@ -20,13 +20,13 @@ fn main() -> Result<(), Error> {
 
     // These kinds don't need approval:
     let allowed_kinds = vec![
-        Kind::from(4), // Encrypted Direct Message
-        Kind::from(1059), // Giftwrap
+        Kind::from(4),     // Encrypted Direct Message
+        Kind::from(1059),  // Giftwrap
         Kind::from(10002), // Relay list
         Kind::from(10050), // DM Relay list
-        Kind::from(0), // Metadata
-        Kind::from(3), // Following list
-        Kind::from(7), // Reaction
+        Kind::from(0),     // Metadata
+        Kind::from(3),     // Following list
+        Kind::from(7),     // Reaction
     ];
 
     let store = chorus::setup_store(&config)?;
