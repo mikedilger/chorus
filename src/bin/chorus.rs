@@ -179,10 +179,10 @@ async fn main() -> Result<(), Error> {
         }
     }
 
+    chorus::print_stats();
+
     log::info!(target: "Server", "Syncing and shutting down.");
     let _ = GLOBALS.store.get().unwrap().sync();
-
-    chorus::print_stats();
 
     Ok(())
 }

@@ -595,6 +595,15 @@ pub fn print_stats() {
         GLOBALS.bytes_outbound.load(Ordering::Relaxed),
         (GLOBALS.bytes_outbound.load(Ordering::Relaxed) as f32) / (runtime as f32)
     );
+    if let Ok(status) = GLOBALS.store.get().unwrap().stats() {
+        log::info!(
+            target: "Server",
+            "Store: {} event bytes in {} events, {} bytes for the indexes",
+            status.event_bytes,
+            status.index_stats.i_index_entries,
+            status.index_stats.disk_usage
+        );
+    }
 }
 
 /// Load config file
