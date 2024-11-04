@@ -87,6 +87,10 @@ This is an optional description for your relay, displayed in the NIP-11 response
 
 Default is "A default config of the Chorus relay".
 
+### icon_url
+
+This is an optional URL for an graphical icon representing your relay, displayed in the NIP-11 response.
+
 ### contact
 
 This is an optional contact for your relay, displayed in the NIP-11 response.

@@ -79,6 +79,12 @@ fn build_rid(config: &Config) -> String {
         rid.push_str(description);
         rid.push('\"');
     }
+    if let Some(icon_url) = &config.icon_url {
+        rid.push(',');
+        rid.push_str("\"icon\":\"");
+        rid.push_str(icon_url);
+        rid.push('\"');
+    }
     if let Some(contact) = &config.contact {
         rid.push(',');
         rid.push_str("\"contact\":\"");

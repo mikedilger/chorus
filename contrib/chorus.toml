@@ -90,6 +90,14 @@ key_pem_path = "/opt/chorus/etc/tls/privkey.pem"
 # description = "A default config of the Chorus relay"
 
 
+# This is an icon URL pointing to an image representing your relay, displayed in the NIP-11
+# response.
+#
+# Default is not set
+#
+# icon_url =
+
+
 # This is an optional contact for your relay, displayed in the NIP-11 response.
 #
 # Default is not set

@@ -10,6 +10,7 @@ certchain_pem_path = "tls/fullchain.pem"
 key_pem_path = "tls/privkey.pem"
 name = "Chorus Sample"
 description = "A sample run of the Chorus relay"
+# icon_url =
 open_relay = false
 user_hex_keys = [
   "ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49"

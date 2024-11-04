@@ -83,7 +83,7 @@ Go ahead and edit that file to your liking. In particular:
 - Change the `ip_address` to your internet-accessible IP address (if you are running directly)
   or to 127.0.0.1 with a local port like 8080 (if you are proxying behind nginx)
 - Change the port if necessary
-- Change the name, description, and contact (e.g. your email address) as desired
+- Change the name, description, icon_url and contact (e.g. your email address) as desired
 - Set your public_key_hex (it is an option, so use `Some()`)
 - Set hex keys of users for which this relay will act as a personal relay
 
