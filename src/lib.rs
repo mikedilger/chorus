@@ -14,7 +14,8 @@ use crate::globals::GLOBALS;
 use crate::ip::{HashedIp, HashedPeer, IpData, SessionExit};
 use crate::reply::NostrReply;
 use futures::{sink::SinkExt, stream::StreamExt};
-use http_body_util::Full;
+use http_body_util::combinators::BoxBody;
+use http_body_util::{BodyExt, Empty};
 use hyper::body::{Bytes, Incoming};
 use hyper::service::Service;
 use hyper::upgrade::Upgraded;
@@ -78,7 +79,7 @@ struct ChorusService {
 }
 
 impl Service<Request<Incoming>> for ChorusService {
-    type Response = Response<Full<Bytes>>;
+    type Response = Response<BoxBody<Bytes, Self::Error>>;
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
@@ -134,7 +135,7 @@ impl Service<Request<Incoming>> for ChorusService {
 async fn handle_http_request(
     peer: HashedPeer,
     mut request: Request<Incoming>,
-) -> Result<Response<Full<Bytes>>, Error> {
+) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     let ua = match request.headers().get("user-agent") {
         Some(ua) => ua.to_str().unwrap_or("NON-UTF8-HEADER").to_owned(),
         None => "(no user-agent)".to_owned(),
@@ -150,7 +151,7 @@ async fn handle_http_request(
         if *cur.value() >= max_conn {
             return Ok(Response::builder()
                 .status(StatusCode::TOO_MANY_REQUESTS)
-                .body(Full::new(Bytes::new()))?);
+                .body(Empty::new().map_err(|e| e.into()).boxed())?);
         }
     }
 
@@ -172,7 +173,7 @@ async fn handle_http_request(
             if !we_can_do_nostr {
                 return Ok(Response::builder()
                     .status(StatusCode::NOT_IMPLEMENTED)
-                    .body(Full::new(Bytes::new()))?);
+                    .body(Empty::new().map_err(|e| e.into()).boxed())?);
             }
         }
 
@@ -198,7 +199,7 @@ async fn handle_http_request(
         // Start the websocket thread
         tokio::spawn(async move { websocket_thread(peer, websocket, origin, ua).await });
 
-        Ok(response)
+        Ok(response.map(|body| body.map_err(|e| e.into()).boxed()))
     } else {
         web::serve_http(peer, request).await
     }

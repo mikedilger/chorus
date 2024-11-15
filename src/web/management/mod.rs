@@ -1,14 +1,18 @@
 use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
 use crate::ip::HashedPeer;
-use http_body_util::Full;
+use http_body_util::combinators::BoxBody;
+use http_body_util::{BodyExt, Full};
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response, StatusCode};
 use pocket_types::{Id, Pubkey};
 use serde_json::{json, Map, Value};
 mod auth;
 
-fn respond(json: serde_json::Value, status: StatusCode) -> Result<Response<Full<Bytes>>, Error> {
+fn respond(
+    json: serde_json::Value,
+    status: StatusCode,
+) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     let s: String = serde_json::to_string(&json)?;
     let response = Response::builder()
         .header("Access-Control-Allow-Origin", "*")
@@ -16,14 +20,18 @@ fn respond(json: serde_json::Value, status: StatusCode) -> Result<Response<Full<
         .header("Access-Control-Allow-Methods", "*")
         .header("Content-Type", "application/nostr+json")
         .status(status)
-        .body(s.into_bytes().into())?;
+        .body(
+            Full::new(s.into_bytes().into())
+                .map_err(|e| e.into())
+                .boxed(),
+        )?;
     Ok(response)
 }
 
 pub async fn handle(
     _peer: HashedPeer,
     request: Request<Incoming>,
-) -> Result<Response<Full<Bytes>>, Error> {
+) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     let command: Value = match auth::check_auth(request).await {
         Ok(v) => v,
         Err(e) => {

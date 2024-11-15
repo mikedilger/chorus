@@ -2,11 +2,12 @@ use crate::config::Config;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::ip::HashedPeer;
-use http_body_util::Full;
+use http_body_util::combinators::BoxBody;
+use http_body_util::{BodyExt, Full};
 use hyper::body::Bytes;
 use hyper::{Response, StatusCode};
 
-pub async fn serve_nip11(peer: HashedPeer) -> Result<Response<Full<Bytes>>, Error> {
+pub async fn serve_nip11(peer: HashedPeer) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     log::debug!(target: "Client", "{}: sent NIP-11", peer);
     let rid = {
         let config = &*GLOBALS.config.read();
@@ -19,7 +20,7 @@ pub async fn serve_nip11(peer: HashedPeer) -> Result<Response<Full<Bytes>>, Erro
         .header("Access-Control-Allow-Methods", "*")
         .header("Content-Type", "application/nostr+json")
         .status(StatusCode::OK)
-        .body(rid.clone().into())?;
+        .body(Full::new(rid.clone().into()).map_err(|e| e.into()).boxed())?;
     Ok(response)
 }
 

@@ -1,3 +1,4 @@
+use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::panic::Location;
 
@@ -78,6 +79,9 @@ pub enum ChorusError {
 
     // Hyper
     Hyper(hyper::Error),
+
+    // Infallible
+    Infallible,
 
     // Invalid URI
     InvalidUri(hyper::http::uri::InvalidUri),
@@ -182,6 +186,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::General(s) => write!(f, "{s}"),
             ChorusError::Http(e) => write!(f, "{e}"),
             ChorusError::Hyper(e) => write!(f, "{e}"),
+            ChorusError::Infallible => panic!("INFALLIBLE"),
             ChorusError::InvalidUri(e) => write!(f, "{e}"),
             ChorusError::InvalidUriParts(e) => write!(f, "{e}"),
             ChorusError::Io(e) => write!(f, "{e}"),
@@ -268,6 +273,7 @@ impl ChorusError {
             ChorusError::General(_) => 0.0,
             ChorusError::Http(_) => 0.0,
             ChorusError::Hyper(_) => 0.0,
+            ChorusError::Infallible => panic!("INFALLIBLE"),
             ChorusError::InvalidUri(_) => 0.0,
             ChorusError::InvalidUriParts(_) => 0.0,
             ChorusError::Io(_) => 0.0,
@@ -522,5 +528,11 @@ impl From<base64::DecodeError> for Error {
             inner: ChorusError::Base64Decode(err),
             location: std::panic::Location::caller(),
         }
+    }
+}
+
+impl From<Infallible> for Error {
+    fn from(_: Infallible) -> Self {
+        panic!("INFALLIBLE")
     }
 }
