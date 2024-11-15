@@ -61,10 +61,19 @@ announce upgrade instructions until release.
 
 ## Change Log
 
-### version 1.5.2 (TBD)
+### Version 1.5.3
+
+- Performance improvements (streaming body)
+- Approval not required for kinds 0, 3, and reactions (as well as prior list)
+- FIX honor enable_ip_blocking = false
+- NEW `chorus_cmd` with `delete_by_id` and `delete_by_pubkey`
+- optional `icon_url` for NIP-11
+
+### version 1.5.2 (2024-07-31, d8689540)
 
 - NEW CONFIG: `throttling_bytes_per_second` how many bytes are allowed per second
 - NEW CONFIG: `throttling_burst` how many bytes can be accepted per connection in a burst
+- Don't wait more than 5 seconds for connections to close when shutting down
 
 ### version 1.5.1 (2024-07-14, c9c71311)
 
