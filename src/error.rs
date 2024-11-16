@@ -539,3 +539,9 @@ impl From<Infallible> for Error {
         panic!("INFALLIBLE")
     }
 }
+
+impl From<Error> for std::io::Error {
+    fn from(e: Error) -> std::io::Error {
+        std::io::Error::other(e)
+    }
+}
