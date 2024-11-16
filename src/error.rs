@@ -68,6 +68,9 @@ pub enum ChorusError {
     // Event is Invalid
     EventIsInvalid(String),
 
+    // From hex
+    FromHex(hex::FromHexError),
+
     // From UTF8
     FromUtf8(std::string::FromUtf8Error),
 
@@ -182,6 +185,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::Crypto(e) => write!(f, "{e}"),
             ChorusError::ErrorClose => write!(f, "Closing due to error(s)"),
             ChorusError::EventIsInvalid(s) => write!(f, "Event is invalid: {s}"),
+            ChorusError::FromHex(e) => write!(f, "{e}"),
             ChorusError::FromUtf8(e) => write!(f, "{e}"),
             ChorusError::General(s) => write!(f, "{s}"),
             ChorusError::Http(e) => write!(f, "{e}"),
@@ -225,6 +229,7 @@ impl StdError for ChorusError {
             ChorusError::ChannelSend(e) => Some(e),
             ChorusError::Config(e) => Some(e),
             ChorusError::Crypto(e) => Some(e),
+            ChorusError::FromHex(e) => Some(e),
             ChorusError::FromUtf8(e) => Some(e),
             ChorusError::Http(e) => Some(e),
             ChorusError::Hyper(e) => Some(e),
@@ -272,6 +277,7 @@ impl ChorusError {
             ChorusError::Crypto(_) => 0.1,
             ChorusError::ErrorClose => 1.0,
             ChorusError::EventIsInvalid(_) => 0.2,
+            ChorusError::FromHex(_) => 0.2,
             ChorusError::FromUtf8(_) => 0.2,
             ChorusError::General(_) => 0.0,
             ChorusError::Http(_) => 0.0,
@@ -509,6 +515,16 @@ impl From<serde_json::Error> for Error {
     fn from(err: serde_json::Error) -> Self {
         Error {
             inner: ChorusError::SerdeJson(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<hex::FromHexError> for Error {
+    #[track_caller]
+    fn from(err: hex::FromHexError) -> Self {
+        Error {
+            inner: ChorusError::FromHex(err),
             location: std::panic::Location::caller(),
         }
     }
