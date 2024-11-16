@@ -1,6 +1,7 @@
 pub mod config;
 pub mod counting_stream;
 pub mod error;
+pub mod filestore;
 pub mod globals;
 pub mod ip;
 pub mod nostr;
