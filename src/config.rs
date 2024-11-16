@@ -40,6 +40,7 @@ pub struct FriendlyConfig {
     pub max_connections_per_ip: usize,
     pub throttling_bytes_per_second: usize,
     pub throttling_burst: usize,
+    pub blossom_directory: Option<String>,
 }
 
 impl Default for FriendlyConfig {
@@ -77,6 +78,7 @@ impl Default for FriendlyConfig {
             max_connections_per_ip: 5,
             throttling_bytes_per_second: 1024 * 1024,
             throttling_burst: 1024 * 1024 * 16,
+            blossom_directory: None,
         }
     }
 }
@@ -116,6 +118,7 @@ impl FriendlyConfig {
             max_connections_per_ip,
             throttling_bytes_per_second,
             throttling_burst,
+            blossom_directory,
         } = self;
 
         let mut public_key: Option<Pubkey> = None;
@@ -177,6 +180,7 @@ impl FriendlyConfig {
             max_connections_per_ip,
             throttling_bytes_per_second,
             throttling_burst,
+            blossom_directory,
         })
     }
 }
@@ -217,6 +221,7 @@ pub struct Config {
     pub max_connections_per_ip: usize,
     pub throttling_bytes_per_second: usize,
     pub throttling_burst: usize,
+    pub blossom_directory: Option<String>,
 }
 
 impl Default for Config {

@@ -299,3 +299,16 @@ throttling_bytes_per_second = 1024576
 # Default is 16777216 bytes.
 #
 throttling_burst = 16777216
+
+
+# Blossom server directory
+#
+# Set to a filesystem directory where you want chorus to store files.
+#
+# Blossom allows clients to upload files making them available for the public to download.
+# Our implementation makes all files publicly readable, but only chorus users can upload
+# or delete.  See https://github.com/hzrd149/blossom
+#
+# Default is not set
+#
+# blossom_directory =
