@@ -1,7 +1,9 @@
+mod blossom;
 mod management;
 mod nip11;
 
-use crate::error::Error;
+use crate::error::{ChorusError, Error};
+use crate::globals::GLOBALS;
 use crate::ip::HashedPeer;
 use http::Method;
 use http_body_util::combinators::BoxBody;
@@ -37,6 +39,18 @@ pub async fn serve_http(
             }
             if s == "application/nostr+json+rpc" {
                 return management::handle(peer, request).await;
+            }
+        }
+    }
+
+    // Try blossom if enabled
+    if GLOBALS.config.read().blossom_directory.is_some() {
+        match blossom::handle(&request).await {
+            Ok(response) => return Ok(response),
+            Err(e) => {
+                if !matches!(e.inner, ChorusError::SignalNotBlossom) {
+                    return Err(e);
+                }
             }
         }
     }
