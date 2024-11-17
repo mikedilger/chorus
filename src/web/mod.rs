@@ -43,6 +43,8 @@ pub async fn serve_http(
         }
     }
 
+    let uri = request.uri().to_owned();
+
     // Try blossom if enabled
     if GLOBALS.config.read().blossom_directory.is_some() {
         match blossom::handle(&request).await {
@@ -55,7 +57,8 @@ pub async fn serve_http(
         }
     }
 
-    log::debug!(target: "Client", "{}: HTTP request for {}", peer, request.uri());
+    log::debug!(target: "Client", "{}: HTTP request for {}", peer, uri);
+
     let response = Response::builder()
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Headers", "*")

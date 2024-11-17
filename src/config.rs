@@ -234,7 +234,7 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn url(&self, inner: Uri, http: bool) -> Result<Uri, Error> {
+    pub fn uri_parts(&self, inner: Uri, http: bool) -> Result<http::uri::Parts, Error> {
         let mut uri_parts = inner.into_parts();
         let scheme = match (self.use_tls, http) {
             (false, false) => Scheme::from_str("ws").unwrap(),
@@ -245,6 +245,6 @@ impl Config {
         uri_parts.scheme = Some(scheme);
         let authority = Authority::from_str(&format!("{}:{}", self.hostname, self.port))?;
         uri_parts.authority = Some(authority);
-        Ok(Uri::from_parts(uri_parts)?)
+        Ok(uri_parts)
     }
 }
