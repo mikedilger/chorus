@@ -1,6 +1,7 @@
 use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
 use base64::prelude::*;
+use http::header::AUTHORIZATION;
 use http_body_util::BodyExt;
 use hyper::body::Incoming;
 use hyper::Request;
@@ -19,7 +20,7 @@ pub async fn check_auth(request: Request<Incoming>) -> Result<Value, Error> {
     }
 
     // Must have AUTHORIZATION header
-    let authz = match request.headers().get("Authorization") {
+    let authz = match request.headers().get(AUTHORIZATION) {
         Some(h) => h,
         None => return s_err("Authorization header not of type nostr"),
     };
