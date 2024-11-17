@@ -1,4 +1,6 @@
 use crate::error::{ChorusError, Error};
+use crate::filestore::HashOutput;
+use crate::globals::GLOBALS;
 use http::header::{
     ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS, ACCESS_CONTROL_ALLOW_ORIGIN,
     ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ALLOW, CONTENT_LENGTH, ORIGIN,
@@ -12,7 +14,7 @@ use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response};
 
 mod auth;
-use auth::verify_auth;
+use auth::{verify_auth, AuthVerb};
 
 pub async fn handle(request: &Request<Incoming>) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     match route(request).await {
@@ -105,9 +107,52 @@ pub async fn handle_hash(
         return options_response(request, "OPTIONS, HEAD, GET, DELETE");
     }
 
-    let _auth_data = verify_auth(request)?;
+    // HEAD, GET, DELETE
+    let p = request.uri().path();
+    let hashstr: String = p.chars().skip(1).take(64).collect();
+    let hash = match HashOutput::from_hex(&hashstr) {
+        Ok(h) => h,
+        Err(e) => return error_response(e),
+    };
 
-    unimplemented!()
+    let metadata = GLOBALS.filestore.get().unwrap().metadata(hash).await?;
+
+    match request.method() {
+        &Method::HEAD => Ok(Response::builder()
+            .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .header(CONTENT_LENGTH, format!("{}", metadata.len()))
+            .status(StatusCode::OK)
+            .body(Empty::new().map_err(|e| e.into()).boxed())?),
+        &Method::GET => {
+            let body = GLOBALS.filestore.get().unwrap().retrieve(hash).await?;
+            Ok(Response::builder()
+                .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                .header(CONTENT_LENGTH, format!("{}", metadata.len()))
+                .status(StatusCode::OK)
+                .body(body)?)
+        }
+        &Method::DELETE => {
+            let auth_data = verify_auth(request)?;
+            if auth_data.verb != Some(AuthVerb::Delete) {
+                return Err(ChorusError::BlossomAuthFailure(
+                    "Delete was not authorized".to_string(),
+                )
+                .into());
+            }
+
+            GLOBALS.filestore.get().unwrap().delete(hash).await?;
+            Ok(Response::builder()
+                .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                .header(CONTENT_LENGTH, "0")
+                .status(StatusCode::OK)
+                .body(Empty::new().map_err(|e| e.into()).boxed())?)
+        }
+        _ => Ok(Response::builder()
+            .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .header(CONTENT_LENGTH, "0")
+            .status(StatusCode::METHOD_NOT_ALLOWED)
+            .body(Empty::new().map_err(|e| e.into()).boxed())?),
+    }
 }
 
 pub async fn handle_upload(
