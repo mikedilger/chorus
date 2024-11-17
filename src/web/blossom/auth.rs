@@ -32,8 +32,8 @@ pub fn verify_auth(request: &Request<Incoming>) -> Result<AuthData, Error> {
     match verify_auth_inner(request) {
         Ok(ad) => Ok(ad),
         Err(e) => match e.inner {
-            ChorusError::BlossomAuthFailure(_) => return Err(e),
-            _ => return Err(ChorusError::BlossomAuthFailure(format!("{e}")).into()),
+            ChorusError::BlossomAuthFailure(_) => Err(e),
+            _ => Err(ChorusError::BlossomAuthFailure(format!("{e}")).into()),
         },
     }
 }

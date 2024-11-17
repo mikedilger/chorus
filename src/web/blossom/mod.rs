@@ -29,6 +29,7 @@ pub async fn handle(request: Request<Incoming>) -> Result<Response<BoxBody<Bytes
 
 pub async fn route(request: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     let p = request.uri().path();
+    #[allow(clippy::int_plus_one)]
     if p.starts_with("/")
         && p.len() >= 1 + 64
         && p.chars().skip(1).take(64).all(|c| c.is_ascii_hexdigit())
@@ -118,13 +119,13 @@ pub async fn handle_hash(
 
     let metadata = GLOBALS.filestore.get().unwrap().metadata(hash).await?;
 
-    match request.method() {
-        &Method::HEAD => Ok(Response::builder()
+    match *request.method() {
+        Method::HEAD => Ok(Response::builder()
             .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .header(CONTENT_LENGTH, format!("{}", metadata.len()))
             .status(StatusCode::OK)
             .body(Empty::new().map_err(|e| e.into()).boxed())?),
-        &Method::GET => {
+        Method::GET => {
             let body = GLOBALS.filestore.get().unwrap().retrieve(hash).await?;
             Ok(Response::builder()
                 .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
@@ -132,7 +133,7 @@ pub async fn handle_hash(
                 .status(StatusCode::OK)
                 .body(body)?)
         }
-        &Method::DELETE => {
+        Method::DELETE => {
             let auth_data = verify_auth(&request)?;
             if auth_data.verb != Some(AuthVerb::Delete) {
                 return Err(ChorusError::BlossomAuthFailure(
@@ -170,14 +171,14 @@ pub async fn handle_upload(
         );
     }
 
-    match request.method() {
-        &Method::HEAD => Ok(Response::builder()
+    match *request.method() {
+        Method::HEAD => Ok(Response::builder()
             .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .header(CONTENT_LENGTH, "0")
             .status(StatusCode::NOT_IMPLEMENTED)
             .body(Empty::new().map_err(|e| e.into()).boxed())?),
-        &Method::PUT => {
-            let expected_hash = auth_data.hash.map(|bytes| HashOutput::from_bytes(bytes));
+        Method::PUT => {
+            let expected_hash = auth_data.hash.map(HashOutput::from_bytes);
             if expected_hash.is_none() {
                 return Err(ChorusError::BlossomAuthFailure(
                     "Put requires an expected hash value x tag in the authorization event"
@@ -248,8 +249,8 @@ pub async fn handle_list(
         return Err(ChorusError::BlossomAuthFailure("List was not authorized".to_string()).into());
     }
 
-    match request.method() {
-        &Method::GET => Ok(Response::builder()
+    match *request.method() {
+        Method::GET => Ok(Response::builder()
             .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .header(CONTENT_LENGTH, "0")
             .status(StatusCode::NOT_IMPLEMENTED)
@@ -276,8 +277,8 @@ pub async fn handle_mirror(
         );
     }
 
-    match request.method() {
-        &Method::PUT => Ok(Response::builder()
+    match *request.method() {
+        Method::PUT => Ok(Response::builder()
             .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .header(CONTENT_LENGTH, "0")
             .status(StatusCode::NOT_IMPLEMENTED)
