@@ -11,6 +11,9 @@ use http_body_util::{BodyExt, Empty};
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response};
 
+mod auth;
+use auth::verify_auth;
+
 pub async fn handle(request: &Request<Incoming>) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     match route(request).await {
         Ok(response) => Ok(response),
@@ -102,6 +105,8 @@ pub async fn handle_hash(
         return options_response(request, "OPTIONS, HEAD, GET, DELETE");
     }
 
+    let _auth_data = verify_auth(request)?;
+
     unimplemented!()
 }
 
@@ -111,6 +116,8 @@ pub async fn handle_upload(
     if matches!(request.method(), &Method::OPTIONS) {
         return options_response(request, "OPTIONS, HEAD, PUT");
     }
+
+    let _auth_data = verify_auth(request)?;
 
     unimplemented!()
 }
@@ -122,6 +129,8 @@ pub async fn handle_list(
         return options_response(request, "OPTIONS, GET");
     }
 
+    let _auth_data = verify_auth(request)?;
+
     unimplemented!()
 }
 
@@ -131,6 +140,8 @@ pub async fn handle_mirror(
     if matches!(request.method(), &Method::OPTIONS) {
         return options_response(request, "OPTIONS, PUT");
     }
+
+    let _auth_data = verify_auth(request)?;
 
     unimplemented!()
 }
