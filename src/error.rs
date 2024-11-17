@@ -131,12 +131,6 @@ pub enum ChorusError {
     // Rustls
     Rustls(tokio_rustls::rustls::Error),
 
-    // Timed Out
-    TimedOut,
-
-    // Tungstenite
-    Tungstenite(hyper_tungstenite::tungstenite::error::Error),
-
     // Filter is underspecified
     Scraper,
 
@@ -146,8 +140,14 @@ pub enum ChorusError {
     // Speedy
     Speedy(speedy::Error),
 
+    // Timed Out
+    TimedOut,
+
     // Too many subscriptions
     TooManySubscriptions,
+
+    // Tungstenite
+    Tungstenite(hyper_tungstenite::tungstenite::error::Error),
 
     // URL Parse
     UrlParse(url::ParseError),
@@ -203,12 +203,12 @@ impl std::fmt::Display for ChorusError {
             ChorusError::RealIpHeaderMissing => write!(f, "X-Real-Ip header is missing"),
             ChorusError::Restricted => write!(f, "Restricted"),
             ChorusError::Rustls(e) => write!(f, "{e}"),
-            ChorusError::TimedOut => write!(f, "Timed out"),
-            ChorusError::Tungstenite(e) => write!(f, "{e}"),
             ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
             ChorusError::SerdeJson(e) => write!(f, "{e}"),
             ChorusError::Speedy(e) => write!(f, "{e}"),
+            ChorusError::TimedOut => write!(f, "Timed out"),
             ChorusError::TooManySubscriptions => write!(f, "Too many subscriptions"),
+            ChorusError::Tungstenite(e) => write!(f, "{e}"),
             ChorusError::UrlParse(e) => write!(f, "{e}"),
             ChorusError::Utf8(e) => write!(f, "{e}"),
             ChorusError::Utf8Error => write!(f, "UTF-8 error"),
@@ -290,12 +290,12 @@ impl ChorusError {
             ChorusError::RealIpHeaderMissing => 0.0,
             ChorusError::Restricted => 0.1,
             ChorusError::Rustls(_) => 0.0,
-            ChorusError::TimedOut => 0.1,
-            ChorusError::Tungstenite(_) => 0.0,
             ChorusError::Scraper => 0.4,
             ChorusError::SerdeJson(_) => 0.0,
             ChorusError::Speedy(_) => 0.0,
+            ChorusError::TimedOut => 0.1,
             ChorusError::TooManySubscriptions => 0.1,
+            ChorusError::Tungstenite(_) => 0.0,
             ChorusError::UrlParse(_) => 0.1,
             ChorusError::Utf8(_) => 0.1,
             ChorusError::Utf8Error => 0.1,
