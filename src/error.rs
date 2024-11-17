@@ -220,10 +220,12 @@ impl std::fmt::Display for ChorusError {
 impl StdError for ChorusError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
+            ChorusError::Base64Decode(e) => Some(e),
             ChorusError::ChannelRecv(e) => Some(e),
             ChorusError::ChannelSend(e) => Some(e),
             ChorusError::Config(e) => Some(e),
             ChorusError::Crypto(e) => Some(e),
+            ChorusError::FromUtf8(e) => Some(e),
             ChorusError::Http(e) => Some(e),
             ChorusError::Hyper(e) => Some(e),
             ChorusError::InvalidUri(e) => Some(e),
@@ -233,6 +235,7 @@ impl StdError for ChorusError {
             ChorusError::PocketDbHeed(e) => Some(e),
             ChorusError::PocketType(e) => Some(e),
             ChorusError::Rustls(e) => Some(e),
+            ChorusError::SerdeJson(e) => Some(e),
             ChorusError::Speedy(e) => Some(e),
             ChorusError::Tungstenite(e) => Some(e),
             ChorusError::UrlParse(e) => Some(e),
