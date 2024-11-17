@@ -25,6 +25,10 @@ impl HashOutput {
         }
     }
 
+    pub fn from_bytes(bytes: [u8; 32]) -> HashOutput {
+        HashOutput(bytes)
+    }
+
     pub fn to_pathbuf<P: AsRef<Path>>(&self, base: P) -> PathBuf {
         let s = hex::encode(self.0);
         let mut output: PathBuf = PathBuf::new();
