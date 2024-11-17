@@ -243,9 +243,23 @@ pub async fn handle_list(
         return options_response(request, "OPTIONS, GET");
     }
 
-    let _auth_data = verify_auth(&request)?;
+    let auth_data = verify_auth(&request)?;
+    if auth_data.verb != Some(AuthVerb::List) {
+        return Err(ChorusError::BlossomAuthFailure("List was not authorized".to_string()).into());
+    }
 
-    unimplemented!()
+    match request.method() {
+        &Method::GET => Ok(Response::builder()
+            .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .header(CONTENT_LENGTH, "0")
+            .status(StatusCode::NOT_IMPLEMENTED)
+            .body(Empty::new().map_err(|e| e.into()).boxed())?),
+        _ => Ok(Response::builder()
+            .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .header(CONTENT_LENGTH, "0")
+            .status(StatusCode::METHOD_NOT_ALLOWED)
+            .body(Empty::new().map_err(|e| e.into()).boxed())?),
+    }
 }
 
 pub async fn handle_mirror(
@@ -255,9 +269,25 @@ pub async fn handle_mirror(
         return options_response(request, "OPTIONS, PUT");
     }
 
-    let _auth_data = verify_auth(&request)?;
+    let auth_data = verify_auth(&request)?;
+    if auth_data.verb != Some(AuthVerb::Mirror) {
+        return Err(
+            ChorusError::BlossomAuthFailure("Mirror was not authorized".to_string()).into(),
+        );
+    }
 
-    unimplemented!()
+    match request.method() {
+        &Method::PUT => Ok(Response::builder()
+            .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .header(CONTENT_LENGTH, "0")
+            .status(StatusCode::NOT_IMPLEMENTED)
+            .body(Empty::new().map_err(|e| e.into()).boxed())?),
+        _ => Ok(Response::builder()
+            .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .header(CONTENT_LENGTH, "0")
+            .status(StatusCode::METHOD_NOT_ALLOWED)
+            .body(Empty::new().map_err(|e| e.into()).boxed())?),
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
