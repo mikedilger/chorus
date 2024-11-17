@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::error::{ChorusError, Error};
 use futures::TryStreamExt;
 use http_body_util::combinators::BoxBody;
 use http_body_util::{BodyDataStream, BodyExt, StreamBody};
@@ -44,7 +44,11 @@ impl FileStore {
     /// Store a file in storage, streamed from a hyper BoxBody
     ///
     /// Returns it's HashOutput by which it can be later retrieved or deleted.
-    pub async fn store(&self, data: BoxBody<Bytes, Error>) -> Result<HashOutput, Error> {
+    pub async fn store(
+        &self,
+        data: BoxBody<Bytes, Error>,
+        expected_hash: Option<HashOutput>,
+    ) -> Result<(u64, HashOutput), Error> {
         use bitcoin_hashes::sha256;
         use std::io::Write; // for hash_engine.write_all()
 
@@ -63,28 +67,44 @@ impl FileStore {
         // Convert the Data Stream into something that is AsyncRead (over bytes)
         let stream_reader = StreamReader::new(body_stream);
 
-        // Wrap this in something that lets us inspect the content so we can hash it
-        // as it comes in
+        // Wrap this in something that lets us inspect the content so we can
+        // hash it as it comes in, as well as count the size
+        let mut size: u64 = 0;
         let mut hash_engine = sha256::HashEngine::default();
         let mut inspect_reader = InspectReader::new(stream_reader, |bytes: &[u8]| {
+            size += bytes.len() as u64;
             hash_engine.write_all(bytes).unwrap(); // I don't think hashing will fail
         });
 
-        // Copy the data into the tempfile (hashing as we go)
+        // Copy the data into the tempfile (hashing and counting as we go)
         tokio::io::copy(&mut inspect_reader, &mut tempfile).await?;
 
         // Finish the hash
         let hash = HashOutput::from_engine(hash_engine);
 
+        // Verify the expected hash matches
+        if let Some(expected) = expected_hash {
+            if hash != expected {
+                // Remove the temporary file
+                fs::remove_file(&temppathbuf).await?;
+
+                // And complain
+                return Err(ChorusError::BlossomAuthFailure(
+                    "File hash does not match authorized hash".to_string(),
+                )
+                .into());
+            }
+        }
+
         // Compute the proper path
         let pathbuf = hash.to_pathbuf(&self.base);
 
-        // If it already exists
+        // If it already exists, trust the existing copy
         if fs::try_exists(&pathbuf).await? {
             // Just clean up
             fs::remove_file(&temppathbuf).await?;
 
-            return Ok(hash);
+            return Ok((size, hash));
         }
 
         // Make the parent directory
@@ -93,7 +113,7 @@ impl FileStore {
         // Move the file
         fs::rename(&temppathbuf, &pathbuf).await?;
 
-        Ok(hash)
+        Ok((size, hash))
     }
 
     /// Retrieve a file from storage by its HashOutput, streamed to a hyper BoxBoxy
