@@ -16,7 +16,7 @@ use hyper::{Request, Response};
 mod auth;
 use auth::{verify_auth, AuthVerb};
 
-pub async fn handle(request: &Request<Incoming>) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
+pub async fn handle(request: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     match route(request).await {
         Ok(response) => Ok(response),
         Err(e) => match e.inner {
@@ -26,7 +26,7 @@ pub async fn handle(request: &Request<Incoming>) -> Result<Response<BoxBody<Byte
     }
 }
 
-pub async fn route(request: &Request<Incoming>) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
+pub async fn route(request: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     let p = request.uri().path();
     if p.starts_with("/")
         && p.len() >= 1 + 64
@@ -72,7 +72,7 @@ fn error_response(e: Error) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
 }
 
 fn options_response(
-    request: &Request<Incoming>,
+    request: Request<Incoming>,
     methods: &str,
 ) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     if request
@@ -101,7 +101,7 @@ fn options_response(
 }
 
 pub async fn handle_hash(
-    request: &Request<Incoming>,
+    request: Request<Incoming>,
 ) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     if matches!(request.method(), &Method::OPTIONS) {
         return options_response(request, "OPTIONS, HEAD, GET, DELETE");
@@ -132,7 +132,7 @@ pub async fn handle_hash(
                 .body(body)?)
         }
         &Method::DELETE => {
-            let auth_data = verify_auth(request)?;
+            let auth_data = verify_auth(&request)?;
             if auth_data.verb != Some(AuthVerb::Delete) {
                 return Err(ChorusError::BlossomAuthFailure(
                     "Delete was not authorized".to_string(),
@@ -156,37 +156,37 @@ pub async fn handle_hash(
 }
 
 pub async fn handle_upload(
-    request: &Request<Incoming>,
+    request: Request<Incoming>,
 ) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     if matches!(request.method(), &Method::OPTIONS) {
         return options_response(request, "OPTIONS, HEAD, PUT");
     }
 
-    let _auth_data = verify_auth(request)?;
+    let _auth_data = verify_auth(&request)?;
 
     unimplemented!()
 }
 
 pub async fn handle_list(
-    request: &Request<Incoming>,
+    request: Request<Incoming>,
 ) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     if matches!(request.method(), &Method::OPTIONS) {
         return options_response(request, "OPTIONS, GET");
     }
 
-    let _auth_data = verify_auth(request)?;
+    let _auth_data = verify_auth(&request)?;
 
     unimplemented!()
 }
 
 pub async fn handle_mirror(
-    request: &Request<Incoming>,
+    request: Request<Incoming>,
 ) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
     if matches!(request.method(), &Method::OPTIONS) {
         return options_response(request, "OPTIONS, PUT");
     }
 
-    let _auth_data = verify_auth(request)?;
+    let _auth_data = verify_auth(&request)?;
 
     unimplemented!()
 }

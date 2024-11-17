@@ -47,7 +47,7 @@ pub async fn serve_http(
 
     // Try blossom if enabled
     if GLOBALS.config.read().blossom_directory.is_some() {
-        match blossom::handle(&request).await {
+        match blossom::handle(request).await {
             Ok(response) => return Ok(response),
             Err(e) => {
                 if !matches!(e.inner, ChorusError::SignalNotBlossom) {
