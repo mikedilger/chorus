@@ -4,7 +4,7 @@ use crate::globals::GLOBALS;
 use http::header::{
     ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS, ACCESS_CONTROL_ALLOW_ORIGIN,
     ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ALLOW, CONTENT_LENGTH,
-    CONTENT_TYPE, ORIGIN, WWW_AUTHENTICATE,
+    CONTENT_TYPE, ETAG, IF_MATCH, IF_MODIFIED_SINCE, IF_NONE_MATCH, ORIGIN, WWW_AUTHENTICATE,
 };
 use http::{Method, StatusCode};
 //ACCEPT, AUTHORIZATION, DATE, ETAG, ORIGIN
@@ -120,18 +120,58 @@ pub async fn handle_hash(
     let metadata = GLOBALS.filestore.get().unwrap().metadata(hash).await?;
 
     match *request.method() {
-        Method::HEAD => Ok(Response::builder()
-            .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-            .header(CONTENT_LENGTH, format!("{}", metadata.len()))
-            .status(StatusCode::OK)
-            .body(Empty::new().map_err(|e| e.into()).boxed())?),
-        Method::GET => {
-            let body = GLOBALS.filestore.get().unwrap().retrieve(hash).await?;
-            Ok(Response::builder()
+        Method::HEAD | Method::GET => {
+            // Honor If-Match (fail if they didn't specify an etag matching the hash)
+            if let Some(etags) = request.headers().get(IF_MATCH) {
+                let mut onematch: bool = false;
+                for part in etags.to_str()?.split(',') {
+                    if &part[1..part.len() - 1] == &format!("{}", hash) {
+                        onematch = true;
+                    }
+                }
+                if !onematch {
+                    return Ok(Response::builder()
+                        .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                        .header(ETAG, format!("\"{}\"", hash))
+                        .status(StatusCode::PRECONDITION_FAILED)
+                        .body(Empty::new().map_err(|e| e.into()).boxed())?);
+                }
+            }
+
+            // Honor If-None-Match (send NOT_MODIFIED if they specified an etag matching the hash)
+            // Honor If-Modified-Since (always send NOT_MODIFIED)
+            let mut send_not_modified: bool = false;
+            if let Some(etags) = request.headers().get(IF_NONE_MATCH) {
+                for part in etags.to_str()?.split(',') {
+                    if &part[1..part.len() - 1] == &format!("{}", hash) {
+                        send_not_modified = true;
+                    }
+                }
+            }
+            if request.headers().get(IF_MODIFIED_SINCE).is_some() {
+                send_not_modified = true;
+            }
+            if send_not_modified {
+                return Ok(Response::builder()
+                    .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                    .header(ETAG, format!("\"{}\"", hash))
+                    .status(StatusCode::NOT_MODIFIED)
+                    .body(Empty::new().map_err(|e| e.into()).boxed())?);
+            }
+
+            // Normal reasponse (HEAD or GET)
+            let response = Response::builder()
                 .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                 .header(CONTENT_LENGTH, format!("{}", metadata.len()))
-                .status(StatusCode::OK)
-                .body(body)?)
+                .header(ETAG, format!("\"{}\"", hash))
+                .status(StatusCode::OK);
+
+            if matches!(*request.method(), Method::GET) {
+                let body = GLOBALS.filestore.get().unwrap().retrieve(hash).await?;
+                Ok(response.body(body)?)
+            } else {
+                Ok(response.body(Empty::new().map_err(|e| e.into()).boxed())?)
+            }
         }
         Method::DELETE => {
             let auth_data = verify_auth(&request)?;
