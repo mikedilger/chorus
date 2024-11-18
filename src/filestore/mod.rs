@@ -36,7 +36,7 @@ impl FileStore {
 
     fn tmpfile(&self) -> PathBuf {
         let mut tf = self.temp.clone();
-        let nonce = textnonce::TextNonce::new();
+        let nonce = textnonce::TextNonce::sized_urlsafe(32).unwrap();
         tf.push(&nonce.0);
         tf
     }
