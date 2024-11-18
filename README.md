@@ -6,6 +6,8 @@ It is pretty fast: [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 It can work as your personal relay (or as an open relay): [docs/PERSONAL_RELAY.md](docs/PERSONAL_RELAY.md)
 
+It can serve as a blossom server.
+
 To deploy chorus, read [docs/DEPLOYING.md](docs/DEPLOYING.md)
 
 To configure chorus read [docs/CONFIG.md](docs/CONFIG.md)
@@ -38,6 +40,7 @@ However:
 - Chorus has extensive IP banning and rate limiting to protect your relay from abuse
 - Chorus supports NIP-42 (AUTH), NIP-59 (GiftWrap), NIP-65 (Relay Lists) and PR 1030 and PR 1325.
 - Chorus has a moderation cmd line tool and a moderation API (PR 1325)
+- Chorus can act as a blossom server
 
 ### nostream
 
@@ -60,6 +63,10 @@ not only unstable, but which may require you to update your configuration. I wil
 announce upgrade instructions until release.
 
 ## Change Log
+
+### to be released
+
+- Support for running as a blossom server
 
 ### Version 1.5.3
 
