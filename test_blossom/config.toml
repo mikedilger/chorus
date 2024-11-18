@@ -1,0 +1,37 @@
+# See contrib/chorus.toml for a documented config file
+
+data_directory = "."
+ip_address = "127.0.0.1"
+port = 8089
+hostname = "localhost"
+chorus_is_behind_a_proxy = false
+use_tls = false
+certchain_pem_path = "tls/fullchain.pem"
+key_pem_path = "tls/privkey.pem"
+name = "Chorus Sample"
+description = "A sample run of the Chorus relay"
+# icon_url =
+open_relay = false
+user_hex_keys = [
+  "12bb541d03bfc3cab0f4a8e4db28947f60faae6fca4e315eb27f809c6eff9a0b"
+]
+moderator_hex_keys = [
+  "12bb541d03bfc3cab0f4a8e4db28947f60faae6fca4e315eb27f809c6eff9a0b"
+]
+verify_events = true
+allow_scraping = false
+allow_scrape_if_limited_to = 100
+allow_scrape_if_max_seconds = 7200
+max_subscriptions = 128
+serve_ephemeral = true
+serve_relay_lists = true
+server_log_level = "Info"
+library_log_level = "Info"
+client_log_level = "Warn"
+enable_ip_blocking = true
+minimum_ban_seconds = 1
+timeout_seconds = 60
+max_connections_per_ip = 5
+throttling_bytes_per_second = 131072
+throttling_burst = 4194304
+blossom_directory = "./blossom"

@@ -86,7 +86,11 @@ pub async fn check_auth(request: Request<Incoming>) -> Result<Value, Error> {
     if let Some(u) = tags.get_value(b"u") {
         let auth_url = String::from_utf8(u.to_owned())?;
         let actual_url = {
-            let uri = GLOBALS.config.read().url(request.uri().to_owned(), true)?;
+            let uri_parts = GLOBALS
+                .config
+                .read()
+                .uri_parts(request.uri().to_owned(), true)?;
+            let uri = http::Uri::from_parts(uri_parts)?;
             format!("{}", uri)
         };
 

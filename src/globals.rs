@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::filestore::FileStore;
 use crate::ip::HashedIp;
 use dashmap::DashMap;
 use hyper::server::conn::http1;
@@ -18,6 +19,7 @@ pub struct Globals {
     pub bytes_outbound: AtomicU64,
     pub config: RwLock<Config>,
     pub store: OnceLock<Store>,
+    pub filestore: OnceLock<FileStore>,
     pub http1builder: http1::Builder,
     pub rid: OnceLock<String>,
 
@@ -48,6 +50,7 @@ lazy_static! {
             bytes_outbound: AtomicU64::new(0),
             config: RwLock::new(Default::default()),
             store: OnceLock::new(),
+            filestore: OnceLock::new(),
             http1builder,
             rid: OnceLock::new(),
             new_events,

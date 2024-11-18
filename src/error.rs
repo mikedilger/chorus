@@ -23,7 +23,7 @@ impl std::fmt::Display for Error {
 /// Errors that can occur in the chorus crate
 #[derive(Debug)]
 pub enum ChorusError {
-    // Auth failure
+    // Nostr AUTH failure
     AuthFailure(String),
 
     // Auth required
@@ -50,6 +50,9 @@ pub enum ChorusError {
     // Blocked IP
     BlockedIp,
 
+    // Blossom Authorization failure
+    BlossomAuthFailure(String),
+
     // Channel Recv
     ChannelRecv(tokio::sync::broadcast::error::RecvError),
 
@@ -67,6 +70,9 @@ pub enum ChorusError {
 
     // Event is Invalid
     EventIsInvalid(String),
+
+    // From hex
+    FromHex(hex::FromHexError),
 
     // From UTF8
     FromUtf8(std::string::FromUtf8Error),
@@ -97,6 +103,9 @@ pub enum ChorusError {
 
     // Missing Table
     MissingTable(&'static str),
+
+    // Non-ASCII HTTP header value
+    NonAsciiHttpHeaderValue(http::header::ToStrError),
 
     // No private key
     NoPrivateKey,
@@ -137,6 +146,9 @@ pub enum ChorusError {
     // Serde JSON
     SerdeJson(serde_json::Error),
 
+    // Signal - Not Blossom Request
+    SignalNotBlossom,
+
     // Speedy
     Speedy(speedy::Error),
 
@@ -176,12 +188,14 @@ impl std::fmt::Display for ChorusError {
             ChorusError::BannedUser => write!(f, "User is banned"),
             ChorusError::Base64Decode(e) => write!(f, "{e}"),
             ChorusError::BlockedIp => write!(f, "IP is temporarily blocked"),
+            ChorusError::BlossomAuthFailure(s) => write!(f, "Authorization failure: {s}"),
             ChorusError::ChannelRecv(e) => write!(f, "{e}"),
             ChorusError::ChannelSend(e) => write!(f, "{e}"),
             ChorusError::Config(e) => write!(f, "{e}"),
             ChorusError::Crypto(e) => write!(f, "{e}"),
             ChorusError::ErrorClose => write!(f, "Closing due to error(s)"),
             ChorusError::EventIsInvalid(s) => write!(f, "Event is invalid: {s}"),
+            ChorusError::FromHex(e) => write!(f, "{e}"),
             ChorusError::FromUtf8(e) => write!(f, "{e}"),
             ChorusError::General(s) => write!(f, "{s}"),
             ChorusError::Http(e) => write!(f, "{e}"),
@@ -192,6 +206,9 @@ impl std::fmt::Display for ChorusError {
             ChorusError::Io(e) => write!(f, "{e}"),
             ChorusError::ManagementAuthFailure(s) => write!(f, "Authorization failure: {s}"),
             ChorusError::MissingTable(t) => write!(f, "Missing table: {t}"),
+            ChorusError::NonAsciiHttpHeaderValue(e) => {
+                write!(f, "Non ASCII HTTP header value: {e}")
+            }
             ChorusError::NoPrivateKey => write!(f, "Private Key Not Found"),
             ChorusError::NotImplemented => write!(f, "Not implemented"),
             ChorusError::NoSuchSubscription => write!(f, "No such subscription"),
@@ -205,6 +222,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::Rustls(e) => write!(f, "{e}"),
             ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
             ChorusError::SerdeJson(e) => write!(f, "{e}"),
+            ChorusError::SignalNotBlossom => write!(f, "internal-signal-not-blossom"),
             ChorusError::Speedy(e) => write!(f, "{e}"),
             ChorusError::TimedOut => write!(f, "Timed out"),
             ChorusError::TooManySubscriptions => write!(f, "Too many subscriptions"),
@@ -225,12 +243,14 @@ impl StdError for ChorusError {
             ChorusError::ChannelSend(e) => Some(e),
             ChorusError::Config(e) => Some(e),
             ChorusError::Crypto(e) => Some(e),
+            ChorusError::FromHex(e) => Some(e),
             ChorusError::FromUtf8(e) => Some(e),
             ChorusError::Http(e) => Some(e),
             ChorusError::Hyper(e) => Some(e),
             ChorusError::InvalidUri(e) => Some(e),
             ChorusError::InvalidUriParts(e) => Some(e),
             ChorusError::Io(e) => Some(e),
+            ChorusError::NonAsciiHttpHeaderValue(e) => Some(e),
             ChorusError::PocketDb(e) => Some(e),
             ChorusError::PocketDbHeed(e) => Some(e),
             ChorusError::PocketType(e) => Some(e),
@@ -266,12 +286,14 @@ impl ChorusError {
             ChorusError::BannedUser => 0.2,
             ChorusError::Base64Decode(_) => 0.0,
             ChorusError::BlockedIp => 0.0,
+            ChorusError::BlossomAuthFailure(_) => 0.0,
             ChorusError::ChannelRecv(_) => 0.0,
             ChorusError::ChannelSend(_) => 0.0,
             ChorusError::Config(_) => 0.0,
             ChorusError::Crypto(_) => 0.1,
             ChorusError::ErrorClose => 1.0,
             ChorusError::EventIsInvalid(_) => 0.2,
+            ChorusError::FromHex(_) => 0.2,
             ChorusError::FromUtf8(_) => 0.2,
             ChorusError::General(_) => 0.0,
             ChorusError::Http(_) => 0.0,
@@ -282,6 +304,7 @@ impl ChorusError {
             ChorusError::Io(_) => 0.0,
             ChorusError::ManagementAuthFailure(_) => 0.0,
             ChorusError::MissingTable(_) => 0.0,
+            ChorusError::NonAsciiHttpHeaderValue(_) => 0.2,
             ChorusError::NoPrivateKey => 0.0,
             ChorusError::NotImplemented => 0.0,
             ChorusError::NoSuchSubscription => 0.05,
@@ -295,6 +318,7 @@ impl ChorusError {
             ChorusError::Rustls(_) => 0.0,
             ChorusError::Scraper => 0.4,
             ChorusError::SerdeJson(_) => 0.0,
+            ChorusError::SignalNotBlossom => 0.0,
             ChorusError::Speedy(_) => 0.0,
             ChorusError::TimedOut => 0.1,
             ChorusError::TooManySubscriptions => 0.1,
@@ -414,6 +438,16 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<http::header::ToStrError> for Error {
+    #[track_caller]
+    fn from(err: http::header::ToStrError) -> Self {
+        Error {
+            inner: ChorusError::NonAsciiHttpHeaderValue(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
 impl From<pocket_db::Error> for Error {
     #[track_caller]
     fn from(err: pocket_db::Error) -> Self {
@@ -514,6 +548,16 @@ impl From<serde_json::Error> for Error {
     }
 }
 
+impl From<hex::FromHexError> for Error {
+    #[track_caller]
+    fn from(err: hex::FromHexError) -> Self {
+        Error {
+            inner: ChorusError::FromHex(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
 impl From<std::string::FromUtf8Error> for Error {
     #[track_caller]
     fn from(err: std::string::FromUtf8Error) -> Self {
@@ -537,5 +581,11 @@ impl From<base64::DecodeError> for Error {
 impl From<Infallible> for Error {
     fn from(_: Infallible) -> Self {
         panic!("INFALLIBLE")
+    }
+}
+
+impl From<Error> for std::io::Error {
+    fn from(e: Error) -> std::io::Error {
+        std::io::Error::other(e)
     }
 }

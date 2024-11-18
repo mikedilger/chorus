@@ -31,6 +31,11 @@ async fn main() -> Result<(), Error> {
     let store = chorus::setup_store(&config)?;
     let _ = GLOBALS.store.set(store);
 
+    if let Some(ref blossom_directory) = config.blossom_directory {
+        let filestore = chorus::filestore::FileStore::new(blossom_directory).await?;
+        let _ = GLOBALS.filestore.set(filestore);
+    }
+
     // TLS setup
     let maybe_tls_acceptor = if config.use_tls {
         log::info!(target: "Server", "Using TLS");

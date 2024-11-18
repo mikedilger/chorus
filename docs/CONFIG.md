@@ -257,3 +257,15 @@ second. If that bucket doesn't have enough, the burst won't be allowed and the c
 will be closed.
 
 Default is 16777216 bytes.
+
+### blossom_directory
+
+Blossom server directory
+
+Set to a filesystem directory where you want chorus to store files.
+
+Blossom allows clients to upload files making them available for the public to download.
+Our implementation makes all files publicly readable, but only chorus users can upload
+or delete.  See https://github.com/hzrd149/blossom
+
+Default is None
