@@ -77,7 +77,12 @@ impl FileStore {
         });
 
         // Copy the data into the tempfile (hashing and counting as we go)
-        tokio::io::copy(&mut inspect_reader, &mut tempfile).await?;
+        let count = tokio::io::copy(&mut inspect_reader, &mut tempfile).await?;
+
+        // Verify our code was correct
+        if count != size {
+            return Err(ChorusError::General("INTERNAL COUNT MISMATCH".to_string()).into());
+        }
 
         // Finish the hash
         let hash = HashOutput::from_engine(hash_engine);
