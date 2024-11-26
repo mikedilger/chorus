@@ -15,6 +15,8 @@ pub async fn serve_http(
     peer: HashedPeer,
     request: Request<Incoming>,
 ) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
+    let method = request.method().clone();
+
     // Handle server-wide OPTIONS requests
     let p = request.uri().path();
     if p == "*" && request.method() == Method::OPTIONS {
@@ -59,15 +61,37 @@ pub async fn serve_http(
 
     log::debug!(target: "Client", "{}: HTTP request for {}", peer, uri);
 
-    let response = Response::builder()
-        .header("Access-Control-Allow-Origin", "*")
-        .header("Access-Control-Allow-Headers", "*")
-        .header("Access-Control-Allow-Methods", "*")
-        .status(StatusCode::OK)
-        .body(
-            Full::new("This is a nostr relay. Please use a nostr client to connect.".into())
-                .map_err(|e| e.into())
-                .boxed(),
-        )?;
+    let response = match method {
+        Method::OPTIONS => Response::builder()
+            .header("Access-Control-Allow-Origin", "*")
+            .header("Access-Control-Allow-Headers", "*")
+            .header("Access-Control-Allow-Methods", "*")
+            .header("Allow", "OPTIONS, GET, HEAD, PUT, DELETE")
+            .status(StatusCode::NO_CONTENT)
+            .body(Empty::new().map_err(|e| e.into()).boxed())?,
+        Method::HEAD => Response::builder()
+            .header("Access-Control-Allow-Origin", "*")
+            .header("Access-Control-Allow-Headers", "*")
+            .header("Access-Control-Allow-Methods", "*")
+            .status(StatusCode::OK)
+            .body(Empty::new().map_err(|e| e.into()).boxed())?,
+        Method::GET => Response::builder()
+            .header("Access-Control-Allow-Origin", "*")
+            .header("Access-Control-Allow-Headers", "*")
+            .header("Access-Control-Allow-Methods", "*")
+            .status(StatusCode::OK)
+            .body(
+                Full::new("This is a nostr relay. Please use a nostr client to connect.".into())
+                    .map_err(|e| e.into())
+                    .boxed(),
+            )?,
+        _ => Response::builder()
+            .header("Access-Control-Allow-Origin", "*")
+            .header("Access-Control-Allow-Headers", "*")
+            .header("Access-Control-Allow-Methods", "*")
+            .status(StatusCode::METHOD_NOT_ALLOWED)
+            .body(Empty::new().map_err(|e| e.into()).boxed())?,
+    };
+
     Ok(response)
 }
