@@ -146,6 +146,9 @@ pub enum ChorusError {
     // Serde JSON
     SerdeJson(serde_json::Error),
 
+    // Shutting Down
+    ShuttingDown,
+
     // Signal - Not Blossom Request
     SignalNotBlossom,
 
@@ -222,6 +225,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::Rustls(e) => write!(f, "{e}"),
             ChorusError::Scraper => write!(f, "Filter is underspecified. Scrapers are not allowed"),
             ChorusError::SerdeJson(e) => write!(f, "{e}"),
+            ChorusError::ShuttingDown => write!(f, "Shutting down"),
             ChorusError::SignalNotBlossom => write!(f, "internal-signal-not-blossom"),
             ChorusError::Speedy(e) => write!(f, "{e}"),
             ChorusError::TimedOut => write!(f, "Timed out"),
@@ -318,6 +322,7 @@ impl ChorusError {
             ChorusError::Rustls(_) => 0.0,
             ChorusError::Scraper => 0.4,
             ChorusError::SerdeJson(_) => 0.0,
+            ChorusError::ShuttingDown => 0.0,
             ChorusError::SignalNotBlossom => 0.0,
             ChorusError::Speedy(_) => 0.0,
             ChorusError::TimedOut => 0.1,
