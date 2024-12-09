@@ -48,7 +48,7 @@ impl FileStore {
         &self,
         data: BoxBody<Bytes, Error>,
         expected_hash: Option<HashOutput>,
-    ) -> Result<(u64, HashOutput), Error> {
+    ) -> Result<(u64, HashOutput, Option<String>), Error> {
         use bitcoin_hashes::sha256;
         use std::io::Write; // for hash_engine.write_all()
 
@@ -78,6 +78,7 @@ impl FileStore {
 
         // Copy the data into the tempfile (hashing and counting as we go)
         let count = tokio::io::copy(&mut inspect_reader, &mut tempfile).await?;
+        drop(tempfile);
 
         // Verify our code was correct
         if count != size {
@@ -101,6 +102,16 @@ impl FileStore {
             }
         }
 
+        // Sniff the mime-type
+        let maybe_mime_string = {
+            use mime_sniffer::MimeTypeSniffer;
+            use tokio::io::AsyncReadExt;
+            let mut readtempfile = File::open(&temppathbuf).await?;
+            let mut buffer: Vec<u8> = vec![0; 128];
+            let _ = readtempfile.read(&mut buffer).await?;
+            buffer.sniff_mime_type().map(|s| s.to_string())
+        };
+
         // Compute the proper path
         let pathbuf = hash.to_pathbuf(&self.base);
 
@@ -109,7 +120,7 @@ impl FileStore {
             // Just clean up
             fs::remove_file(&temppathbuf).await?;
 
-            return Ok((size, hash));
+            return Ok((size, hash, maybe_mime_string));
         }
 
         // Make the parent directory
@@ -118,7 +129,7 @@ impl FileStore {
         // Move the file
         fs::rename(&temppathbuf, &pathbuf).await?;
 
-        Ok((size, hash))
+        Ok((size, hash, maybe_mime_string))
     }
 
     /// Retrieve a file from storage by its HashOutput, streamed to a hyper BoxBoxy

@@ -21,6 +21,8 @@ hyper-tungstenite = "0.15"
 hyper-util = "0.1"
 lazy_static = "1.5"
 log = "0.4"
+mime-sniffer = "0.1"
+new_mime_guess = "4.0"
 pocket-types = { git = "https://github.com/mikedilger/pocket", branch = "master" }
 pocket-db = { git = "https://github.com/mikedilger/pocket", branch = "master" }
 parking_lot = "0.12"

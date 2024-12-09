@@ -229,7 +229,15 @@ pub async fn handle_upload(
 
             let uri = request.uri().to_owned();
 
-            let (size, hash) = GLOBALS
+            let maybe_content_type = match request.headers().get(http::header::CONTENT_TYPE) {
+                Some(s) => match s.to_str() {
+                    Ok(s) => Some(s.to_owned()),
+                    Err(_) => None,
+                },
+                None => None,
+            };
+
+            let (size, hash, maybe_sniffed_mime_string) = GLOBALS
                 .filestore
                 .get()
                 .unwrap()
@@ -239,11 +247,26 @@ pub async fn handle_upload(
                 )
                 .await?;
 
+            let extension = {
+                let mut mime_string: String = "".to_owned();
+                if let Some(ms) = maybe_content_type {
+                    mime_string = ms.to_owned();
+                } else if let Some(ms) = maybe_sniffed_mime_string {
+                    mime_string = ms.to_owned();
+                }
+
+                if let Some(exts) = new_mime_guess::get_mime_extensions_str(&mime_string) {
+                    exts[0]
+                } else {
+                    "blob"
+                }
+            };
+
             let uri = {
                 let mut parts = GLOBALS.config.read().uri_parts(uri, true)?;
                 parts.path_and_query = Some(http::uri::PathAndQuery::from_maybe_shared(format!(
-                    "/{}",
-                    hash
+                    "/{}.{}",
+                    hash, extension
                 ))?);
                 http::Uri::from_parts(parts)?
             };
