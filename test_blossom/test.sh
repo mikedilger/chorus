@@ -20,19 +20,22 @@ fi
 
 # UPLOAD TEST ------------
 
-FILE="./avatar-placeholder.webp"
+FILE="./Example.png"
 HASH=$(sha256sum $FILE | awk '{print $1}')
 
 # Generate nostr auth
 AUTH=$(./create_auth.sh upload $HASH)
 
-# Upload
-DESCRIPTOR=$(curl -s --data-binary @"$FILE" -X PUT --header "$AUTH" http://127.0.0.1:8089/upload)
+# Upload (note we clobber the content type)
+DESCRIPTOR=$(curl -vfs --data-binary @"$FILE" -H "Content-Type: " -X PUT --header "$AUTH" http://127.0.0.1:8089/upload)
 if [ $? -ne 0 ] ; then
     echo "FAILED: Curl (uploading) exited with a non-zero status"
     exit 1
 fi
 echo "PASS:  FILE UPLOADED"
+
+## FIXME check for 4xx and 5xx error codes
+
 
 # Extract the sha256 and compare it
 DHASH=$(echo "$DESCRIPTOR" | jq -r .sha256)
@@ -42,6 +45,7 @@ if [ $? -ne 0 ] ; then
 fi
 if [ "$HASH" != "$DHASH" ] ; then
     echo "returned descriptor 'sha256' does not match the hash"
+    exit 1
 fi
 echo "PASS:  DESCRIPTOR HASH MATCHES"
 
@@ -51,6 +55,8 @@ if [ $? -ne 0 ] ; then
     echo "FAILED: jq failed extracting url from descriptor"
     exit 1
 fi
+
+echo "Descriptor URL = $URL"
 
 # DOWNLOAD TEST -----------
 
