@@ -1,4 +1,4 @@
-use pocket_types::{Event, Id};
+use pocket_types::{Event, Hll8, Id};
 use std::fmt;
 
 pub enum NostrReplyPrefix {
@@ -36,7 +36,7 @@ pub enum NostrReply<'a> {
     Eose(&'a str),
     Closed(&'a str, NostrReplyPrefix, String),
     Notice(String),
-    Count(&'a str, usize),
+    Count(&'a str, usize, Option<Hll8>),
 }
 
 impl NostrReply<'_> {
@@ -50,7 +50,14 @@ impl NostrReply<'_> {
                 format!(r#"["CLOSED","{subid}","{prefix}{msg}"]"#)
             }
             NostrReply::Notice(msg) => format!(r#"["NOTICE","{msg}"]"#),
-            NostrReply::Count(subid, c) => format!(r#"["COUNT","{subid}",{{"count":{c}}}"#),
+            NostrReply::Count(subid, c, opthll) => {
+                if let Some(hll) = opthll {
+                    let hll = hll.to_hex_string();
+                    format!(r#"["COUNT","{subid}",{{"count":{c}, "hll":"{hll}"}}]"#)
+                } else {
+                    format!(r#"["COUNT","{subid}",{{"count":{c}}}]"#)
+                }
+            }
         }
     }
 }

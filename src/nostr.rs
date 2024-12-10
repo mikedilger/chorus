@@ -4,7 +4,7 @@ use crate::reply::{NostrReply, NostrReplyPrefix};
 use crate::WebSocketService;
 use hyper_tungstenite::tungstenite::Message;
 use pocket_types::json::{eat_whitespace, json_unescape, verify_char};
-use pocket_types::{Event, Filter, Kind, OwnedFilter, Pubkey, Time};
+use pocket_types::{Event, Filter, Hll8, Kind, OwnedFilter, Pubkey, Time};
 use url::Url;
 
 impl WebSocketService {
@@ -170,7 +170,18 @@ impl WebSocketService {
             events.dedup();
 
             if count {
-                let reply = NostrReply::Count(subid, events.len());
+                // HyperLogLog count
+                let mut opthll: Option<Hll8> = None;
+                if filters.len() == 1 {
+                    if let Ok(Some(offset)) = filters[0].hyperloglog_offset() {
+                        let mut hll8 = Hll8::new();
+                        for event in events.iter() {
+                            hll8.add_element(event.pubkey().as_bytes(), offset)?;
+                        }
+                        opthll = Some(hll8);
+                    }
+                }
+                let reply = NostrReply::Count(subid, events.len(), opthll);
                 self.send(Message::text(reply.as_json())).await?;
             } else {
                 for event in events.drain(..) {
