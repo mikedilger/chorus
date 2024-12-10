@@ -23,7 +23,9 @@ impl WebSocketService {
         eat_whitespace(input, &mut inpos);
         verify_char(input, b'"', &mut inpos)?;
         if &input[inpos..inpos + 4] == b"REQ\"" {
-            self.req(msg, inpos + 4).await?;
+            self.req(msg, inpos + 4, false).await?;
+        } else if &input[inpos..inpos + 6] == b"COUNT\"" {
+            self.req(msg, inpos + 6, true).await?;
         } else if &input[inpos..inpos + 6] == b"EVENT\"" {
             self.event(msg, inpos + 6).await?;
         } else if &input[inpos..inpos + 6] == b"CLOSE\"" {
@@ -39,7 +41,7 @@ impl WebSocketService {
         Ok(())
     }
 
-    pub async fn req(&mut self, msg: &str, mut inpos: usize) -> Result<(), Error> {
+    pub async fn req(&mut self, msg: &str, mut inpos: usize, count: bool) -> Result<(), Error> {
         let input = msg.as_bytes();
 
         // ["REQ", <subid>, json-filter, json-filter, ... ]
@@ -75,7 +77,7 @@ impl WebSocketService {
             filters.push(filter.to_owned());
         }
 
-        if let Err(e) = self.req_inner(&subid, filters).await {
+        if let Err(e) = self.req_inner(&subid, filters, count).await {
             let reply = match e.inner {
                 ChorusError::TooManySubscriptions => {
                     let max_subscriptions = GLOBALS.config.read().max_subscriptions;
@@ -99,7 +101,12 @@ impl WebSocketService {
         }
     }
 
-    async fn req_inner(&mut self, subid: &String, filters: Vec<OwnedFilter>) -> Result<(), Error> {
+    async fn req_inner(
+        &mut self,
+        subid: &String,
+        filters: Vec<OwnedFilter>,
+        count: bool,
+    ) -> Result<(), Error> {
         let max_subscriptions = GLOBALS.config.read().max_subscriptions;
         if self.subscriptions.len() >= max_subscriptions {
             return Err(ChorusError::TooManySubscriptions.into());
@@ -120,7 +127,7 @@ impl WebSocketService {
                     let reply = NostrReply::Closed(
                         subid,
                         NostrReplyPrefix::AuthRequired,
-                        "DM kinds were included in the REQ".to_owned(),
+                        "DM kinds were included in the filters".to_owned(),
                     );
                     self.send(Message::text(reply.as_json())).await?;
                     return Ok(());
@@ -162,24 +169,32 @@ impl WebSocketService {
             // dedup
             events.dedup();
 
-            for event in events.drain(..) {
-                let reply = NostrReply::Event(subid, event);
+            if count {
+                let reply = NostrReply::Count(subid, events.len());
+                self.send(Message::text(reply.as_json())).await?;
+            } else {
+                for event in events.drain(..) {
+                    let reply = NostrReply::Event(subid, event);
+                    self.send(Message::text(reply.as_json())).await?;
+                }
+
+                // eose
+                let reply = NostrReply::Eose(subid);
                 self.send(Message::text(reply.as_json())).await?;
             }
-
-            // eose
-            let reply = NostrReply::Eose(subid);
-            self.send(Message::text(reply.as_json())).await?;
         }
 
-        // Store subscription
-        self.subscriptions.insert(subid.to_owned(), filters);
+        if !count {
+            // Store subscription
+            self.subscriptions.insert(subid.to_owned(), filters);
 
-        log::debug!(target: "Client",
-            "{}: new subscription \"{subid}\", {} total",
-            self.peer,
-            self.subscriptions.len()
-        );
+            log::debug!(
+                target: "Client",
+                "{}: new subscription \"{subid}\", {} total",
+                self.peer,
+                self.subscriptions.len()
+            );
+        }
 
         Ok(())
     }
