@@ -44,6 +44,13 @@ or the connection will not be served.
 
 Default is false.
 
+### base_url
+
+If chorus is behing a proxy, it can't compute it's Internet-visible URL. So set it here.
+This is used currently by web management and blossom and maybe more in the future.
+
+Default is not set.
+
 ### use_tls
 
 If true, chorus will handle TLS, running over HTTPS.  If false, chorus run over HTTP.

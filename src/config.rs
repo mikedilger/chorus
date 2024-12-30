@@ -13,6 +13,7 @@ pub struct FriendlyConfig {
     pub port: u16,
     pub hostname: String,
     pub chorus_is_behind_a_proxy: bool,
+    pub base_url: Option<String>,
     pub use_tls: bool,
     pub certchain_pem_path: String,
     pub key_pem_path: String,
@@ -51,6 +52,7 @@ impl Default for FriendlyConfig {
             port: 443,
             hostname: "localhost".to_string(),
             chorus_is_behind_a_proxy: false,
+            base_url: None,
             use_tls: true,
             certchain_pem_path: "/opt/chorus/etc/tls/fullchain.pem".to_string(),
             key_pem_path: "/opt/chorus/etc/tls/privkey.pem".to_string(),
@@ -91,6 +93,7 @@ impl FriendlyConfig {
             port,
             hostname,
             chorus_is_behind_a_proxy,
+            base_url,
             use_tls,
             certchain_pem_path,
             key_pem_path,
@@ -151,6 +154,7 @@ impl FriendlyConfig {
             port,
             hostname,
             chorus_is_behind_a_proxy,
+            base_url,
             use_tls,
             certchain_pem_path,
             key_pem_path,
@@ -192,6 +196,7 @@ pub struct Config {
     pub port: u16,
     pub hostname: Host,
     pub chorus_is_behind_a_proxy: bool,
+    pub base_url: Option<String>,
     pub use_tls: bool,
     pub certchain_pem_path: String,
     pub key_pem_path: String,
@@ -236,15 +241,25 @@ impl Default for Config {
 impl Config {
     pub fn uri_parts(&self, inner: Uri, http: bool) -> Result<http::uri::Parts, Error> {
         let mut uri_parts = inner.into_parts();
-        let scheme = match (self.use_tls, http) {
-            (false, false) => Scheme::from_str("ws").unwrap(),
-            (true, false) => Scheme::from_str("wss").unwrap(),
-            (false, true) => Scheme::HTTP,
-            (true, true) => Scheme::HTTPS,
-        };
-        uri_parts.scheme = Some(scheme);
-        let authority = Authority::from_str(&format!("{}:{}", self.hostname, self.port))?;
-        uri_parts.authority = Some(authority);
+
+        if let Some(s) = &self.base_url {
+            let base_uri = s.parse::<Uri>()?;
+            let base_uri_parts = base_uri.into_parts();
+            uri_parts.scheme = base_uri_parts.scheme;
+            uri_parts.authority = base_uri_parts.authority;
+        } else {
+            let scheme = match (self.use_tls, http) {
+                (false, false) => Scheme::from_str("ws").unwrap(),
+                (true, false) => Scheme::from_str("wss").unwrap(),
+                (false, true) => Scheme::HTTP,
+                (true, true) => Scheme::HTTPS,
+            };
+            uri_parts.scheme = Some(scheme);
+
+            let authority = Authority::from_str(&format!("{}:{}", self.hostname, self.port))?;
+            uri_parts.authority = Some(authority);
+        }
+
         Ok(uri_parts)
     }
 }
