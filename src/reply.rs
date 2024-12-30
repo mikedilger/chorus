@@ -1,6 +1,7 @@
 use pocket_types::{Event, Hll8, Id};
 use std::fmt;
 
+#[derive(Debug, Clone, Copy)]
 pub enum NostrReplyPrefix {
     None,
     AuthRequired,
@@ -29,6 +30,8 @@ impl fmt::Display for NostrReplyPrefix {
     }
 }
 
+#[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum NostrReply<'a> {
     Auth(String),
     Event(&'a str, &'a Event),

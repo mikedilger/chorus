@@ -125,7 +125,7 @@ pub async fn handle_hash(
             if let Some(etags) = request.headers().get(IF_MATCH) {
                 let mut onematch: bool = false;
                 for part in etags.to_str()?.split(',') {
-                    if &part[1..part.len() - 1] == &format!("{}", hash) {
+                    if part[1..part.len() - 1] == format!("{}", hash) {
                         onematch = true;
                     }
                 }
@@ -143,7 +143,7 @@ pub async fn handle_hash(
             let mut send_not_modified: bool = false;
             if let Some(etags) = request.headers().get(IF_NONE_MATCH) {
                 for part in etags.to_str()?.split(',') {
-                    if &part[1..part.len() - 1] == &format!("{}", hash) {
+                    if part[1..part.len() - 1] == format!("{}", hash) {
                         send_not_modified = true;
                     }
                 }

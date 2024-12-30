@@ -19,7 +19,7 @@ fn main() -> Result<(), Error> {
     chorus::setup_logging(&config);
 
     // These kinds don't need approval:
-    let allowed_kinds = vec![
+    let allowed_kinds = [
         Kind::from(4),     // Encrypted Direct Message
         Kind::from(1059),  // Giftwrap
         Kind::from(10002), // Relay list

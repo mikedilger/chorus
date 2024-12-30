@@ -2,7 +2,7 @@ use chorus::error::{ChorusError, Error};
 use pocket_types::{Filter, Id, Pubkey, Tags};
 use std::env;
 
-const USAGE: &'static str = "usage: chorus_cmd <config_path> <command> [args...]";
+const USAGE: &str = "usage: chorus_cmd <config_path> <command> [args...]";
 
 fn main() -> Result<(), Error> {
     // Get args (config path)
@@ -49,8 +49,8 @@ fn main() -> Result<(), Error> {
             let (_, tags) = Tags::from_json(b"[]", &mut tags_buffer)?;
             let mut filter_buffer: [u8; 128] = [0; 128];
             let filter =
-                Filter::from_parts(&[], &[pk], &[], &tags, None, None, None, &mut filter_buffer)?;
-            let events = store.find_events(&filter, true, 0, 0, |_| true)?;
+                Filter::from_parts(&[], &[pk], &[], tags, None, None, None, &mut filter_buffer)?;
+            let events = store.find_events(filter, true, 0, 0, |_| true)?;
             for event in events.iter() {
                 store.remove_event(event.id())?;
             }

@@ -397,7 +397,7 @@ impl WebSocketService {
         self.websocket.close(Some(close_frame)).await?;
 
         // Drive to completion
-        while let Some(_) = self.websocket.next().await {}
+        while (self.websocket.next().await).is_some() {}
 
         Err(error)
     }

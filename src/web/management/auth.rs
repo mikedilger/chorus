@@ -27,7 +27,7 @@ pub async fn check_auth(request: Request<Incoming>) -> Result<Value, Error> {
 
     // Authorization header must be type "nostr"
     let value = String::from_utf8(authz.as_bytes().to_owned())?;
-    let mut parts = value.split(|b| b == ' ');
+    let mut parts = value.split(' ');
     match parts.next() {
         Some(s) => {
             if s.to_lowercase() != "nostr" {
