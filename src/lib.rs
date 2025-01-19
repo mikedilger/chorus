@@ -4,6 +4,7 @@ pub mod error;
 pub mod filestore;
 pub mod globals;
 pub mod ip;
+mod neg_storage;
 pub mod nostr;
 pub mod reply;
 pub mod tls;
@@ -25,6 +26,7 @@ use hyper::{Request, Response};
 use hyper_tungstenite::tungstenite;
 use hyper_tungstenite::{HyperWebsocket, WebSocketStream};
 use hyper_util::rt::TokioIo;
+use neg_storage::NegentropyStorageVector;
 use pocket_db::Store;
 use pocket_types::{Id, OwnedFilter, Pubkey};
 use speedy::{Readable, Writable};
@@ -215,6 +217,7 @@ async fn websocket_thread(peer: HashedPeer, websocket: HyperWebsocket, origin: S
             let mut ws_service = WebSocketService {
                 peer,
                 subscriptions: HashMap::new(),
+                neg_subscriptions: HashMap::new(),
                 // We start with a 1-page buffer, and grow it if needed.
                 buffer: vec![0; 4096],
                 websocket,
@@ -350,6 +353,7 @@ async fn websocket_thread(peer: HashedPeer, websocket: HyperWebsocket, origin: S
 struct WebSocketService {
     pub peer: HashedPeer,
     pub subscriptions: HashMap<String, Vec<OwnedFilter>>,
+    pub neg_subscriptions: HashMap<String, NegentropyStorageVector>,
     pub buffer: Vec<u8>,
     pub websocket: WebSocketStream<TokioIo<Upgraded>>,
     pub last_message: Instant,
@@ -425,7 +429,7 @@ impl WebSocketService {
             tokio::select! {
                 instant = interval.tick() => {
                     // Drop them if they have no subscriptions
-                    if self.subscriptions.is_empty() {
+                    if self.subscriptions.is_empty() && self.neg_subscriptions.is_empty() {
                         // And they are idle for timeout_seconds with no subscriptions
                         if last_message_at + Duration::from_secs(timeout_seconds) < instant {
                             self.wsclose(ChorusError::TimedOut.into()).await?;

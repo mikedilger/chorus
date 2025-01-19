@@ -1,10 +1,12 @@
 use crate::error::{ChorusError, Error};
 use crate::globals::GLOBALS;
+use crate::neg_storage::NegentropyStorageVector;
 use crate::reply::{NostrReply, NostrReplyPrefix};
 use crate::WebSocketService;
 use hyper_tungstenite::tungstenite::Message;
+use negentropy::{Bytes, Negentropy};
 use pocket_types::json::{eat_whitespace, json_unescape, verify_char};
-use pocket_types::{Event, Filter, Hll8, Kind, OwnedFilter, Pubkey, Time};
+use pocket_types::{read_hex, Event, Filter, Hll8, Kind, OwnedFilter, Pubkey, Time};
 use url::Url;
 
 impl WebSocketService {
@@ -32,6 +34,12 @@ impl WebSocketService {
             self.close(msg, inpos + 6).await?;
         } else if &input[inpos..inpos + 5] == b"AUTH\"" {
             self.auth(msg, inpos + 5).await?;
+        } else if &input[inpos..inpos + 9] == b"NEG-OPEN\"" {
+            self.neg_open(msg, inpos + 9).await?;
+        } else if &input[inpos..inpos + 8] == b"NEG-MSG\"" {
+            self.neg_msg(msg, inpos + 8).await?;
+        } else if &input[inpos..inpos + 10] == b"NEG-CLOSE\"" {
+            self.neg_close(msg, inpos + 10).await?;
         } else {
             log::warn!(target: "Client", "{}: Received unhandled text message: {}", self.peer, msg);
             let reply = NostrReply::Notice("Command unrecognized".to_owned());
@@ -433,6 +441,233 @@ impl WebSocketService {
         // They are now authenticated
         self.user = Some(event.pubkey());
 
+        Ok(())
+    }
+
+    pub async fn neg_open(&mut self, msg: &str, mut inpos: usize) -> Result<(), Error> {
+        let input = msg.as_bytes();
+
+        // ["NEG-OPEN", "<subid>", "<filter>", "<hex-message>"]
+
+        eat_whitespace(input, &mut inpos);
+        verify_char(input, b',', &mut inpos)?;
+        eat_whitespace(input, &mut inpos);
+
+        let mut outpos = 0;
+
+        // Read the subid into the session buffer
+        let subid = {
+            verify_char(input, b'"', &mut inpos)?;
+            let (inlen, outlen) = json_unescape(&input[inpos..], &mut self.buffer[outpos..])?;
+            inpos += inlen;
+            let subid = unsafe {
+                String::from_utf8_unchecked(self.buffer[outpos..outpos + outlen].to_owned())
+            };
+            outpos += outlen;
+            verify_char(input, b'"', &mut inpos)?; // FIXME: json_unescape should eat the closing quote
+            subid
+        };
+
+        // Read the filter into the session buffer
+        let filter = {
+            eat_whitespace(input, &mut inpos);
+            verify_char(input, b',', &mut inpos)?;
+            // whitespace after the comma is handled within Filter::from_json
+            let (incount, outcount, filter) =
+                Filter::from_json(&input[inpos..], &mut self.buffer[outpos..])?;
+            inpos += incount;
+            outpos += outcount;
+            filter.to_owned()
+        };
+
+        // Read the negentropy message
+        let incoming_msg = {
+            eat_whitespace(input, &mut inpos);
+            verify_char(input, b',', &mut inpos)?;
+            eat_whitespace(input, &mut inpos);
+            verify_char(input, b'"', &mut inpos)?;
+            let (inlen, outlen) = json_unescape(&input[inpos..], &mut self.buffer[outpos..])?;
+            inpos += inlen;
+            verify_char(input, b'"', &mut inpos)?;
+            let mut msg = vec![0; outlen / 2];
+            read_hex!(&self.buffer[outpos..outpos + outlen], &mut msg, outlen / 2)?;
+            //outpos += outlen;
+            msg
+        };
+
+        // NEG-ERR if the message was empty
+        if incoming_msg.is_empty() {
+            let reply = NostrReply::NegErr(&subid, "Empty negentropy message".to_owned());
+            self.send(Message::text(reply.as_json())).await?;
+            return Ok(());
+        }
+
+        // If the version is too high, respond with our version number
+        if incoming_msg[0] != 0x61 {
+            let reply = NostrReply::NegMsg(&subid, vec![0x61]);
+            self.send(Message::text(reply.as_json())).await?;
+            return Ok(());
+        }
+
+        let user = self.user;
+        let authorized_user = authorized_user(&user);
+
+        // Find all matching events
+        let mut events: Vec<&Event> = Vec::new();
+        let screen = |event: &Event| {
+            let event_flags = event_flags(event, &user);
+            screen_outgoing_event(event, &event_flags, authorized_user)
+        };
+        let filter_events = {
+            let config = &*GLOBALS.config.read();
+            GLOBALS.store.get().unwrap().find_events(
+                &filter,
+                config.allow_scraping,
+                config.allow_scrape_if_limited_to,
+                config.allow_scrape_if_max_seconds,
+                screen,
+            )?
+        };
+        events.extend(filter_events);
+        events.sort_by(|a, b| {
+            a.created_at()
+                .cmp(&b.created_at())
+                .then(a.id().cmp(&b.id()))
+        });
+        events.dedup();
+
+        let mut nsv = NegentropyStorageVector::with_capacity(events.len());
+        for event in &events {
+            let id = negentropy::Id::from_slice(event.id().as_slice())?;
+            let time = event.created_at().as_u64();
+            nsv.insert(time, id)?;
+        }
+        nsv.seal()?;
+
+        // Save the matching events under the subscription Id
+        self.neg_subscriptions.insert(subid.clone(), nsv);
+
+        // Look it up again immediately
+        let Some(nsv) = self.neg_subscriptions.get(&subid) else {
+            return Err(ChorusError::General(
+                "NEG-OPEN inserted data is immediately missing!".to_owned(),
+            )
+            .into());
+        };
+
+        let mut neg = Negentropy::new(nsv, 1024 * 1024)?; // websocket frame size limit
+        match neg.reconcile(&Bytes::from(incoming_msg)) {
+            Ok(response) => {
+                let reply = NostrReply::NegMsg(&subid, response.as_bytes().to_owned());
+                self.send(Message::text(reply.as_json())).await?;
+            }
+            Err(e) => {
+                let reply = NostrReply::NegErr(&subid, format!("{e}"));
+                self.send(Message::text(reply.as_json())).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn neg_msg(&mut self, msg: &str, mut inpos: usize) -> Result<(), Error> {
+        let input = msg.as_bytes();
+
+        // ["NEG-MSG", "<subid>", "<hex-message>"]
+        eat_whitespace(input, &mut inpos);
+        verify_char(input, b',', &mut inpos)?;
+        eat_whitespace(input, &mut inpos);
+
+        let mut outpos = 0;
+
+        // Read the subid into the session buffer
+        let subid = {
+            verify_char(input, b'"', &mut inpos)?;
+            let (inlen, outlen) = json_unescape(&input[inpos..], &mut self.buffer[outpos..])?;
+            inpos += inlen;
+            let subid = unsafe {
+                String::from_utf8_unchecked(self.buffer[outpos..outpos + outlen].to_owned())
+            };
+            outpos += outlen;
+            verify_char(input, b'"', &mut inpos)?; // FIXME: json_unescape should eat the closing quote
+            subid
+        };
+
+        // Read the negentropy message
+        let incoming_msg = {
+            eat_whitespace(input, &mut inpos);
+            verify_char(input, b',', &mut inpos)?;
+            eat_whitespace(input, &mut inpos);
+            verify_char(input, b'"', &mut inpos)?;
+            let (inlen, outlen) = json_unescape(&input[inpos..], &mut self.buffer[outpos..])?;
+            inpos += inlen;
+            verify_char(input, b'"', &mut inpos)?;
+            let mut msg = vec![0; outlen / 2];
+            read_hex!(&self.buffer[outpos..outpos + outlen], &mut msg, outlen / 2)?;
+            // outpos += outlen;
+            msg
+        };
+
+        // NEG-ERR if the message was empty
+        if incoming_msg.is_empty() {
+            let reply = NostrReply::NegErr(&subid, "Empty negentropy message".to_owned());
+            self.send(Message::text(reply.as_json())).await?;
+            return Ok(());
+        }
+
+        // If the version is too high, return an error (version negotiation should
+        // have already happened in NEG-OPEN)
+        if incoming_msg[0] != 0x61 {
+            let reply = NostrReply::NegErr(&subid, "Version mismatch".to_owned());
+            self.send(Message::text(reply.as_json())).await?;
+            return Ok(());
+        }
+
+        // Look up the events we have
+        let Some(nsv) = self.neg_subscriptions.get(&subid) else {
+            let reply = NostrReply::NegErr(&subid, "Subscription not found".to_owned());
+            self.send(Message::text(reply.as_json())).await?;
+            return Ok(());
+        };
+
+        let mut neg = Negentropy::new(nsv, 1024 * 1024)?; // websocket frame size limit
+        match neg.reconcile(&Bytes::from(incoming_msg)) {
+            Ok(response) => {
+                let reply = NostrReply::NegMsg(&subid, response.as_bytes().to_owned());
+                self.send(Message::text(reply.as_json())).await?;
+            }
+            Err(e) => {
+                let reply = NostrReply::NegErr(&subid, format!("{e}"));
+                self.send(Message::text(reply.as_json())).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn neg_close(&mut self, msg: &str, mut inpos: usize) -> Result<(), Error> {
+        let input = msg.as_bytes();
+
+        // ["NEG-CLOSE", "<subid>"]
+
+        eat_whitespace(input, &mut inpos);
+        verify_char(input, b',', &mut inpos)?;
+        eat_whitespace(input, &mut inpos);
+
+        // Read the subid into the session buffer
+        let subid = {
+            verify_char(input, b'"', &mut inpos)?;
+            let (inlen, outlen) = json_unescape(&input[inpos..], &mut self.buffer)?;
+            inpos += inlen;
+            let subid = unsafe { String::from_utf8_unchecked(self.buffer[..outlen].to_owned()) };
+            verify_char(input, b'"', &mut inpos)?; // FIXME: json_unescape should eat the closing quote
+            subid
+        };
+
+        // Close the subscription
+        self.neg_subscriptions.remove(&subid);
+
+        // No need to reply to the client
         Ok(())
     }
 }

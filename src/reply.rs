@@ -1,4 +1,4 @@
-use pocket_types::{Event, Hll8, Id};
+use pocket_types::{write_hex, Event, Hll8, Id};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy)]
@@ -40,6 +40,8 @@ pub enum NostrReply<'a> {
     Closed(&'a str, NostrReplyPrefix, String),
     Notice(String),
     Count(&'a str, usize, Option<Hll8>),
+    NegErr(&'a str, String),
+    NegMsg(&'a str, Vec<u8>),
 }
 
 impl NostrReply<'_> {
@@ -60,6 +62,16 @@ impl NostrReply<'_> {
                 } else {
                     format!(r#"["COUNT","{subid}",{{"count":{c}}}]"#)
                 }
+            }
+            NostrReply::NegErr(subid, reason) => {
+                format!(r#"["NEG-ERR","{subid}","{reason}"]"#)
+            }
+            NostrReply::NegMsg(subid, msg) => {
+                // write msg as hex
+                let mut buf: Vec<u8> = vec![0; msg.len() * 2];
+                write_hex!(msg, &mut buf, msg.len()).unwrap();
+                let msg_hex = unsafe { std::str::from_utf8_unchecked(&buf) };
+                format!(r#"["NEG-MSG","{subid}","{}"]"#, msg_hex)
             }
         }
     }
