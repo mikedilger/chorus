@@ -168,6 +168,12 @@ See `allow_scraping` to learn the definition of a scrape.
 
 The default is 7200.
 
+### allow_scrape_if_negentropy
+
+Within negentropy synchronization, allow scraping.
+
+The default is true
+
 ### max_subscriptions
 
 This is an integer indicating the maximum number of subscriptions a connection can have open at a given time.

@@ -539,7 +539,7 @@ impl WebSocketService {
             let config = &*GLOBALS.config.read();
             GLOBALS.store.get().unwrap().find_events(
                 &filter,
-                config.allow_scraping,
+                config.allow_scraping || config.allow_scrape_if_negentropy,
                 config.allow_scrape_if_limited_to,
                 config.allow_scrape_if_max_seconds,
                 screen,

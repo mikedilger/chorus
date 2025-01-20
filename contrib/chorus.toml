@@ -197,6 +197,13 @@ allow_scrape_if_limited_to = 100
 allow_scrape_if_max_seconds = 7200
 
 
+# Within negentropy synchronization, allow scraping
+#
+# The default is true
+#
+allow_scrape_if_negentropy = true
+
+
 # This is an integer indicating the maximum number of subscriptions a connection can have open
 # at a given time.
 #
