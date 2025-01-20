@@ -279,6 +279,7 @@ dependencies = [
  "log",
  "mime-sniffer",
  "mime2ext",
+ "negentropy",
  "parking_lot",
  "pocket-db",
  "pocket-types",
@@ -1146,6 +1147,12 @@ dependencies = [
  "libc",
  "memmap2",
 ]
+
+[[package]]
+name = "negentropy"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43a88da9dd148bbcdce323dd6ac47d369b4769d4a3b78c6c52389b9269f77932"
 
 [[package]]
 name = "nom"

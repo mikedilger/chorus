@@ -104,6 +104,9 @@ pub enum ChorusError {
     // Missing Table
     MissingTable(&'static str),
 
+    // Negentropy error
+    Negentropy(negentropy::Error),
+
     // Non-ASCII HTTP header value
     NonAsciiHttpHeaderValue(http::header::ToStrError),
 
@@ -209,6 +212,7 @@ impl std::fmt::Display for ChorusError {
             ChorusError::Io(e) => write!(f, "{e}"),
             ChorusError::ManagementAuthFailure(s) => write!(f, "Authorization failure: {s}"),
             ChorusError::MissingTable(t) => write!(f, "Missing table: {t}"),
+            ChorusError::Negentropy(e) => write!(f, "Negentropy: {e}"),
             ChorusError::NonAsciiHttpHeaderValue(e) => {
                 write!(f, "Non ASCII HTTP header value: {e}")
             }
@@ -308,6 +312,7 @@ impl ChorusError {
             ChorusError::Io(_) => 0.0,
             ChorusError::ManagementAuthFailure(_) => 0.0,
             ChorusError::MissingTable(_) => 0.0,
+            ChorusError::Negentropy(_) => 0.1,
             ChorusError::NonAsciiHttpHeaderValue(_) => 0.2,
             ChorusError::NoPrivateKey => 0.0,
             ChorusError::NotImplemented => 0.0,
@@ -578,6 +583,16 @@ impl From<base64::DecodeError> for Error {
     fn from(err: base64::DecodeError) -> Self {
         Error {
             inner: ChorusError::Base64Decode(err),
+            location: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<negentropy::Error> for Error {
+    #[track_caller]
+    fn from(e: negentropy::Error) -> Error {
+        Error {
+            inner: ChorusError::Negentropy(e),
             location: std::panic::Location::caller(),
         }
     }
