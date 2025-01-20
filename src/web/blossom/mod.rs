@@ -255,11 +255,7 @@ pub async fn handle_upload(
                     mime_string = ms.to_owned();
                 }
 
-                if let Some(exts) = new_mime_guess::get_mime_extensions_str(&mime_string) {
-                    exts[0]
-                } else {
-                    "blob"
-                }
+                mime2ext::mime2ext(&mime_string).unwrap_or("blob")
             };
 
             let uri = {
