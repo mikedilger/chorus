@@ -64,6 +64,11 @@ announce upgrade instructions until release.
 
 ## Change Log
 
+### Version 1.7.0
+
+- Negentropy support (you must set enable_negentropy=true)
+- Blossom extensions are better
+
 ### Version 1.6.1
 
 - base_url added (you should set this if you are behind a proxy like nginx)
