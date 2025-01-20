@@ -18,6 +18,8 @@ impl WebSocketService {
             self.buffer.resize(newlen, 0);
         }
 
+        log::trace!(target: "Client", "{}: {}", self.peer, msg);
+
         let input = msg.as_bytes();
         let mut inpos = 0;
         eat_whitespace(input, &mut inpos);

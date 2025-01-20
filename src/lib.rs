@@ -368,6 +368,8 @@ struct WebSocketService {
 
 impl WebSocketService {
     async fn send(&mut self, m: Message) -> Result<(), Error> {
+        log::trace!(target: "Client", "{}: {}", self.peer, m);
+
         // Throttling: we consume burst tokens, but we do not throttle on output
         if m.len() > self.burst_tokens {
             log::info!(target: "Client", "{}: Rate limited exceeded", self.peer);
