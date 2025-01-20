@@ -56,7 +56,8 @@ impl WebSocketService {
         verify_char(input, b'"', &mut inpos)?;
         let (inlen, outlen) = json_unescape(&input[inpos..], &mut self.buffer[outpos..])?;
         inpos += inlen;
-        let subid = unsafe { String::from_utf8_unchecked(self.buffer[outpos..outlen].to_owned()) };
+        let subid =
+            unsafe { String::from_utf8_unchecked(self.buffer[outpos..outpos + outlen].to_owned()) };
         outpos += outlen;
         verify_char(input, b'"', &mut inpos)?; // FIXME: json_unescape should eat the closing quote
 
