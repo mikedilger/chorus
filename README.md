@@ -64,9 +64,18 @@ announce upgrade instructions until release.
 
 ## Change Log
 
-### to be released
+### Version 1.6.1
+
+- base_url added (you should set this if you are behind a proxy like nginx)
+- NIP-45 COUNT support
+- NIP-45 PR #1561 HyperLogLog count support
+
+### Version 1.6.0
 
 - Support for running as a blossom server
+- Websocket close frames provided on close
+- Better pre-flight checks
+- server-wide OPTIONS requests now handled
 
 ### Version 1.5.3
 
