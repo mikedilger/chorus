@@ -64,6 +64,11 @@ announce upgrade instructions until release.
 
 ## Change Log
 
+### Version 1.7.1
+
+- Config setting allow_scrape_if_negentropy=true
+- CLOSED no longer sent after CLOSE
+
 ### Version 1.7.0
 
 - Negentropy support (you must set enable_negentropy=true)
