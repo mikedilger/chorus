@@ -146,15 +146,15 @@ This is a boolean indicating whether or not scraping is allowed. Scraping is any
 
 Filter that fail to match these conditions will be rejected if `allow_scraping` is false.
 
-If `allow_scraping` is true, be aware that filters that don't match any of these conditions have no indexes to speed up their query, so they scan through every single event on the relay.
+If `allow_scraping` is true, be aware that filters that don't match any of these conditions (and are not bound by since/until/limit) have no indexes to speed up their query, so they scan through every single event on the relay.
 
-The purpose of this setting is as a temporary setting that allows you to dump every single event on your relay.
+See also `allow_scrape_if_limited_to` and # `allow_scrape_if_max_seconds`.
 
 Default is false.
 
 ### allow_scrape_if_limited_to
 
-This is a u32 count of events indicating a filter `limit` value under which a scrape is allowed, irrespective of the `allow_scraping` setting. Such scrapes are not expensive due to the limit.
+This is a u32 count of events indicating a filter `limit` value under which a scrape is allowed, irrespective of the `allow_scraping` setting. Such scrapes are not expensive due to the limit. The limit must be specified in the filter; it does not do the scrape and then count to see if it was under the limit.
 
 See `allow_scraping` to learn the definition of a scrape.
 
