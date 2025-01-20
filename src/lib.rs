@@ -227,6 +227,7 @@ async fn websocket_thread(peer: HashedPeer, websocket: HyperWebsocket, origin: S
                 user: None,
                 error_punishment: 0.0,
                 replied: false,
+                negentropy_sub: None,
             };
 
             // Increment connection count
@@ -362,6 +363,7 @@ struct WebSocketService {
     pub user: Option<Pubkey>,
     pub error_punishment: f32,
     pub replied: bool,
+    pub negentropy_sub: Option<String>,
 }
 
 impl WebSocketService {
@@ -544,8 +546,13 @@ impl WebSocketService {
                         }
                     }
                     if !self.replied {
-                        let reply = NostrReply::Notice(format!("error: {}", e.inner));
-                        self.send(Message::text(reply.as_json())).await?;
+                        if let Some(subid) = &self.negentropy_sub {
+                            let reply = NostrReply::NegErr(subid, format!("error: {e}"));
+                            self.send(Message::text(reply.as_json())).await?;
+                        } else {
+                            let reply = NostrReply::Notice(format!("error: {}", e.inner));
+                            self.send(Message::text(reply.as_json())).await?;
+                        }
                     }
                     if self.error_punishment >= 1.0 {
                         let reply = NostrReply::Notice("Closing due to error(s)".into());

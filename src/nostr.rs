@@ -468,8 +468,11 @@ impl WebSocketService {
             subid
         };
 
-        if ! GLOBALS.config.read().enable_negentropy {
-            let reply = NostrReply::NegErr(&subid, "blocked: Negentropy sync is disabled".to_owned());
+        self.negentropy_sub = Some(subid.clone());
+
+        if !GLOBALS.config.read().enable_negentropy {
+            let reply =
+                NostrReply::NegErr(&subid, "blocked: Negentropy sync is disabled".to_owned());
             self.send(Message::text(reply.as_json())).await?;
             return Ok(());
         }
@@ -600,8 +603,11 @@ impl WebSocketService {
             subid
         };
 
-        if ! GLOBALS.config.read().enable_negentropy {
-            let reply = NostrReply::NegErr(&subid, "blocked: Negentropy sync is disabled".to_owned());
+        self.negentropy_sub = Some(subid.clone());
+
+        if !GLOBALS.config.read().enable_negentropy {
+            let reply =
+                NostrReply::NegErr(&subid, "blocked: Negentropy sync is disabled".to_owned());
             self.send(Message::text(reply.as_json())).await?;
             return Ok(());
         }
@@ -676,6 +682,8 @@ impl WebSocketService {
             verify_char(input, b'"', &mut inpos)?; // FIXME: json_unescape should eat the closing quote
             subid
         };
+
+        self.negentropy_sub = Some(subid.clone());
 
         // Close the subscription
         self.neg_subscriptions.remove(&subid);
