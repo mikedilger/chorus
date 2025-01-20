@@ -276,3 +276,13 @@ Our implementation makes all files publicly readable, but only chorus users can 
 or delete.  See https://github.com/hzrd149/blossom
 
 Default is None
+
+### enable_negentropy
+
+Whether to allow negentropy syncing or not
+
+If this is enabled, keep in mind that some negentropy syncs are scrapes and if you want to
+allow those, you should also enable allow_scraping. But this will require scans of the entire
+database since scrapes have no indexes.
+
+Default is false

@@ -468,6 +468,12 @@ impl WebSocketService {
             subid
         };
 
+        if ! GLOBALS.config.read().enable_negentropy {
+            let reply = NostrReply::NegErr(&subid, "blocked: Negentropy sync is disabled".to_owned());
+            self.send(Message::text(reply.as_json())).await?;
+            return Ok(());
+        }
+
         // Read the filter into the session buffer
         let filter = {
             eat_whitespace(input, &mut inpos);
@@ -497,7 +503,7 @@ impl WebSocketService {
 
         // NEG-ERR if the message was empty
         if incoming_msg.is_empty() {
-            let reply = NostrReply::NegErr(&subid, "Empty negentropy message".to_owned());
+            let reply = NostrReply::NegErr(&subid, "error: Empty negentropy message".to_owned());
             self.send(Message::text(reply.as_json())).await?;
             return Ok(());
         }
@@ -574,6 +580,7 @@ impl WebSocketService {
         let input = msg.as_bytes();
 
         // ["NEG-MSG", "<subid>", "<hex-message>"]
+
         eat_whitespace(input, &mut inpos);
         verify_char(input, b',', &mut inpos)?;
         eat_whitespace(input, &mut inpos);
@@ -593,6 +600,12 @@ impl WebSocketService {
             subid
         };
 
+        if ! GLOBALS.config.read().enable_negentropy {
+            let reply = NostrReply::NegErr(&subid, "blocked: Negentropy sync is disabled".to_owned());
+            self.send(Message::text(reply.as_json())).await?;
+            return Ok(());
+        }
+
         // Read the negentropy message
         let incoming_msg = {
             eat_whitespace(input, &mut inpos);
@@ -610,7 +623,7 @@ impl WebSocketService {
 
         // NEG-ERR if the message was empty
         if incoming_msg.is_empty() {
-            let reply = NostrReply::NegErr(&subid, "Empty negentropy message".to_owned());
+            let reply = NostrReply::NegErr(&subid, "error: Empty negentropy message".to_owned());
             self.send(Message::text(reply.as_json())).await?;
             return Ok(());
         }

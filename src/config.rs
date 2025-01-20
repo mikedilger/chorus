@@ -42,6 +42,7 @@ pub struct FriendlyConfig {
     pub throttling_bytes_per_second: usize,
     pub throttling_burst: usize,
     pub blossom_directory: Option<String>,
+    pub enable_negentropy: bool,
 }
 
 impl Default for FriendlyConfig {
@@ -81,6 +82,7 @@ impl Default for FriendlyConfig {
             throttling_bytes_per_second: 1024 * 1024,
             throttling_burst: 1024 * 1024 * 16,
             blossom_directory: None,
+            enable_negentropy: false,
         }
     }
 }
@@ -122,6 +124,7 @@ impl FriendlyConfig {
             throttling_bytes_per_second,
             throttling_burst,
             blossom_directory,
+            enable_negentropy,
         } = self;
 
         let mut public_key: Option<Pubkey> = None;
@@ -185,6 +188,7 @@ impl FriendlyConfig {
             throttling_bytes_per_second,
             throttling_burst,
             blossom_directory,
+            enable_negentropy,
         })
     }
 }
@@ -227,6 +231,7 @@ pub struct Config {
     pub throttling_bytes_per_second: usize,
     pub throttling_burst: usize,
     pub blossom_directory: Option<String>,
+    pub enable_negentropy: bool,
 }
 
 impl Default for Config {
