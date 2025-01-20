@@ -340,10 +340,16 @@ impl WebSocketService {
 
         // If we have that subscription
         if self.subscriptions.contains_key(subid) {
-            // Remove it, and let them know
+            // Remove it
             self.subscriptions.remove(subid);
+
+            // Don't send a CLOSED because there is no valid prefix for this kind of
+            // message, and clients just presume it was closed.
+            /*
             let reply = NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned());
             self.send(Message::text(reply.as_json())).await?;
+             */
+
             Ok(())
         } else {
             Err(ChorusError::NoSuchSubscription.into())
