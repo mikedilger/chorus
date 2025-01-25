@@ -306,6 +306,21 @@ impl WebSocketService {
             }
         }
 
+        // Handle Request to Vanish events
+        if event.kind() == Kind::from(62) {
+            if let Ok(true) = verify_relay_tag(event, true) {
+                let store = GLOBALS.store.get().unwrap();
+
+                // Erase their events (and giftwraps to them)
+                store.vanish(event)?;
+
+                // Add their pubkey to the blocklist so their events cannot come back
+                crate::mark_pubkey_approval(store, event.pubkey(), false)?;
+            }
+
+            return Ok(());
+        }
+
         // Screen the event to see if we are willing to accept it
         if !screen_incoming_event(event, event_flags, authorized_user).await? {
             if self.user.is_some() {
@@ -397,45 +412,22 @@ impl WebSocketService {
             return Err(ChorusError::AuthFailure("Wrong event kind".to_string()).into());
         }
 
-        // Verify the challenge and relay tags
-        let mut challenge_ok = false;
-        let mut relay_ok = false;
-        for mut tag in event.tags()?.iter() {
-            match tag.next() {
-                Some(b"relay") => {
-                    if let Some(value) = tag.next() {
-                        // We check if the URL host matches
-                        // (when normalized, puny-encoded IDNA, etc)
-                        let utf8value = std::str::from_utf8(value)?;
-                        let url = match Url::parse(utf8value) {
-                            Ok(u) => u,
-                            Err(e) => return Err(ChorusError::AuthFailure(format!("{e}")).into()),
-                        };
-                        if let Some(h) = url.host() {
-                            let theirhost = h.to_owned();
-                            if theirhost == GLOBALS.config.read().hostname {
-                                relay_ok = true;
-                            }
-                        }
-                    }
-                }
-                Some(b"challenge") => {
-                    if let Some(value) = tag.next() {
-                        if value == self.challenge.as_bytes() {
-                            challenge_ok = true;
-                        }
-                    }
-                }
-                None => break,
-                _ => continue,
-            }
-        }
-
-        if !challenge_ok {
-            return Err(ChorusError::AuthFailure("challenge is wrong".to_string()).into());
-        }
+        // Verify the relay tag
+        let relay_ok = match verify_relay_tag(event, false) {
+            Ok(b) => b,
+            Err(e) => return Err(ChorusError::AuthFailure(format!("{e}")).into()),
+        };
         if !relay_ok {
             return Err(ChorusError::AuthFailure("relay is wrong".to_string()).into());
+        }
+
+        // Verify the challenge tag
+        let challenge_ok = match verify_challenge_tag(event, self.challenge.as_bytes()) {
+            Ok(b) => b,
+            Err(e) => return Err(ChorusError::AuthFailure(format!("{e}")).into()),
+        };
+        if !challenge_ok {
+            return Err(ChorusError::AuthFailure("challenge is wrong".to_string()).into());
         }
 
         // Verify the created_at timestamp is within reason
@@ -880,4 +872,48 @@ pub fn event_flags(event: &Event, user: &Option<Pubkey>) -> EventFlags {
         tags_an_authorized_user,
         tags_current_user,
     }
+}
+
+fn verify_relay_tag(event: &Event, allow_all_relays: bool) -> Result<bool, Error> {
+    for mut tag in event.tags()?.iter() {
+        match tag.next() {
+            Some(b"relay") => {
+                if let Some(value) = tag.next() {
+                    if allow_all_relays && value == b"ALL_RELAYS" {
+                        return Ok(true);
+                    } else {
+                        // We check if the URL host matches
+                        // (when normalized, puny-encoded IDNA, etc)
+                        let utf8value = std::str::from_utf8(value)?;
+                        let url = Url::parse(utf8value)?;
+                        if let Some(h) = url.host() {
+                            if h == GLOBALS.config.read().hostname {
+                                return Ok(true);
+                            }
+                        }
+                    }
+                }
+            }
+            _ => continue,
+        }
+    }
+
+    Ok(false)
+}
+
+fn verify_challenge_tag(event: &Event, challenge: &[u8]) -> Result<bool, Error> {
+    for mut tag in event.tags()?.iter() {
+        match tag.next() {
+            Some(b"challenge") => {
+                if let Some(value) = tag.next() {
+                    if value == challenge {
+                        return Ok(true);
+                    }
+                }
+            }
+            _ => continue,
+        }
+    }
+
+    Ok(false)
 }
