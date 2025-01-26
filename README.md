@@ -64,6 +64,10 @@ announce upgrade instructions until release.
 
 ## Change Log
 
+### Master
+
+- Support for NIP-62 (PR #1256) Right to Vanish
+
 ### Version 1.7.1
 
 - Config setting allow_scrape_if_negentropy=true
