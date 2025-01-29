@@ -33,12 +33,18 @@ pub async fn serve_http(
         return Ok(response);
     }
 
-    // check for Accept header of application/nostr+json
+    // Check if it is a NIP-11 request
     if let Some(accept) = request.headers().get("Accept") {
         if let Ok(s) = accept.to_str() {
             if s == "application/nostr+json" {
                 return nip11::serve_nip11(peer).await;
             }
+        }
+    }
+
+    // Check if it is a NIP-86 Relay Management request
+    if let Some(content_type) = request.headers().get("Content-Type") {
+        if let Ok(s) = content_type.to_str() {
             if s == "application/nostr+json+rpc" {
                 return management::handle(peer, request).await;
             }
