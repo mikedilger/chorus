@@ -18,7 +18,7 @@ fn respond(
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Headers", "*")
         .header("Access-Control-Allow-Methods", "*")
-        .header("Content-Type", "application/nostr+json")
+        .header("Content-Type", "application/nostr+json+rpc")
         .status(status)
         .body(
             Full::new(s.into_bytes().into())
@@ -105,7 +105,8 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                 "listallowedpubkeys",
                 "listbannedevents",
                 "listbannedpubkeys",
-                "supportedmethods"
+                "supportedmethods",
+                "liveconnections"
             ]
         }))),
 
@@ -213,6 +214,14 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
         "changerelayname" => Err(ChorusError::NotImplemented.into()),
         "changerelaydescription" => Err(ChorusError::NotImplemented.into()),
         "changerelayicon" => Err(ChorusError::NotImplemented.into()),
+
+        // System
+        "liveconnections" => {
+            let num = &GLOBALS.num_connections;
+            Ok(Some(json!({
+                "result": num,
+            })))
+        }
 
         _ => Err(ChorusError::NotImplemented.into()),
     }
