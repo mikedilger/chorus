@@ -106,7 +106,8 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                 "listbannedevents",
                 "listbannedpubkeys",
                 "supportedmethods",
-                "liveconnections"
+                "numconnections",
+                "uptime"
             ]
         }))),
 
@@ -216,10 +217,17 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
         "changerelayicon" => Err(ChorusError::NotImplemented.into()),
 
         // System
-        "liveconnections" => {
+        "numconnections" => {
             let num = &GLOBALS.num_connections;
             Ok(Some(json!({
                 "result": num,
+            })))
+        }
+
+        "uptime" => {
+            let uptime_in_secs = GLOBALS.start_time.elapsed().as_secs();
+            Ok(Some(json!({
+                "result": uptime_in_secs,
             })))
         }
 
