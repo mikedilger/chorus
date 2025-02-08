@@ -27,7 +27,6 @@ use hyper_tungstenite::tungstenite;
 use hyper_tungstenite::{HyperWebsocket, WebSocketStream};
 use hyper_util::rt::TokioIo;
 use neg_storage::NegentropyStorageVector;
-use parking_lot::RwLock;
 use pocket_db::Store;
 use pocket_types::{Id, OwnedFilter, Pubkey};
 use speedy::{Readable, Writable};

@@ -5,7 +5,7 @@ use http::header::AUTHORIZATION;
 use http_body_util::BodyExt;
 use hyper::body::Incoming;
 use hyper::Request;
-use pocket_types::{Event, Pubkey};
+use pocket_types::Event;
 use secp256k1::hashes::{sha256, Hash};
 use serde_json::Value;
 
