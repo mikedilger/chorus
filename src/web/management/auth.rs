@@ -5,7 +5,7 @@ use http::header::AUTHORIZATION;
 use http_body_util::BodyExt;
 use hyper::body::Incoming;
 use hyper::Request;
-use pocket_types::Event;
+use pocket_types::{Event, Pubkey};
 use secp256k1::hashes::{sha256, Hash};
 use serde_json::Value;
 
@@ -56,12 +56,7 @@ pub async fn check_auth(request: Request<Incoming>) -> Result<Value, Error> {
     }
 
     // Nostr event must be signed by a moderator
-    if !GLOBALS
-        .config
-        .read()
-        .moderator_keys
-        .contains(&event.pubkey())
-    {
+    if crate::get_pubkey_as_moderator(event.pubkey(), vec![]) {
         return s_err("Authorization failed as user is not a moderator");
     }
 

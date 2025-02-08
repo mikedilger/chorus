@@ -97,6 +97,8 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
     match &*method {
         "supportedmethods" => Ok(Some(json!({
             "result": [
+                "grantadmin",
+                "revokeadmin",
                 "allowevent",
                 "allowpubkey",
                 "banevent",
@@ -106,8 +108,7 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                 "listbannedevents",
                 "listbannedpubkeys",
                 "supportedmethods",
-                "numconnections",
-                "uptime"
+                "stats"
             ]
         }))),
 
@@ -211,24 +212,27 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
         "unblockip" => Err(ChorusError::NotImplemented.into()),
         "listblockedips" => Err(ChorusError::NotImplemented.into()),
 
-        // Config
-        "changerelayname" => Err(ChorusError::NotImplemented.into()),
-        "changerelaydescription" => Err(ChorusError::NotImplemented.into()),
-        "changerelayicon" => Err(ChorusError::NotImplemented.into()),
-
         // System
-        "numconnections" => {
-            let num = &GLOBALS.num_connections;
-            Ok(Some(json!({
-                "result": num,
-            })))
+        "stats" => Ok(Some(json!({
+            "result": {
+                "uptime": GLOBALS.start_time.elapsed().as_secs(),
+                "num_connections": &GLOBALS.num_connections,
+                "bytes_received": &GLOBALS.bytes_inbound,
+                "bytes_sent": &GLOBALS.bytes_outbound,
+            },
+        }))),
+
+        // Moderation
+        "grantadmin" => {
+            let pubkey = get_pubkey_param(obj)?;
+            crate::mark_pubkey_as_moderator(pubkey, vec![])?;
+            Ok(None)
         }
 
-        "uptime" => {
-            let uptime_in_secs = GLOBALS.start_time.elapsed().as_secs();
-            Ok(Some(json!({
-                "result": uptime_in_secs,
-            })))
+        "revokeadmin" => {
+            let pubkey = get_pubkey_param(obj)?;
+            crate::clear_pubkey_as_moderator(pubkey, vec![])?;
+            Ok(None)
         }
 
         _ => Err(ChorusError::NotImplemented.into()),

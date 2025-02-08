@@ -27,6 +27,7 @@ use hyper_tungstenite::tungstenite;
 use hyper_tungstenite::{HyperWebsocket, WebSocketStream};
 use hyper_util::rt::TokioIo;
 use neg_storage::NegentropyStorageVector;
+use parking_lot::RwLock;
 use pocket_db::Store;
 use pocket_types::{Id, OwnedFilter, Pubkey};
 use speedy::{Readable, Writable};
@@ -831,4 +832,37 @@ pub fn dump_pubkey_approvals(store: &Store) -> Result<Vec<(Pubkey, bool)>, Error
         output.push((pubkey, approval));
     }
     Ok(output)
+}
+
+// Marks a pubkey as moderator for nip-86
+pub fn mark_pubkey_as_moderator(pubkey: Pubkey, _: Vec<String>) -> Result<(), Error> {
+    GLOBALS
+        .config
+        .write()
+        .moderator_hex_keys
+        .push(pubkey.as_hex_string()?);
+    GLOBALS.config.write().moderator_keys.push(pubkey);
+
+    Ok(())
+}
+
+// Clears a pubkey as moderator for nip-86
+pub fn clear_pubkey_as_moderator(pubkey: Pubkey, _: Vec<String>) -> Result<(), Error> {
+    GLOBALS
+        .config
+        .write()
+        .moderator_hex_keys
+        .retain(|x| *x != pubkey.as_hex_string().unwrap());
+    GLOBALS
+        .config
+        .write()
+        .moderator_keys
+        .retain(|x| *x != pubkey);
+
+    Ok(())
+}
+
+// Fetch a pubkey access to nip-86 moderation
+pub fn get_pubkey_as_moderator(pubkey: Pubkey, _: Vec<String>) -> bool {
+    GLOBALS.config.read().moderator_keys.contains(&pubkey)
 }
