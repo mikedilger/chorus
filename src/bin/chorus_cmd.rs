@@ -56,6 +56,17 @@ fn main() -> Result<(), Error> {
             }
             println!("Done.");
         }
+        "fetch_by_id" => {
+            let idstr = args
+                .next()
+                .ok_or::<Error>(ChorusError::General("ID argument missing".to_owned()).into())?;
+            let id: Id = Id::read_hex(idstr.as_bytes())?;
+            if let Some(event) = store.get_event_by_id(id)? {
+                println!("{event}");
+            } else {
+                println!("Not found.");
+            }
+        }
         _ => {
             return Err(ChorusError::General("Unknown command.".to_owned()).into());
         }
