@@ -1281,7 +1281,7 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 [[package]]
 name = "pocket-db"
 version = "0.1.0"
-source = "git+https://github.com/mikedilger/pocket?branch=master#16a27ec6d8b4b294bae943a57fc525389e446489"
+source = "git+https://github.com/mikedilger/pocket?branch=master#e6d55e205cc140cc04728960c2ca4e6e906808ef"
 dependencies = [
  "heed",
  "libc",
@@ -1292,7 +1292,7 @@ dependencies = [
 [[package]]
 name = "pocket-types"
 version = "0.1.0"
-source = "git+https://github.com/mikedilger/pocket?branch=master#16a27ec6d8b4b294bae943a57fc525389e446489"
+source = "git+https://github.com/mikedilger/pocket?branch=master#e6d55e205cc140cc04728960c2ca4e6e906808ef"
 dependencies = [
  "derive_more",
  "secp256k1 0.28.2",

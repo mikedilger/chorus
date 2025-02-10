@@ -130,7 +130,7 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                     if *appr {
                         None
                     } else {
-                        Some(pk.as_hex_string().unwrap())
+                        Some(pk.as_hex_string())
                     }
                 })
                 .collect();
@@ -144,7 +144,7 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                 .iter()
                 .filter_map(|(pk, appr)| {
                     if *appr {
-                        Some(pk.as_hex_string().unwrap())
+                        Some(pk.as_hex_string())
                     } else {
                         None
                     }
@@ -173,7 +173,7 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                     if *appr {
                         None
                     } else {
-                        Some(id.as_hex_string().unwrap())
+                        Some(id.as_hex_string())
                     }
                 })
                 .collect();
@@ -187,7 +187,7 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                 .iter()
                 .filter_map(|(id, appr)| {
                     if *appr {
-                        Some(id.as_hex_string().unwrap())
+                        Some(id.as_hex_string())
                     } else {
                         None
                     }
