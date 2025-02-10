@@ -67,6 +67,33 @@ fn main() -> Result<(), Error> {
                 println!("Not found.");
             }
         }
+        "dump_users" => {
+            let users = chorus::dump_authorized_users(&store)?;
+            for (pubkey, moderator) in users.iter() {
+                println!("{} {}", pubkey, if *moderator { "moderator" } else { "" });
+            }
+        }
+        "add_user" => {
+            let pubstr = args.next().ok_or::<Error>(
+                ChorusError::General("Pubkey argument missing".to_owned()).into(),
+            )?;
+            let pk: Pubkey = Pubkey::read_hex(pubstr.as_bytes())?;
+
+            let moderator = args.next().ok_or::<Error>(
+                ChorusError::General("Moderator argument missing".to_owned()).into(),
+            )?;
+            let moderator: bool = moderator == "1";
+
+            chorus::add_authorized_user(&store, pk, moderator)?;
+        }
+        "rm_user" => {
+            let pubstr = args.next().ok_or::<Error>(
+                ChorusError::General("Pubkey argument missing".to_owned()).into(),
+            )?;
+            let pk: Pubkey = Pubkey::read_hex(pubstr.as_bytes())?;
+
+            chorus::rm_authorized_user(&store, pk)?;
+        }
         _ => {
             return Err(ChorusError::General("Unknown command.".to_owned()).into());
         }
