@@ -904,3 +904,8 @@ pub fn is_moderator(pubkey: Pubkey) -> bool {
         Ok(Some(moderator)) => moderator,
     }
 }
+
+/// Is the pubkey an admin?
+pub fn is_admin(pubkey: Pubkey) -> bool {
+    GLOBALS.config.read().admin_keys.contains(&pubkey)
+}

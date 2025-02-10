@@ -5,15 +5,15 @@ use http::header::AUTHORIZATION;
 use http_body_util::BodyExt;
 use hyper::body::Incoming;
 use hyper::Request;
-use pocket_types::Event;
+use pocket_types::{Event, Pubkey};
 use secp256k1::hashes::{sha256, Hash};
 use serde_json::Value;
 
-fn s_err(s: &str) -> Result<Value, Error> {
+fn s_err(s: &str) -> Result<(Pubkey, Value), Error> {
     Err(ChorusError::ManagementAuthFailure(s.to_owned()).into())
 }
 
-pub async fn check_auth(request: Request<Incoming>) -> Result<Value, Error> {
+pub async fn check_auth(request: Request<Incoming>) -> Result<(Pubkey, Value), Error> {
     // Must be POST
     if request.method() != hyper::Method::POST {
         return s_err("Management RPC only supports POST method");
@@ -112,5 +112,5 @@ pub async fn check_auth(request: Request<Incoming>) -> Result<Value, Error> {
         return s_err("Authorization event payload missing");
     }
 
-    Ok(serde_json::from_slice(&body)?)
+    Ok((event.pubkey(), serde_json::from_slice(&body)?))
 }

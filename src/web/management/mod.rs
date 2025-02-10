@@ -32,8 +32,8 @@ pub async fn handle(
     _peer: HashedPeer,
     request: Request<Incoming>,
 ) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
-    let command: Value = match auth::check_auth(request).await {
-        Ok(v) => v,
+    let (pubkey, command) = match auth::check_auth(request).await {
+        Ok((pk, v)) => (pk, v),
         Err(e) => {
             let result = json!({
                 "result": {},
@@ -43,7 +43,7 @@ pub async fn handle(
         }
     };
 
-    match handle_inner(command) {
+    match handle_inner(pubkey, command) {
         Ok(Some(value)) => respond(value, StatusCode::OK),
         Ok(None) => {
             let result = json!({
@@ -80,7 +80,7 @@ pub async fn handle(
     }
 }
 
-pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
+pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Error> {
     let obj = match command.as_object() {
         Some(o) => o,
         None => return Err(ChorusError::BadRequest("Command was not a JSON object").into()),
@@ -107,11 +107,16 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                 "listbannedpubkeys",
                 "supportedmethods",
                 "numconnections",
-                "uptime"
+                "uptime",
+                "listadmins",
+                "listmoderators",
+                "grantmoderator",
+                "revokemoderator",
+                "listusers",
+                "grantuser",
+                "revokeuser",
             ]
         }))),
-
-        // Pubkeys
         "banpubkey" => {
             let pk = get_pubkey_param(obj)?;
             crate::mark_pubkey_approval(GLOBALS.store.get().unwrap(), pk, false)?;
@@ -154,7 +159,6 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                 "result": pubkeys
             })))
         }
-        // Events
         "banevent" => {
             let id = get_id_param(obj)?;
             crate::mark_event_approval(GLOBALS.store.get().unwrap(), id, false)?;
@@ -197,39 +201,116 @@ pub fn handle_inner(command: Value) -> Result<Option<Value>, Error> {
                 "result": ids
             })))
         }
-
-        "listeventsneedingmoderation" => Err(ChorusError::NotImplemented.into()),
-
-        // Kinds
-        "allowkind" => Err(ChorusError::NotImplemented.into()),
-        "disallowkind" => Err(ChorusError::NotImplemented.into()),
-        "listbannedkinds" => Err(ChorusError::NotImplemented.into()),
-        "listallowedkinds" => Err(ChorusError::NotImplemented.into()),
-
-        // IP addresses
-        "blockip" => Err(ChorusError::NotImplemented.into()),
-        "unblockip" => Err(ChorusError::NotImplemented.into()),
-        "listblockedips" => Err(ChorusError::NotImplemented.into()),
-
-        // Config
-        "changerelayname" => Err(ChorusError::NotImplemented.into()),
-        "changerelaydescription" => Err(ChorusError::NotImplemented.into()),
-        "changerelayicon" => Err(ChorusError::NotImplemented.into()),
-
-        // System
         "numconnections" => {
             let num = &GLOBALS.num_connections;
             Ok(Some(json!({
                 "result": num,
             })))
         }
-
         "uptime" => {
             let uptime_in_secs = GLOBALS.start_time.elapsed().as_secs();
             Ok(Some(json!({
                 "result": uptime_in_secs,
             })))
         }
+        "listadmins" => {
+            let keys = GLOBALS.config.read().admin_hex_keys.clone();
+            Ok(Some(json!({
+                "result": keys
+            })))
+        }
+        "listmoderators" => {
+            let moderators: Vec<String> =
+                crate::dump_authorized_users(GLOBALS.store.get().unwrap())?
+                    .iter()
+                    .filter_map(|(pk, moderator)| {
+                        if *moderator {
+                            Some(pk.as_hex_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+            Ok(Some(json!({
+                "result": moderators
+            })))
+        }
+        "grantmoderator" => {
+            if !crate::is_admin(pubkey) {
+                Ok(Some(json!({
+                    "result": {},
+                    "error": "Unauthorized: Only admins can grant moderator status"
+                })))
+            } else {
+                let pk = get_pubkey_param(obj)?;
+                crate::add_authorized_user(GLOBALS.store.get().unwrap(), pk, true)?;
+                Ok(None)
+            }
+        }
+        "revokemoderator" => {
+            if !crate::is_admin(pubkey) {
+                Ok(Some(json!({
+                    "result": {},
+                    "error": "Unauthorized: Only admins can revoke moderator status"
+                })))
+            } else {
+                let pk = get_pubkey_param(obj)?;
+
+                // Do not do this if they aren't already an authorized user
+                if !crate::is_authorized_user(pk) {
+                    Ok(None)
+                } else {
+                    crate::add_authorized_user(GLOBALS.store.get().unwrap(), pk, false)?;
+                    Ok(None)
+                }
+            }
+        }
+        "listusers" => {
+            let users: Vec<String> = crate::dump_authorized_users(GLOBALS.store.get().unwrap())?
+                .iter()
+                .map(|(pk, _moderator)| pk.as_hex_string())
+                .collect();
+            Ok(Some(json!({
+                "result": users
+            })))
+        }
+        "grantuser" => {
+            if !crate::is_admin(pubkey) {
+                Ok(Some(json!({
+                    "result": {},
+                    "error": "Unauthorized: Only admins can grant user status"
+                })))
+            } else {
+                let pk = get_pubkey_param(obj)?;
+                crate::add_authorized_user(GLOBALS.store.get().unwrap(), pk, false)?;
+                Ok(None)
+            }
+        }
+        "revokeuser" => {
+            if !crate::is_admin(pubkey) {
+                Ok(Some(json!({
+                    "result": {},
+                    "error": "Unauthorized: Only admins can revoke user status"
+                })))
+            } else {
+                let pk = get_pubkey_param(obj)?;
+                crate::rm_authorized_user(GLOBALS.store.get().unwrap(), pk)?;
+                Ok(None)
+            }
+        }
+
+        // Commands we do not support (yet)
+        "listeventsneedingmoderation" => Err(ChorusError::NotImplemented.into()),
+        "allowkind" => Err(ChorusError::NotImplemented.into()),
+        "disallowkind" => Err(ChorusError::NotImplemented.into()),
+        "listbannedkinds" => Err(ChorusError::NotImplemented.into()),
+        "listallowedkinds" => Err(ChorusError::NotImplemented.into()),
+        "blockip" => Err(ChorusError::NotImplemented.into()),
+        "unblockip" => Err(ChorusError::NotImplemented.into()),
+        "listblockedips" => Err(ChorusError::NotImplemented.into()),
+        "changerelayname" => Err(ChorusError::NotImplemented.into()),
+        "changerelaydescription" => Err(ChorusError::NotImplemented.into()),
+        "changerelayicon" => Err(ChorusError::NotImplemented.into()),
 
         _ => Err(ChorusError::NotImplemented.into()),
     }
