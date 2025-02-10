@@ -673,6 +673,7 @@ pub fn setup_store(config: &Config) -> Result<Store, Error> {
             "approved-events",  // id.as_slice() -> u8(bool)
             "approved-pubkeys", // pubkey.as_slice() -> u8(bool)
             "ip_data",          // HashedIp.0 -> IpData
+            "users",            // pubkey.as_slice() -> u8(bool) true if moderator
         ],
     )?;
     Ok(store)
@@ -755,7 +756,8 @@ pub fn get_event_approval(store: &Store, id: Id) -> Result<Option<bool>, Error> 
             "approved-events",
         )))?;
     let txn = store.read_txn()?;
-    Ok(approved_events.get(&txn, id.as_slice())?.map(|u| u[0] != 0)) // FIXME in case data is zero length this will panic
+    Ok(approved_events.get(&txn, id.as_slice())?
+       .map(|u| !u.is_empty() && u[0] != 0))
 }
 
 /// Dump all event approval statuses
@@ -770,7 +772,7 @@ pub fn dump_event_approvals(store: &Store) -> Result<Vec<(Id, bool)>, Error> {
     for i in approved_events.iter(&txn)? {
         let (key, val) = i?;
         let id = Id::from_bytes(key.try_into().unwrap());
-        let approval: bool = val[0] != 0; // FIXME in case data is zero length this will panic
+        let approval: bool = !val.is_empty() && val[0] != 0;
         output.push((id, approval));
     }
     Ok(output)
@@ -812,7 +814,7 @@ pub fn get_pubkey_approval(store: &Store, pubkey: Pubkey) -> Result<Option<bool>
     let txn = store.read_txn()?;
     Ok(approved_pubkeys
         .get(&txn, pubkey.as_slice())?
-        .map(|u| u[0] != 0)) // FIXME in case data is zero length this will panic
+        .map(|u| !u.is_empty() && u[0] != 0))
 }
 
 /// Dump all pubkey approval statuses
@@ -827,8 +829,85 @@ pub fn dump_pubkey_approvals(store: &Store) -> Result<Vec<(Pubkey, bool)>, Error
     for i in approved_pubkeys.iter(&txn)? {
         let (key, val) = i?;
         let pubkey = Pubkey::from_bytes(key.try_into().unwrap());
-        let approval: bool = val[0] != 0; // FIXME in case data is zero length this will panic
+        let approval: bool = !val.is_empty() && val[0] != 0;
         output.push((pubkey, approval));
     }
     Ok(output)
+}
+
+/// Add authorized user (or change moderator flag)
+pub fn add_authorized_user(store: &Store, pubkey: Pubkey, moderator: bool) -> Result<(), Error> {
+    let users = store
+        .extra_table("users")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "users",
+        )))?;
+    let mut txn = store.write_txn()?;
+    users.put(&mut txn, pubkey.as_slice(), &[moderator as u8])?;
+    txn.commit()?;
+    Ok(())
+}
+
+/// Remove authorized user
+pub fn rm_authorized_user(store: &Store, pubkey: Pubkey) -> Result<(), Error> {
+    let users = store
+        .extra_table("users")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "users",
+        )))?;
+    let mut txn = store.write_txn()?;
+    users.delete(&mut txn, pubkey.as_slice())?;
+    txn.commit()?;
+    Ok(())
+}
+
+/// Get authorized user
+pub fn get_authorized_user(store: &Store, pubkey: Pubkey) -> Result<Option<bool>, Error> {
+    let users = store
+        .extra_table("users")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "users",
+        )))?;
+    let txn = store.read_txn()?;
+    Ok(users
+        .get(&txn, pubkey.as_slice())?
+        .map(|u| !u.is_empty() && u[0] != 0))
+}
+
+/// Dump all authorized users
+pub fn dump_authorized_users(store: &Store) -> Result<Vec<(Pubkey, bool)>, Error> {
+    let mut output: Vec<(Pubkey, bool)> = Vec::new();
+    let users = store
+        .extra_table("users")
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
+            "users",
+        )))?;
+    let txn = store.read_txn()?;
+    for i in users.iter(&txn)? {
+        let (key, val) = i?;
+        let pubkey = Pubkey::from_bytes(key.try_into().unwrap());
+        let moderator: bool = !val.is_empty() && val[0] != 0;
+        output.push((pubkey, moderator));
+    }
+    Ok(output)
+}
+
+/// Is the pubkey an authorized user?
+pub fn is_authorized_user(pubkey: Pubkey) -> bool {
+    let store = GLOBALS.store.get().unwrap();
+    match get_authorized_user(&store, pubkey) {
+        Err(_) => false,
+        Ok(None) => false,
+        Ok(Some(_)) => true,
+    }
+}
+
+/// Is the pubkey a moderator?
+pub fn is_moderator(pubkey: Pubkey) -> bool {
+    let store = GLOBALS.store.get().unwrap();
+    match get_authorized_user(&store, pubkey) {
+        Err(_) => false,
+        Ok(None) => false,
+        Ok(Some(moderator)) => moderator,
+    }
 }
