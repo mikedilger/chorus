@@ -64,9 +64,12 @@ announce upgrade instructions until release.
 
 ## Change Log
 
-### Master
+### Version 1.7.2
 
 - Support for NIP-62 (PR #1256) Right to Vanish
+- Fix NIP-86 management request header determination
+- Management adds: numconnections, uptime
+- chorus_cmd: fetch_by_id
 
 ### Version 1.7.1
 
