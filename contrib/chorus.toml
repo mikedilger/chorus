@@ -126,21 +126,13 @@ key_pem_path = "/opt/chorus/etc/tls/privkey.pem"
 # open_relay = false
 
 
-# These are the public keys (hex format) of your relay's authorized users. See BEHAVIOR.md
-# to understand how chorus uses these.
+# These are the public keys (hex format) of your relay's administrators. This does NOT
+# automatically make them a relay user, but it will eventually allow them to add/remove users
+# and moderators.
 #
 # Default is []
 #
-user_hex_keys = []
-
-
-# These are the public keys (hex format) of your relay's moderators.
-# Moderators can moderate the relay using the following NIP PR:
-# https://github.com/nostr-protocol/nips/pull/1325
-#
-# Default is []
-#
-moderator_hex_keys = []
+admin_hex_keys = []
 
 
 # This is a boolean indicating whether or not chorus verifies incoming events.

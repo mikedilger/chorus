@@ -12,10 +12,7 @@ name = "Chorus Sample"
 description = "A sample run of the Chorus relay"
 # icon_url =
 open_relay = false
-user_hex_keys = [
-  "12bb541d03bfc3cab0f4a8e4db28947f60faae6fca4e315eb27f809c6eff9a0b"
-]
-moderator_hex_keys = [
+admin_hex_keys = [
   "12bb541d03bfc3cab0f4a8e4db28947f60faae6fca4e315eb27f809c6eff9a0b"
 ]
 verify_events = true

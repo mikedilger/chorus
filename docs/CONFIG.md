@@ -116,15 +116,9 @@ If open_relay true, the relay behaves as an open public relay.
 
 Default is false.
 
-### user_hex_keys
+### admin_hex_keys
 
-These are the public keys (hex format) of your relay's authorized users. See [BEHAVIOR.md](BEHAVIOR.md) to understand how chorus uses these.
-
-Default is `[]`
-
-### moderator_hex_keys
-
-These are the public keys (hex format) of your relay's moderators. Moderators can moderate the relay using the [NIP 86: Relay Management API](https://github.com/nostr-protocol/nips/pull/1325)
+These are the public keys (hex format) of your relay's administrators. This does NOT automatically make them a relay user, but it will eventually allow them to add/remove users and moderators.
 
 Default is `[]`
 
