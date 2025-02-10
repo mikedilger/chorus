@@ -23,6 +23,7 @@ pub struct FriendlyConfig {
     pub contact: Option<String>,
     pub public_key_hex: Option<String>,
     pub open_relay: bool,
+    pub admin_hex_keys: Vec<String>,
     pub verify_events: bool,
     pub allow_scraping: bool,
     pub allow_scrape_if_limited_to: u32,
@@ -62,6 +63,7 @@ impl Default for FriendlyConfig {
             contact: None,
             public_key_hex: None,
             open_relay: false,
+            admin_hex_keys: vec![],
             verify_events: true,
             allow_scraping: false,
             allow_scrape_if_limited_to: 100,
@@ -103,6 +105,7 @@ impl FriendlyConfig {
             contact,
             public_key_hex,
             open_relay,
+            admin_hex_keys,
             verify_events,
             allow_scraping,
             allow_scrape_if_limited_to,
@@ -129,6 +132,11 @@ impl FriendlyConfig {
             public_key = Some(Pubkey::read_hex(pkh.as_bytes())?);
         };
 
+        let mut admin_keys: Vec<Pubkey> = Vec::with_capacity(admin_hex_keys.len());
+        for pkh in admin_hex_keys.iter() {
+            admin_keys.push(Pubkey::read_hex(pkh.as_bytes())?);
+        }
+
         let hostname = Host::parse(&hostname)?;
 
         let server_log_level =
@@ -154,6 +162,8 @@ impl FriendlyConfig {
             contact,
             public_key,
             open_relay,
+            admin_keys,
+            admin_hex_keys,
             verify_events,
             allow_scraping,
             allow_scrape_if_limited_to,
@@ -194,6 +204,8 @@ pub struct Config {
     pub contact: Option<String>,
     pub public_key: Option<Pubkey>,
     pub open_relay: bool,
+    pub admin_keys: Vec<Pubkey>,
+    pub admin_hex_keys: Vec<String>,
     pub verify_events: bool,
     pub allow_scraping: bool,
     pub allow_scrape_if_limited_to: u32,
