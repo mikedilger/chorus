@@ -707,6 +707,12 @@ async fn screen_incoming_event(
     event_flags: EventFlags,
     authorized_user: bool,
 ) -> Result<bool, Error> {
+    // Accept anything from authenticated authorized users
+    // We do this before checking moderation since authorized overrides moderation
+    if authorized_user {
+        return Ok(true);
+    }
+
     // Reject if event approval is false
     if let Some(false) = crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id())? {
         return Err(ChorusError::BannedEvent.into());
@@ -730,11 +736,6 @@ async fn screen_incoming_event(
 
     // Accept if an open relay
     if GLOBALS.config.read().open_relay {
-        return Ok(true);
-    }
-
-    // Accept anything from authenticated authorized users
-    if authorized_user {
         return Ok(true);
     }
 
