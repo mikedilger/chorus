@@ -108,6 +108,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 "supportedmethods",
                 "numconnections",
                 "uptime",
+                "stats",
                 "listadmins",
                 "listmoderators",
                 "grantmoderator",
@@ -211,6 +212,21 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
             let uptime_in_secs = GLOBALS.start_time.elapsed().as_secs();
             Ok(Some(json!({
                 "result": uptime_in_secs,
+            })))
+        }
+        "stats" => {
+            let store_stats = GLOBALS.store.get().unwrap().stats()?;
+            Ok(Some(json!({
+                "result": {
+                    "uptime": GLOBALS.start_time.elapsed().as_secs(),
+                    "num_connections": &GLOBALS.num_connections,
+                    "bytes_received": &GLOBALS.bytes_inbound,
+                    "bytes_sent": &GLOBALS.bytes_outbound,
+                    "event_bytes": store_stats.event_bytes,
+                    "num_events": store_stats.index_stats.i_index_entries,
+                    "index_disk_usage": store_stats.index_stats.disk_usage,
+                    "index_memory_usage": store_stats.index_stats.memory_usage,
+                }
             })))
         }
         "listadmins" => {
