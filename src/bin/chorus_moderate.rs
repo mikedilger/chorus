@@ -58,7 +58,7 @@ fn main() -> Result<(), Error> {
         }
 
         // Skip if the author is authorized user
-        if config.user_keys.contains(&event.pubkey()) {
+        if chorus::is_authorized_user(event.pubkey()) {
             continue;
         }
 

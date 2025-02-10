@@ -478,7 +478,7 @@ impl WebSocketService {
             .get_event_by_offset(new_event_offset)?;
 
         let event_flags = nostr::event_flags(event, &self.user);
-        let authorized_user = nostr::authorized_user(&self.user);
+        let authorized_user = self.user.map(|pk| is_authorized_user(pk)).unwrap_or(false);
 
         'subs: for (subid, filters) in self.subscriptions.iter() {
             for filter in filters.iter() {
@@ -756,8 +756,9 @@ pub fn get_event_approval(store: &Store, id: Id) -> Result<Option<bool>, Error> 
             "approved-events",
         )))?;
     let txn = store.read_txn()?;
-    Ok(approved_events.get(&txn, id.as_slice())?
-       .map(|u| !u.is_empty() && u[0] != 0))
+    Ok(approved_events
+        .get(&txn, id.as_slice())?
+        .map(|u| !u.is_empty() && u[0] != 0))
 }
 
 /// Dump all event approval statuses
@@ -839,9 +840,7 @@ pub fn dump_pubkey_approvals(store: &Store) -> Result<Vec<(Pubkey, bool)>, Error
 pub fn add_authorized_user(store: &Store, pubkey: Pubkey, moderator: bool) -> Result<(), Error> {
     let users = store
         .extra_table("users")
-        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
-            "users",
-        )))?;
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable("users")))?;
     let mut txn = store.write_txn()?;
     users.put(&mut txn, pubkey.as_slice(), &[moderator as u8])?;
     txn.commit()?;
@@ -852,9 +851,7 @@ pub fn add_authorized_user(store: &Store, pubkey: Pubkey, moderator: bool) -> Re
 pub fn rm_authorized_user(store: &Store, pubkey: Pubkey) -> Result<(), Error> {
     let users = store
         .extra_table("users")
-        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
-            "users",
-        )))?;
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable("users")))?;
     let mut txn = store.write_txn()?;
     users.delete(&mut txn, pubkey.as_slice())?;
     txn.commit()?;
@@ -865,9 +862,7 @@ pub fn rm_authorized_user(store: &Store, pubkey: Pubkey) -> Result<(), Error> {
 pub fn get_authorized_user(store: &Store, pubkey: Pubkey) -> Result<Option<bool>, Error> {
     let users = store
         .extra_table("users")
-        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
-            "users",
-        )))?;
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable("users")))?;
     let txn = store.read_txn()?;
     Ok(users
         .get(&txn, pubkey.as_slice())?
@@ -879,9 +874,7 @@ pub fn dump_authorized_users(store: &Store) -> Result<Vec<(Pubkey, bool)>, Error
     let mut output: Vec<(Pubkey, bool)> = Vec::new();
     let users = store
         .extra_table("users")
-        .ok_or(Into::<Error>::into(ChorusError::MissingTable(
-            "users",
-        )))?;
+        .ok_or(Into::<Error>::into(ChorusError::MissingTable("users")))?;
     let txn = store.read_txn()?;
     for i in users.iter(&txn)? {
         let (key, val) = i?;

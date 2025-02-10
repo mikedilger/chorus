@@ -124,7 +124,10 @@ impl WebSocketService {
         }
 
         let user = self.user;
-        let authorized_user = authorized_user(&user);
+        let authorized_user = self
+            .user
+            .map(|pk| crate::is_authorized_user(pk))
+            .unwrap_or(false);
 
         if user.is_none() {
             for filter in filters.iter() {
@@ -292,7 +295,10 @@ impl WebSocketService {
 
     async fn event_inner(&mut self) -> Result<(), Error> {
         let user = self.user;
-        let authorized_user = authorized_user(&user);
+        let authorized_user = self
+            .user
+            .map(|pk| crate::is_authorized_user(pk))
+            .unwrap_or(false);
 
         // Delineate the event back out of the session buffer
         let event = unsafe { Event::delineate(&self.buffer)? };
@@ -519,7 +525,10 @@ impl WebSocketService {
         }
 
         let user = self.user;
-        let authorized_user = authorized_user(&user);
+        let authorized_user = self
+            .user
+            .map(|pk| crate::is_authorized_user(pk))
+            .unwrap_or(false);
 
         // Find all matching events
         let mut events: Vec<&Event> = Vec::new();
@@ -742,7 +751,7 @@ async fn screen_incoming_event(
     }
 
     // If the author is one of our users, always accept it
-    if GLOBALS.config.read().user_keys.contains(&event.pubkey()) {
+    if crate::is_authorized_user(event.pubkey()) {
         return Ok(true);
     }
 
@@ -750,8 +759,8 @@ async fn screen_incoming_event(
     for mut tag in event.tags()?.iter() {
         if tag.next() == Some(b"p") {
             if let Some(value) = tag.next() {
-                for ukhex in &GLOBALS.config.read().user_hex_keys {
-                    if value == ukhex.as_bytes() {
+                if let Ok(pk) = Pubkey::read_hex(value) {
+                    if crate::is_authorized_user(pk) {
                         return Ok(true);
                     }
                 }
@@ -821,13 +830,6 @@ pub fn screen_outgoing_event(
     false
 }
 
-pub fn authorized_user(user: &Option<Pubkey>) -> bool {
-    match user {
-        None => false,
-        Some(pk) => GLOBALS.config.read().user_keys.contains(pk),
-    }
-}
-
 pub struct EventFlags {
     pub author_is_an_authorized_user: bool,
     pub author_is_current_user: bool,
@@ -836,7 +838,7 @@ pub struct EventFlags {
 }
 
 pub fn event_flags(event: &Event, user: &Option<Pubkey>) -> EventFlags {
-    let author_is_an_authorized_user = GLOBALS.config.read().user_keys.contains(&event.pubkey());
+    let author_is_an_authorized_user = crate::is_authorized_user(event.pubkey());
 
     let author_is_current_user = match user {
         None => false,
@@ -857,7 +859,7 @@ pub fn event_flags(event: &Event, user: &Option<Pubkey>) -> EventFlags {
                             }
                         }
 
-                        if GLOBALS.config.read().user_keys.contains(&tagged_pk) {
+                        if crate::is_authorized_user(tagged_pk) {
                             tags_an_authorized_user = true;
                         }
                     }

@@ -1,5 +1,4 @@
 use crate::error::{ChorusError, Error};
-use crate::globals::GLOBALS;
 use base64::prelude::*;
 use http::header::AUTHORIZATION;
 use hyper::body::Incoming;
@@ -68,7 +67,7 @@ fn verify_auth_inner(request: &Request<Incoming>) -> Result<AuthData, Error> {
     }
 
     // Nostr event must be signed by a chorus user
-    if !GLOBALS.config.read().user_keys.contains(&event.pubkey()) {
+    if !crate::is_authorized_user(event.pubkey()) {
         return s_err("You are not an authorized user");
     }
 

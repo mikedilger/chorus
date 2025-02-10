@@ -56,12 +56,7 @@ pub async fn check_auth(request: Request<Incoming>) -> Result<Value, Error> {
     }
 
     // Nostr event must be signed by a moderator
-    if !GLOBALS
-        .config
-        .read()
-        .moderator_keys
-        .contains(&event.pubkey())
-    {
+    if !crate::is_moderator(event.pubkey()) {
         return s_err("Authorization failed as user is not a moderator");
     }
 
