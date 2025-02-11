@@ -84,7 +84,7 @@ Go ahead and edit that file to your liking. In particular:
   or to 127.0.0.1 with a local port like 8080 (if you are proxying behind nginx)
 - Change the port if necessary
 - Change the name, description, icon_url and contact (e.g. your email address) as desired
-- Set your public_key_hex (it is an option, so use `Some()`)
+- Set your contact_public_key_hex (it is an option, so use `Some()`)
 - Set hex keys of users for which this relay will act as a personal relay
 
 
@@ -165,6 +165,10 @@ Restart nginx
 ```bash
 sudo systemctl restart nginx.service
 ```
+
+## Adding users and moderators
+
+See [MANAGEMENT](MANAGEMENT.md) for how to add users and moderators.
 
 ## Monitoring the service
 

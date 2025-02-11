@@ -100,13 +100,15 @@ This is an optional URL for an graphical icon representing your relay, displayed
 
 ### contact
 
-This is an optional contact for your relay, displayed in the NIP-11 response.
+This is an optional administrative contact for your relay, displayed in the NIP-11 response.
 
 Default is None.
 
-### public_key_hex
+### contact_public_key_hex
 
-This is an optional public key (hex format) for your relay, displayed in the NIP-11 response.
+This is an optional public key (hex format) for your relay's administrative contact, displayed in the NIP-11 response.
+
+Deprecated "public_key_hex" also works.
 
 Default is None.
 

@@ -116,7 +116,7 @@ key_pem_path = "/opt/chorus/etc/tls/privkey.pem"
 #
 # Default is not set
 #
-# public_key_hex =
+# contact_public_key_hex =
 
 
 # If open_relay is true, the relay behaves as an open public relay.

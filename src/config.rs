@@ -21,7 +21,8 @@ pub struct FriendlyConfig {
     pub description: Option<String>,
     pub icon_url: Option<String>,
     pub contact: Option<String>,
-    pub public_key_hex: Option<String>,
+    #[serde(alias = "public_key_hex")]
+    pub contact_public_key_hex: Option<String>,
     pub open_relay: bool,
     pub admin_hex_keys: Vec<String>,
     pub verify_events: bool,
@@ -61,7 +62,7 @@ impl Default for FriendlyConfig {
             description: Some("A default config of the Chorus relay".to_string()),
             icon_url: None,
             contact: None,
-            public_key_hex: None,
+            contact_public_key_hex: None,
             open_relay: false,
             admin_hex_keys: vec![],
             verify_events: true,
@@ -103,7 +104,7 @@ impl FriendlyConfig {
             description,
             icon_url,
             contact,
-            public_key_hex,
+            contact_public_key_hex,
             open_relay,
             admin_hex_keys,
             verify_events,
@@ -127,9 +128,9 @@ impl FriendlyConfig {
             enable_negentropy,
         } = self;
 
-        let mut public_key: Option<Pubkey> = None;
-        if let Some(pkh) = public_key_hex {
-            public_key = Some(Pubkey::read_hex(pkh.as_bytes())?);
+        let mut contact_public_key: Option<Pubkey> = None;
+        if let Some(pkh) = contact_public_key_hex {
+            contact_public_key = Some(Pubkey::read_hex(pkh.as_bytes())?);
         };
 
         let mut admin_keys: Vec<Pubkey> = Vec::with_capacity(admin_hex_keys.len());
@@ -160,7 +161,7 @@ impl FriendlyConfig {
             description,
             icon_url,
             contact,
-            public_key,
+            contact_public_key,
             open_relay,
             admin_keys,
             admin_hex_keys,
@@ -202,7 +203,7 @@ pub struct Config {
     pub description: Option<String>,
     pub icon_url: Option<String>,
     pub contact: Option<String>,
-    pub public_key: Option<Pubkey>,
+    pub contact_public_key: Option<Pubkey>,
     pub open_relay: bool,
     pub admin_keys: Vec<Pubkey>,
     pub admin_hex_keys: Vec<String>,
