@@ -478,7 +478,7 @@ impl WebSocketService {
             .get_event_by_offset(new_event_offset)?;
 
         let event_flags = nostr::event_flags(event, &self.user);
-        let authorized_user = self.user.map(|pk| is_authorized_user(pk)).unwrap_or(false);
+        let authorized_user = self.user.map(is_authorized_user).unwrap_or(false);
 
         'subs: for (subid, filters) in self.subscriptions.iter() {
             for filter in filters.iter() {
@@ -888,7 +888,7 @@ pub fn dump_authorized_users(store: &Store) -> Result<Vec<(Pubkey, bool)>, Error
 /// Is the pubkey an authorized user?
 pub fn is_authorized_user(pubkey: Pubkey) -> bool {
     let store = GLOBALS.store.get().unwrap();
-    match get_authorized_user(&store, pubkey) {
+    match get_authorized_user(store, pubkey) {
         Err(_) => false,
         Ok(None) => false,
         Ok(Some(_)) => true,
@@ -898,7 +898,7 @@ pub fn is_authorized_user(pubkey: Pubkey) -> bool {
 /// Is the pubkey a moderator?
 pub fn is_moderator(pubkey: Pubkey) -> bool {
     let store = GLOBALS.store.get().unwrap();
-    match get_authorized_user(&store, pubkey) {
+    match get_authorized_user(store, pubkey) {
         Err(_) => false,
         Ok(None) => false,
         Ok(Some(moderator)) => moderator,

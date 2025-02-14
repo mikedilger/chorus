@@ -124,10 +124,7 @@ impl WebSocketService {
         }
 
         let user = self.user;
-        let authorized_user = self
-            .user
-            .map(|pk| crate::is_authorized_user(pk))
-            .unwrap_or(false);
+        let authorized_user = self.user.map(crate::is_authorized_user).unwrap_or(false);
 
         if user.is_none() {
             for filter in filters.iter() {
@@ -295,10 +292,7 @@ impl WebSocketService {
 
     async fn event_inner(&mut self) -> Result<(), Error> {
         let user = self.user;
-        let authorized_user = self
-            .user
-            .map(|pk| crate::is_authorized_user(pk))
-            .unwrap_or(false);
+        let authorized_user = self.user.map(crate::is_authorized_user).unwrap_or(false);
 
         // Delineate the event back out of the session buffer
         let event = unsafe { Event::delineate(&self.buffer)? };
@@ -525,10 +519,7 @@ impl WebSocketService {
         }
 
         let user = self.user;
-        let authorized_user = self
-            .user
-            .map(|pk| crate::is_authorized_user(pk))
-            .unwrap_or(false);
+        let authorized_user = self.user.map(crate::is_authorized_user).unwrap_or(false);
 
         // Find all matching events
         let mut events: Vec<&Event> = Vec::new();

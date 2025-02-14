@@ -359,7 +359,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
 
                 // Skip if pubkey marked approved
                 if matches!(
-                    crate::get_pubkey_approval(&GLOBALS.store.get().unwrap(), event.pubkey()),
+                    crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey()),
                     Ok(Some(true))
                 ) {
                     continue;
@@ -367,7 +367,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
 
                 // Skip if event marked approved
                 if matches!(
-                    crate::get_event_approval(&GLOBALS.store.get().unwrap(), event.id()),
+                    crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id()),
                     Ok(Some(true))
                 ) {
                     continue;
