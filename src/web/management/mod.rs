@@ -5,7 +5,7 @@ use http_body_util::combinators::BoxBody;
 use http_body_util::{BodyExt, Full};
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response, StatusCode};
-use pocket_types::{Id, Pubkey};
+use pocket_types::{Event, Filter, Id, Kind, Pubkey};
 use serde_json::{json, Map, Value};
 mod auth;
 
@@ -116,6 +116,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 "listusers",
                 "grantuser",
                 "revokeuser",
+                "listeventsneedingmoderation",
             ]
         }))),
         "banpubkey" => {
@@ -314,9 +315,73 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 Ok(None)
             }
         }
+        "listeventsneedingmoderation" => {
+            // FIXME this scans the entire database, maybe we need to some process
+            // that does this in epochs and saves the result.
+
+            let allowed_kinds = [
+                Kind::from(4),     // Encrypted Direct Message
+                Kind::from(1059),  // Giftwrap
+                Kind::from(10002), // Relay list
+                Kind::from(10050), // DM Relay list
+                Kind::from(0),     // Metadata
+                Kind::from(3),     // Following list
+                Kind::from(7),     // Reaction
+            ];
+            let mut buffer: [u8; 128] = [0; 128];
+            let filter = {
+                let (_incount, _outcount, filter) = Filter::from_json(b"{}", &mut buffer)?;
+                filter
+            };
+            let screen = |e: &Event| -> bool {
+                !allowed_kinds.contains(&e.kind())
+                    && !e.kind().is_ephemeral()
+                    && !crate::is_authorized_user(e.pubkey())
+            };
+
+            let mut need_moderation: Vec<String> = Vec::new();
+
+            let mut events = GLOBALS
+                .store
+                .get()
+                .unwrap()
+                .find_events(filter, true, 0, 0, screen)?;
+
+            for event in events.drain(..) {
+                // Delete if pubkey marked banned
+                if matches!(
+                    crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey()),
+                    Ok(Some(false))
+                ) {
+                    GLOBALS.store.get().unwrap().remove_event(event.id())?;
+                    continue;
+                }
+
+                // Skip if pubkey marked approved
+                if matches!(
+                    crate::get_pubkey_approval(&GLOBALS.store.get().unwrap(), event.pubkey()),
+                    Ok(Some(true))
+                ) {
+                    continue;
+                }
+
+                // Skip if event marked approved
+                if matches!(
+                    crate::get_event_approval(&GLOBALS.store.get().unwrap(), event.id()),
+                    Ok(Some(true))
+                ) {
+                    continue;
+                }
+
+                need_moderation.push(String::from_utf8_lossy(&event.as_json()?).to_string());
+            }
+
+            Ok(Some(json!({
+                "result": [need_moderation],
+            })))
+        }
 
         // Commands we do not support (yet)
-        "listeventsneedingmoderation" => Err(ChorusError::NotImplemented.into()),
         "allowkind" => Err(ChorusError::NotImplemented.into()),
         "disallowkind" => Err(ChorusError::NotImplemented.into()),
         "listbannedkinds" => Err(ChorusError::NotImplemented.into()),
