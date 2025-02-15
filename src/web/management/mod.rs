@@ -377,7 +377,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
             }
 
             Ok(Some(json!({
-                "result": [need_moderation],
+                "result": need_moderation,
             })))
         }
 
