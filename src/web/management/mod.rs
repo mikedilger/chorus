@@ -6,8 +6,15 @@ use http_body_util::{BodyExt, Full};
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response, StatusCode};
 use pocket_types::{Event, Filter, Id, Kind, Pubkey};
+use serde::Serialize;
 use serde_json::{json, Map, Value};
 mod auth;
+
+#[derive(Serialize)]
+struct EventNeedingModeration {
+    id: String,
+    reason: String,
+}
 
 fn respond(
     json: serde_json::Value,
@@ -339,7 +346,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                     && !crate::is_authorized_user(e.pubkey())
             };
 
-            let mut need_moderation: Vec<String> = Vec::new();
+            let mut need_moderation: Vec<EventNeedingModeration> = Vec::new();
 
             let mut events = GLOBALS
                 .store
@@ -373,7 +380,10 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                     continue;
                 }
 
-                need_moderation.push(String::from_utf8_lossy(&event.as_json()?).to_string());
+                need_moderation.push(EventNeedingModeration {
+                    id: event.id().as_hex_string(),
+                    reason: "unmoderated".to_string(),
+                });
             }
 
             Ok(Some(json!({
