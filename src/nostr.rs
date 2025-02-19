@@ -146,6 +146,8 @@ impl WebSocketService {
             }
         }
 
+        let completes = filters.iter().all(|f| f.completes());
+
         // NOTE on private events (DMs, GiftWraps)
         // As seen above, we will send CLOSED auth-required if they ask for DMs and are not
         // AUTHed yet.
@@ -200,13 +202,19 @@ impl WebSocketService {
                     self.send(Message::text(reply.as_json())).await?;
                 }
 
-                // eose
-                let reply = NostrReply::Eose(subid);
-                self.send(Message::text(reply.as_json())).await?;
+                if completes {
+                    // Closed
+                    let reply = NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned());
+                    self.send(Message::text(reply.as_json())).await?;
+                } else {
+                    // EOSE
+                    let reply = NostrReply::Eose(subid);
+                    self.send(Message::text(reply.as_json())).await?;
+                }
             }
         }
 
-        if !count {
+        if !count && !completes {
             // Store subscription
             self.subscriptions.insert(subid.to_owned(), filters);
 
