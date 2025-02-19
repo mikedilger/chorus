@@ -1,4 +1,5 @@
 use chorus::error::Error;
+use pocket_db::ScreenResult;
 use pocket_types::{Event, Filter};
 use std::env;
 
@@ -23,9 +24,9 @@ fn main() -> Result<(), Error> {
 
     let mut buffer: [u8; 128] = [0; 128];
     let (_incount, _outcount, filter) = Filter::from_json(b"{}", &mut buffer)?;
-    let screen = |_: &Event| -> bool { true };
+    let screen = |_: &Event| -> ScreenResult { ScreenResult::Match };
 
-    let mut events = store.find_events(
+    let (mut events, _redacted) = store.find_events(
         filter,
         config.allow_scraping,
         config.allow_scrape_if_limited_to,

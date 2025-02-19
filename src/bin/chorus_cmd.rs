@@ -1,4 +1,5 @@
 use chorus::error::{ChorusError, Error};
+use pocket_db::ScreenResult;
 use pocket_types::{Filter, Id, Pubkey, Tags};
 use std::env;
 
@@ -50,7 +51,8 @@ fn main() -> Result<(), Error> {
             let mut filter_buffer: [u8; 128] = [0; 128];
             let filter =
                 Filter::from_parts(&[], &[pk], &[], tags, None, None, None, &mut filter_buffer)?;
-            let events = store.find_events(filter, true, 0, 0, |_| true)?;
+            let (events, _redacted) =
+                store.find_events(filter, true, 0, 0, |_| ScreenResult::Match)?;
             for event in events.iter() {
                 store.remove_event(event.id())?;
             }

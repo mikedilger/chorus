@@ -27,7 +27,7 @@ use hyper_tungstenite::tungstenite;
 use hyper_tungstenite::{HyperWebsocket, WebSocketStream};
 use hyper_util::rt::TokioIo;
 use neg_storage::NegentropyStorageVector;
-use pocket_db::Store;
+use pocket_db::{ScreenResult, Store};
 use pocket_types::{Id, OwnedFilter, Pubkey};
 use speedy::{Readable, Writable};
 use std::borrow::Cow;
@@ -482,15 +482,21 @@ impl WebSocketService {
 
         'subs: for (subid, filters) in self.subscriptions.iter() {
             for filter in filters.iter() {
-                if filter.event_matches(event)?
-                    && nostr::screen_outgoing_event(event, &event_flags, authorized_user)
-                {
-                    let message = NostrReply::Event(subid, event);
-                    // note, this is not currently counted in throttling
-                    self.websocket
-                        .send(Message::text(message.as_json()))
-                        .await?;
-                    continue 'subs;
+                if filter.event_matches(event)? {
+                    let screen_result =
+                        nostr::screen_outgoing_event(event, &event_flags, authorized_user);
+                    if screen_result == ScreenResult::Redacted {
+                        // TBD:  Update subscription so the final close can
+                        //       let them know there were redactions from
+                        //       the post-EOSE data
+                    } else if screen_result == ScreenResult::Match {
+                        let message = NostrReply::Event(subid, event);
+                        // note, this is not currently counted in throttling
+                        self.websocket
+                            .send(Message::text(message.as_json()))
+                            .await?;
+                        continue 'subs;
+                    }
                 }
             }
         }

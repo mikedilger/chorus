@@ -5,6 +5,7 @@ use crate::reply::{NostrReply, NostrReplyPrefix};
 use crate::WebSocketService;
 use hyper_tungstenite::tungstenite::Message;
 use negentropy::{Bytes, Negentropy};
+use pocket_db::ScreenResult;
 use pocket_types::json::{eat_whitespace, json_unescape, verify_char};
 use pocket_types::{read_hex, Event, Filter, Hll8, Kind, OwnedFilter, Pubkey, Time};
 use url::Url;
@@ -148,6 +149,8 @@ impl WebSocketService {
 
         let completes = filters.iter().all(|f| f.completes());
 
+        let mut redacted: bool = false;
+
         // NOTE on private events (DMs, GiftWraps)
         // As seen above, we will send CLOSED auth-required if they ask for DMs and are not
         // AUTHed yet.
@@ -159,11 +162,11 @@ impl WebSocketService {
             let mut events: Vec<&Event> = Vec::new();
 
             for filter in filters.iter() {
-                let screen = |event: &Event| {
+                let screen = |event: &Event| -> ScreenResult {
                     let event_flags = event_flags(event, &user);
                     screen_outgoing_event(event, &event_flags, authorized_user)
                 };
-                let filter_events = {
+                let (filter_events, was_redacted) = {
                     let config = &*GLOBALS.config.read();
                     GLOBALS.store.get().unwrap().find_events(
                         filter,
@@ -174,6 +177,7 @@ impl WebSocketService {
                     )?
                 };
                 events.extend(filter_events);
+                redacted = redacted || was_redacted;
             }
 
             // sort
@@ -204,7 +208,15 @@ impl WebSocketService {
 
                 if completes {
                     // Closed
-                    let reply = NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned());
+                    let reply = if redacted {
+                        NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned())
+                    } else {
+                        NostrReply::Closed(
+                            subid,
+                            NostrReplyPrefix::Redacted,
+                            "Some matching events could not be served to you.".to_owned(),
+                        )
+                    };
                     self.send(Message::text(reply.as_json())).await?;
                 } else {
                     // EOSE
@@ -531,11 +543,11 @@ impl WebSocketService {
 
         // Find all matching events
         let mut events: Vec<&Event> = Vec::new();
-        let screen = |event: &Event| {
+        let screen = |event: &Event| -> ScreenResult {
             let event_flags = event_flags(event, &user);
             screen_outgoing_event(event, &event_flags, authorized_user)
         };
-        let filter_events = {
+        let (filter_events, _redacted) = {
             let config = &*GLOBALS.config.read();
             GLOBALS.store.get().unwrap().find_events(
                 &filter,
@@ -775,59 +787,63 @@ pub fn screen_outgoing_event(
     event: &Event,
     event_flags: &EventFlags,
     authorized_user: bool,
-) -> bool {
+) -> ScreenResult {
     // Forbid if it is a private event (DM or GiftWrap) and theey are neither the recipient
     // nor the author
     if event.kind() == Kind::from(4) || event.kind() == Kind::from(1059) {
-        return event_flags.tags_current_user || event_flags.author_is_current_user;
+        if event_flags.tags_current_user || event_flags.author_is_current_user {
+            return ScreenResult::Match;
+        } else {
+            return ScreenResult::Redacted;
+        }
     }
 
     // Forbid (and delete) if it has an expired expiration tag
     if matches!(event.is_expired(), Ok(true)) {
         let _ = GLOBALS.store.get().unwrap().remove_event(event.id());
-        return false;
+        return ScreenResult::Mismatch;
     }
 
     // Allow if an open relay
     if GLOBALS.config.read().open_relay {
-        return true;
+        return ScreenResult::Match;
     }
 
     // Allow Relay Lists
     if GLOBALS.config.read().serve_relay_lists
         && (event.kind() == Kind::from(10002) || event.kind() == Kind::from(10050))
     {
-        return true;
+        return ScreenResult::Match;
     }
 
     // Allow if event kind ephemeral
     if event.kind().is_ephemeral() && GLOBALS.config.read().serve_ephemeral {
-        return true;
+        return ScreenResult::Match;
     }
 
     // Allow if an authorized_user is asking
     if authorized_user {
-        return true;
+        return ScreenResult::Match;
     }
 
     // Everybody can see events from our authorized users
     if event_flags.author_is_an_authorized_user {
-        return true;
+        return ScreenResult::Match;
     }
 
     // Allow if event is explicitly approved
     if let Ok(Some(true)) = crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id()) {
-        return true;
+        return ScreenResult::Match;
     }
 
     // Allow if author is explicitly approved
     if let Ok(Some(true)) = crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey())
     {
-        return true;
+        return ScreenResult::Match;
     }
 
     // Do not allow the rest
-    false
+    ScreenResult::Redacted
 }
 
 pub struct EventFlags {

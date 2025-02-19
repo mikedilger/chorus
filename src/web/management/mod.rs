@@ -5,6 +5,7 @@ use http_body_util::combinators::BoxBody;
 use http_body_util::{BodyExt, Full};
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response, StatusCode};
+use pocket_db::ScreenResult;
 use pocket_types::{Event, Filter, Id, Kind, Pubkey};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
@@ -340,15 +341,21 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 let (_incount, _outcount, filter) = Filter::from_json(b"{}", &mut buffer)?;
                 filter
             };
-            let screen = |e: &Event| -> bool {
-                !allowed_kinds.contains(&e.kind())
-                    && !e.kind().is_ephemeral()
-                    && !crate::is_authorized_user(e.pubkey())
+            let screen = |e: &Event| -> ScreenResult {
+                if allowed_kinds.contains(&e.kind()) {
+                    ScreenResult::Mismatch
+                } else if e.kind().is_ephemeral() {
+                    ScreenResult::Mismatch
+                } else if crate::is_authorized_user(e.pubkey()) {
+                    ScreenResult::Mismatch
+                } else {
+                    ScreenResult::Match
+                }
             };
 
             let mut need_moderation: Vec<EventNeedingModeration> = Vec::new();
 
-            let mut events = GLOBALS
+            let (mut events, _redacted) = GLOBALS
                 .store
                 .get()
                 .unwrap()
