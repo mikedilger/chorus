@@ -64,6 +64,15 @@ announce upgrade instructions until release.
 
 ## Change Log
 
+### Version 2.0
+
+- IMPORTANT: You need to manually [Migrate](docs/MIGRATION.md) your users and moderators.
+- Management commands have been added: listeventsneedingmoderation, listadmins, listmoderators,
+  grantmoderator, revokemoderator, listusers, grantuser, revokeuser, stats
+- fix: subscriptions will be CLOSED: auth-required if any matching event requires auth. Chorus
+  will serve the redacted results first, but will not EOSE.
+- fix: subscriptions will be CLOSED when completed, without EOSE, if the filter has any ids set.
+
 ### Version 1.7.2
 
 - Support for NIP-62 (PR #1256) Right to Vanish
