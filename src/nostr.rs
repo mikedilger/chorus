@@ -180,19 +180,6 @@ impl WebSocketService {
                 redacted = redacted || was_redacted;
             }
 
-            // New policy Feb 2025: Redactions trigger a "CLOSED: auth-required" because
-            // some clients will not AUTH otherwise.
-            if redacted {
-                // They need to AUTH first
-                let reply = NostrReply::Closed(
-                    subid,
-                    NostrReplyPrefix::AuthRequired,
-                    "At least one matching event requires AUTH".to_owned(),
-                );
-                self.send(Message::text(reply.as_json())).await?;
-                return Ok(());
-            }
-
             // sort
             events.sort_by_key(|e| std::cmp::Reverse(e.created_at()));
 
@@ -219,17 +206,23 @@ impl WebSocketService {
                     self.send(Message::text(reply.as_json())).await?;
                 }
 
+                // New policy Feb 2025: Redactions trigger a "CLOSED: auth-required" because
+                // some clients will not AUTH otherwise.
+                // (But we also already sent partial results, which I think is good)
+                if redacted {
+                    // They need to AUTH first
+                    let reply = NostrReply::Closed(
+                        subid,
+                        NostrReplyPrefix::AuthRequired,
+                        "At least one matching event requires AUTH".to_owned(),
+                    );
+                    self.send(Message::text(reply.as_json())).await?;
+                    return Ok(());
+                }
+
                 if completes {
                     // Closed
-                    let reply = if redacted {
-                        NostrReply::Closed(
-                            subid,
-                            NostrReplyPrefix::Redacted,
-                            "Some matching events could not be served to you.".to_owned(),
-                        )
-                    } else {
-                        NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned())
-                    };
+                    let reply = NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned());
                     self.send(Message::text(reply.as_json())).await?;
                 } else {
                     // EOSE
