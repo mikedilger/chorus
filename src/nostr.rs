@@ -209,13 +209,13 @@ impl WebSocketService {
                 if completes {
                     // Closed
                     let reply = if redacted {
-                        NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned())
-                    } else {
                         NostrReply::Closed(
                             subid,
                             NostrReplyPrefix::Redacted,
                             "Some matching events could not be served to you.".to_owned(),
                         )
+                    } else {
+                        NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned())
                     };
                     self.send(Message::text(reply.as_json())).await?;
                 } else {
