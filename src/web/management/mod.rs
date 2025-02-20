@@ -24,7 +24,7 @@ fn respond(
     let s: String = serde_json::to_string(&json)?;
     let response = Response::builder()
         .header("Access-Control-Allow-Origin", "*")
-        .header("Access-Control-Allow-Headers", "*")
+        .header("Access-Control-Allow-Headers", "Authorization, *")
         .header("Access-Control-Allow-Methods", "*")
         .header("Content-Type", "application/nostr+json+rpc")
         .status(status)
