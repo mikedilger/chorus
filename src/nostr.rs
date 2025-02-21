@@ -46,7 +46,7 @@ impl WebSocketService {
         } else {
             log::warn!(target: "Client", "{}: Received unhandled text message: {}", self.peer, msg);
             let reply = NostrReply::Notice("Command unrecognized".to_owned());
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
         }
 
         Ok(())
@@ -106,7 +106,7 @@ impl WebSocketService {
                 }
                 _ => NostrReply::Closed(&subid, NostrReplyPrefix::Error, format!("{}", e.inner)),
             };
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             Err(e)
         } else {
             Ok(())
@@ -141,7 +141,7 @@ impl WebSocketService {
                         NostrReplyPrefix::AuthRequired,
                         "DM kinds were included in the filters".to_owned(),
                     );
-                    self.send(Message::text(reply.as_json())).await?;
+                    self.send(Message::text(reply.as_json()?)).await?;
                     return Ok(());
                 }
             }
@@ -199,11 +199,11 @@ impl WebSocketService {
                     }
                 }
                 let reply = NostrReply::Count(subid, events.len(), opthll);
-                self.send(Message::text(reply.as_json())).await?;
+                self.send(Message::text(reply.as_json()?)).await?;
             } else {
                 for event in events.drain(..) {
                     let reply = NostrReply::Event(subid, event);
-                    self.send(Message::text(reply.as_json())).await?;
+                    self.send(Message::text(reply.as_json()?)).await?;
                 }
 
                 // New policy Feb 2025: Redactions trigger a "CLOSED: auth-required" because
@@ -216,18 +216,18 @@ impl WebSocketService {
                         NostrReplyPrefix::AuthRequired,
                         "At least one matching event requires AUTH".to_owned(),
                     );
-                    self.send(Message::text(reply.as_json())).await?;
+                    self.send(Message::text(reply.as_json()?)).await?;
                     return Ok(());
                 }
 
                 if completes {
                     // Closed
                     let reply = NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned());
-                    self.send(Message::text(reply.as_json())).await?;
+                    self.send(Message::text(reply.as_json()?)).await?;
                 } else {
                     // EOSE
                     let reply = NostrReply::Eose(subid);
-                    self.send(Message::text(reply.as_json())).await?;
+                    self.send(Message::text(reply.as_json()?)).await?;
                 }
             }
         }
@@ -307,11 +307,11 @@ impl WebSocketService {
                 },
                 _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e.inner)),
             };
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             Err(e)
         } else {
             let reply = NostrReply::Ok(id, true, NostrReplyPrefix::None, "".to_string());
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             Ok(())
         }
     }
@@ -388,7 +388,7 @@ impl WebSocketService {
             // message, and clients just presume it was closed.
             /*
             let reply = NostrReply::Closed(subid, NostrReplyPrefix::None, "".to_owned());
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
              */
 
             Ok(())
@@ -416,11 +416,11 @@ impl WebSocketService {
                 }
                 _ => NostrReply::Ok(id, false, NostrReplyPrefix::Error, format!("{}", e.inner)),
             };
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             Err(e)
         } else {
             let reply = NostrReply::Ok(id, true, NostrReplyPrefix::None, "".to_string());
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             Ok(())
         }
     }
@@ -499,7 +499,7 @@ impl WebSocketService {
         if !GLOBALS.config.read().enable_negentropy {
             let reply =
                 NostrReply::NegErr(&subid, "blocked: Negentropy sync is disabled".to_owned());
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             return Ok(());
         }
 
@@ -533,14 +533,14 @@ impl WebSocketService {
         // NEG-ERR if the message was empty
         if incoming_msg.is_empty() {
             let reply = NostrReply::NegErr(&subid, "error: Empty negentropy message".to_owned());
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             return Ok(());
         }
 
         // If the version is too high, respond with our version number
         if incoming_msg[0] != 0x61 {
             let reply = NostrReply::NegMsg(&subid, vec![0x61]);
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             return Ok(());
         }
 
@@ -594,11 +594,11 @@ impl WebSocketService {
         match neg.reconcile(&Bytes::from(incoming_msg)) {
             Ok(response) => {
                 let reply = NostrReply::NegMsg(&subid, response.as_bytes().to_owned());
-                self.send(Message::text(reply.as_json())).await?;
+                self.send(Message::text(reply.as_json()?)).await?;
             }
             Err(e) => {
                 let reply = NostrReply::NegErr(&subid, format!("{e}"));
-                self.send(Message::text(reply.as_json())).await?;
+                self.send(Message::text(reply.as_json()?)).await?;
             }
         }
 
@@ -634,7 +634,7 @@ impl WebSocketService {
         if !GLOBALS.config.read().enable_negentropy {
             let reply =
                 NostrReply::NegErr(&subid, "blocked: Negentropy sync is disabled".to_owned());
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             return Ok(());
         }
 
@@ -656,7 +656,7 @@ impl WebSocketService {
         // NEG-ERR if the message was empty
         if incoming_msg.is_empty() {
             let reply = NostrReply::NegErr(&subid, "error: Empty negentropy message".to_owned());
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             return Ok(());
         }
 
@@ -664,14 +664,14 @@ impl WebSocketService {
         // have already happened in NEG-OPEN)
         if incoming_msg[0] != 0x61 {
             let reply = NostrReply::NegErr(&subid, "Version mismatch".to_owned());
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             return Ok(());
         }
 
         // Look up the events we have
         let Some(nsv) = self.neg_subscriptions.get(&subid) else {
             let reply = NostrReply::NegErr(&subid, "Subscription not found".to_owned());
-            self.send(Message::text(reply.as_json())).await?;
+            self.send(Message::text(reply.as_json()?)).await?;
             return Ok(());
         };
 
@@ -679,11 +679,11 @@ impl WebSocketService {
         match neg.reconcile(&Bytes::from(incoming_msg)) {
             Ok(response) => {
                 let reply = NostrReply::NegMsg(&subid, response.as_bytes().to_owned());
-                self.send(Message::text(reply.as_json())).await?;
+                self.send(Message::text(reply.as_json()?)).await?;
             }
             Err(e) => {
                 let reply = NostrReply::NegErr(&subid, format!("{e}"));
-                self.send(Message::text(reply.as_json())).await?;
+                self.send(Message::text(reply.as_json()?)).await?;
             }
         }
 

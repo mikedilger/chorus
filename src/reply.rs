@@ -1,3 +1,4 @@
+use crate::Error;
 use pocket_types::{write_hex, Event, Hll8, Id};
 use std::fmt;
 
@@ -45,40 +46,59 @@ pub enum NostrReply<'a> {
 }
 
 impl NostrReply<'_> {
-    pub fn as_json(&self) -> String {
-        match self {
-            NostrReply::Auth(challenge) => format!(r#"["AUTH","{challenge}"]"#),
-            NostrReply::Event(subid, event) => format!(r#"["EVENT","{subid}",{}]"#, event),
-            NostrReply::Ok(id, ok, prefix, msg) => format!(r#"["OK","{id}",{ok},"{prefix}{msg}"]"#),
-            NostrReply::Eose(subid) => format!(r#"["EOSE","{subid}"]"#),
+    pub fn as_json(&self) -> Result<String, Error> {
+        Ok(match self {
+            NostrReply::Auth(challenge) => {
+                let esc_challenge = escape(challenge)?;
+                format!(r#"["AUTH","{esc_challenge}"]"#)
+            }
+            NostrReply::Event(subid, event) => {
+                let esc_subid = escape(subid)?;
+                format!(r#"["EVENT","{esc_subid}",{event}]"#)
+            }
+            NostrReply::Ok(id, ok, prefix, msg) => {
+                let esc_msg = escape(msg)?;
+                format!(r#"["OK","{id}",{ok},"{prefix}{esc_msg}"]"#)
+            }
+            NostrReply::Eose(subid) => {
+                let esc_subid = escape(subid)?;
+                format!(r#"["EOSE","{esc_subid}"]"#)
+            }
             NostrReply::Closed(subid, prefix, msg) => {
                 format!(r#"["CLOSED","{subid}","{prefix}{msg}"]"#)
             }
-            NostrReply::Notice(msg) => format!(r#"["NOTICE","{msg}"]"#),
+            NostrReply::Notice(msg) => {
+                let esc_msg = escape(msg)?;
+                format!(r#"["NOTICE","{esc_msg}"]"#)
+            }
             NostrReply::Count(subid, c, opthll) => {
+                let esc_subid = escape(subid)?;
                 if let Some(hll) = opthll {
                     let hll = hll.to_hex_string();
-                    format!(r#"["COUNT","{subid}",{{"count":{c}, "hll":"{hll}"}}]"#)
+                    format!(r#"["COUNT","{esc_subid}",{{"count":{c}, "hll":"{hll}"}}]"#)
                 } else {
-                    format!(r#"["COUNT","{subid}",{{"count":{c}}}]"#)
+                    format!(r#"["COUNT","{esc_subid}",{{"count":{c}}}]"#)
                 }
             }
             NostrReply::NegErr(subid, reason) => {
-                format!(r#"["NEG-ERR","{subid}","{reason}"]"#)
+                let esc_subid = escape(subid)?;
+                let esc_reason = escape(reason)?;
+                format!(r#"["NEG-ERR","{esc_subid}","{esc_reason}"]"#)
             }
             NostrReply::NegMsg(subid, msg) => {
+                let esc_subid = escape(subid)?;
                 // write msg as hex
                 let mut buf: Vec<u8> = vec![0; msg.len() * 2];
                 write_hex!(msg, &mut buf, msg.len()).unwrap();
                 let msg_hex = unsafe { std::str::from_utf8_unchecked(&buf) };
-                format!(r#"["NEG-MSG","{subid}","{}"]"#, msg_hex)
+                format!(r#"["NEG-MSG","{esc_subid}","{}"]"#, msg_hex)
             }
-        }
+        })
     }
 }
 
-impl fmt::Display for NostrReply<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_json())
-    }
+fn escape(s: &str) -> Result<String, Error> {
+    let v: Vec<u8> = Vec::with_capacity(256);
+    let e = pocket_types::json::json_escape(s.as_bytes(), v)?;
+    Ok(unsafe { String::from_utf8_unchecked(e) })
 }

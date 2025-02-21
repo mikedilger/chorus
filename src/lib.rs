@@ -374,7 +374,7 @@ impl WebSocketService {
         if m.len() > self.burst_tokens {
             log::info!(target: "Client", "{}: Rate limited exceeded", self.peer);
             let reply = NostrReply::Notice("Rate limit exceeded.".into());
-            self.websocket.send(Message::text(reply.as_json())).await?;
+            self.websocket.send(Message::text(reply.as_json()?)).await?;
             let error = ChorusError::RateLimitExceeded;
             self.error_punishment += error.punishment();
             return Err(error.into());
@@ -419,7 +419,7 @@ impl WebSocketService {
 
         // Offer AUTH to clients right off the bat
         let reply = NostrReply::Auth(self.challenge.clone());
-        self.send(Message::text(reply.as_json())).await?;
+        self.send(Message::text(reply.as_json()?)).await?;
 
         let mut last_message_at = Instant::now();
 
@@ -493,7 +493,7 @@ impl WebSocketService {
                         let message = NostrReply::Event(subid, event);
                         // note, this is not currently counted in throttling
                         self.websocket
-                            .send(Message::text(message.as_json()))
+                            .send(Message::text(message.as_json()?))
                             .await?;
                         continue 'subs;
                     }
@@ -529,7 +529,7 @@ impl WebSocketService {
             if message.len() > self.burst_tokens {
                 log::info!(target: "Client", "{}: Rate limited exceeded", self.peer);
                 let reply = NostrReply::Notice("Rate limit exceeded.".into());
-                self.websocket.send(Message::text(reply.as_json())).await?;
+                self.websocket.send(Message::text(reply.as_json()?)).await?;
                 let error = ChorusError::RateLimitExceeded;
                 self.error_punishment += error.punishment();
                 return Err(error.into());
@@ -556,15 +556,15 @@ impl WebSocketService {
                     if !self.replied {
                         if let Some(subid) = &self.negentropy_sub {
                             let reply = NostrReply::NegErr(subid, format!("error: {e}"));
-                            self.send(Message::text(reply.as_json())).await?;
+                            self.send(Message::text(reply.as_json()?)).await?;
                         } else {
                             let reply = NostrReply::Notice(format!("error: {}", e.inner));
-                            self.send(Message::text(reply.as_json())).await?;
+                            self.send(Message::text(reply.as_json()?)).await?;
                         }
                     }
                     if self.error_punishment >= 1.0 {
                         let reply = NostrReply::Notice("Closing due to error(s)".into());
-                        self.send(Message::text(reply.as_json())).await?;
+                        self.send(Message::text(reply.as_json()?)).await?;
                         return Err(ChorusError::ErrorClose.into());
                     }
                 }
@@ -573,7 +573,7 @@ impl WebSocketService {
                 let reply = NostrReply::Notice(
                     "binary messages are not processed by this relay".to_owned(),
                 );
-                self.send(Message::text(reply.as_json())).await?;
+                self.send(Message::text(reply.as_json()?)).await?;
                 log::info!(target: "Client",
                     "{}: Received unhandled binary message: {:02X?}",
                     self.peer,
