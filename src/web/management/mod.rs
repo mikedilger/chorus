@@ -12,9 +12,17 @@ use serde_json::{json, Map, Value};
 mod auth;
 
 #[derive(Serialize)]
-struct EventNeedingModeration {
+struct EventResult {
     id: String,
-    reason: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<String>,
+}
+
+#[derive(Serialize)]
+struct PubkeyResult {
+    pubkey: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<String>,
 }
 
 fn respond(
@@ -166,7 +174,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 }
             };
 
-            let mut need_moderation: Vec<EventNeedingModeration> = Vec::new();
+            let mut need_moderation: Vec<EventResult> = Vec::new();
 
             let (mut events, _redacted) = GLOBALS
                 .store
@@ -191,9 +199,9 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                     continue;
                 }
 
-                need_moderation.push(EventNeedingModeration {
+                need_moderation.push(EventResult {
                     id: event.id().as_hex_string(),
-                    reason: "unmoderated".to_string(),
+                    reason: Some("unmoderated".to_string()),
                 });
             }
 
@@ -240,11 +248,14 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
 
         "listallowedevents" => {
             let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
-            let ids: Vec<String> = approvals
+            let ids: Vec<EventResult> = approvals
                 .iter()
                 .filter_map(|(id, appr)| {
                     if *appr {
-                        Some(id.as_hex_string())
+                        Some(EventResult {
+                            id: id.as_hex_string(),
+                            reason: None,
+                        })
                     } else {
                         None
                     }
@@ -256,13 +267,16 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
         }
         "listbannedevents" => {
             let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
-            let ids: Vec<String> = approvals
+            let ids: Vec<EventResult> = approvals
                 .iter()
                 .filter_map(|(id, appr)| {
                     if *appr {
                         None
                     } else {
-                        Some(id.as_hex_string())
+                        Some(EventResult {
+                            id: id.as_hex_string(),
+                            reason: None,
+                        })
                     }
                 })
                 .collect();
@@ -272,11 +286,14 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
         }
         "listallowedpubkeys" => {
             let approvals = crate::dump_pubkey_approvals(GLOBALS.store.get().unwrap())?;
-            let pubkeys: Vec<String> = approvals
+            let pubkeys: Vec<PubkeyResult> = approvals
                 .iter()
                 .filter_map(|(pk, appr)| {
                     if *appr {
-                        Some(pk.as_hex_string())
+                        Some(PubkeyResult {
+                            pubkey: pk.as_hex_string(),
+                            reason: None,
+                        })
                     } else {
                         None
                     }
@@ -288,13 +305,16 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
         }
         "listbannedpubkeys" => {
             let approvals = crate::dump_pubkey_approvals(GLOBALS.store.get().unwrap())?;
-            let pubkeys: Vec<String> = approvals
+            let pubkeys: Vec<PubkeyResult> = approvals
                 .iter()
                 .filter_map(|(pk, appr)| {
                     if *appr {
                         None
                     } else {
-                        Some(pk.as_hex_string())
+                        Some(PubkeyResult {
+                            pubkey: pk.as_hex_string(),
+                            reason: None,
+                        })
                     }
                 })
                 .collect();
