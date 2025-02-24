@@ -70,20 +70,20 @@ pub async fn serve_http(
     let response = match method {
         Method::OPTIONS => Response::builder()
             .header("Access-Control-Allow-Origin", "*")
-            .header("Access-Control-Allow-Headers", "*")
+            .header("Access-Control-Allow-Headers", "Authorization, *")
             .header("Access-Control-Allow-Methods", "*")
             .header("Allow", "OPTIONS, GET, HEAD, PUT, DELETE")
             .status(StatusCode::NO_CONTENT)
             .body(Empty::new().map_err(|e| e.into()).boxed())?,
         Method::HEAD => Response::builder()
             .header("Access-Control-Allow-Origin", "*")
-            .header("Access-Control-Allow-Headers", "*")
+            .header("Access-Control-Allow-Headers", "Authorization, *")
             .header("Access-Control-Allow-Methods", "*")
             .status(StatusCode::OK)
             .body(Empty::new().map_err(|e| e.into()).boxed())?,
         Method::GET => Response::builder()
             .header("Access-Control-Allow-Origin", "*")
-            .header("Access-Control-Allow-Headers", "*")
+            .header("Access-Control-Allow-Headers", "Authorization, *")
             .header("Access-Control-Allow-Methods", "*")
             .status(StatusCode::OK)
             .body(
@@ -93,7 +93,7 @@ pub async fn serve_http(
             )?,
         _ => Response::builder()
             .header("Access-Control-Allow-Origin", "*")
-            .header("Access-Control-Allow-Headers", "*")
+            .header("Access-Control-Allow-Headers", "Authorization, *")
             .header("Access-Control-Allow-Methods", "*")
             .status(StatusCode::METHOD_NOT_ALLOWED)
             .body(Empty::new().map_err(|e| e.into()).boxed())?,
