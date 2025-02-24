@@ -105,18 +105,28 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
     match &*method {
         "supportedmethods" => Ok(Some(json!({
             "result": [
-                "allowevent",
-                "allowpubkey",
-                "banevent",
-                "banpubkey",
-                "listallowedevents",
-                "listallowedpubkeys",
-                "listbannedevents",
-                "listbannedpubkeys",
                 "supportedmethods",
+
+                "listeventsneedingmoderation",
+
+                "allowevent",
+                "banevent",
+                "clearevent",
+                "removeevent",
+
+                "allowpubkey",
+                "banpubkey",
+                "clearpubkey",
+
+                "listallowedevents",
+                "listbannedevents",
+                "listallowedpubkeys",
+                "listbannedpubkeys",
+
+                "stats",
                 "numconnections",
                 "uptime",
-                "stats",
+
                 "listadmins",
                 "listmoderators",
                 "grantmoderator",
@@ -124,33 +134,140 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 "listusers",
                 "grantuser",
                 "revokeuser",
-                "listeventsneedingmoderation",
             ]
         }))),
-        "banpubkey" => {
-            let pk = get_pubkey_param(obj)?;
-            crate::mark_pubkey_approval(GLOBALS.store.get().unwrap(), pk, false)?;
+        "listeventsneedingmoderation" => {
+            // FIXME this scans the entire database, maybe we need to some process
+            // that does this in epochs and saves the result.
+
+            let allowed_kinds = [
+                Kind::from(4),     // Encrypted Direct Message
+                Kind::from(1059),  // Giftwrap
+                Kind::from(10002), // Relay list
+                Kind::from(10050), // DM Relay list
+                Kind::from(0),     // Metadata
+                Kind::from(3),     // Following list
+                Kind::from(7),     // Reaction
+            ];
+            let mut buffer: [u8; 128] = [0; 128];
+            let filter = {
+                let (_incount, _outcount, filter) = Filter::from_json(b"{}", &mut buffer)?;
+                filter
+            };
+            let screen = |e: &Event| -> ScreenResult {
+                if allowed_kinds.contains(&e.kind()) {
+                    ScreenResult::Mismatch
+                } else if e.kind().is_ephemeral() {
+                    ScreenResult::Mismatch
+                } else if crate::is_authorized_user(e.pubkey()) {
+                    ScreenResult::Mismatch
+                } else {
+                    ScreenResult::Match
+                }
+            };
+
+            let mut need_moderation: Vec<EventNeedingModeration> = Vec::new();
+
+            let (mut events, _redacted) = GLOBALS
+                .store
+                .get()
+                .unwrap()
+                .find_events(filter, true, 0, 0, screen)?;
+
+            for event in events.drain(..) {
+                // Skip if pubkey marked (either banned or approved)
+                if matches!(
+                    crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey()),
+                    Ok(Some(_))
+                ) {
+                    continue;
+                }
+
+                // Skip if event marked (either banned or approved)
+                if matches!(
+                    crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id()),
+                    Ok(Some(_))
+                ) {
+                    continue;
+                }
+
+                need_moderation.push(EventNeedingModeration {
+                    id: event.id().as_hex_string(),
+                    reason: "unmoderated".to_string(),
+                });
+            }
+
+            Ok(Some(json!({
+                "result": need_moderation,
+            })))
+        }
+        "allowevent" => {
+            let id = get_id_param(obj)?;
+            crate::mark_event_approval(GLOBALS.store.get().unwrap(), id, true)?;
             Ok(None)
         }
+        "banevent" => {
+            let id = get_id_param(obj)?;
+            crate::mark_event_approval(GLOBALS.store.get().unwrap(), id, false)?;
+            Ok(None)
+        }
+        "clearevent" => {
+            let id = get_id_param(obj)?;
+            crate::clear_event_approval(GLOBALS.store.get().unwrap(), id)?;
+            Ok(None)
+        }
+        "removeevent" => {
+            let id = get_id_param(obj)?;
+            GLOBALS.store.get().unwrap().remove_event(id)?;
+            Ok(None)
+        }
+
         "allowpubkey" => {
             let pk = get_pubkey_param(obj)?;
             crate::mark_pubkey_approval(GLOBALS.store.get().unwrap(), pk, true)?;
             Ok(None)
         }
-        "listbannedpubkeys" => {
-            let approvals = crate::dump_pubkey_approvals(GLOBALS.store.get().unwrap())?;
-            let pubkeys: Vec<String> = approvals
+        "banpubkey" => {
+            let pk = get_pubkey_param(obj)?;
+            crate::mark_pubkey_approval(GLOBALS.store.get().unwrap(), pk, false)?;
+            Ok(None)
+        }
+        "clearpubkey" => {
+            let pk = get_pubkey_param(obj)?;
+            crate::clear_pubkey_approval(GLOBALS.store.get().unwrap(), pk)?;
+            Ok(None)
+        }
+
+        "listallowedevents" => {
+            let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
+            let ids: Vec<String> = approvals
                 .iter()
-                .filter_map(|(pk, appr)| {
+                .filter_map(|(id, appr)| {
                     if *appr {
-                        None
+                        Some(id.as_hex_string())
                     } else {
-                        Some(pk.as_hex_string())
+                        None
                     }
                 })
                 .collect();
             Ok(Some(json!({
-                "result": pubkeys
+                "result": ids
+            })))
+        }
+        "listbannedevents" => {
+            let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
+            let ids: Vec<String> = approvals
+                .iter()
+                .filter_map(|(id, appr)| {
+                    if *appr {
+                        None
+                    } else {
+                        Some(id.as_hex_string())
+                    }
+                })
+                .collect();
+            Ok(Some(json!({
+                "result": ids
             })))
         }
         "listallowedpubkeys" => {
@@ -169,60 +286,23 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 "result": pubkeys
             })))
         }
-        "banevent" => {
-            let id = get_id_param(obj)?;
-            crate::mark_event_approval(GLOBALS.store.get().unwrap(), id, false)?;
-            Ok(None)
-        }
-        "allowevent" => {
-            let id = get_id_param(obj)?;
-            crate::mark_event_approval(GLOBALS.store.get().unwrap(), id, true)?;
-            Ok(None)
-        }
-        "listbannedevents" => {
-            let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
-            let ids: Vec<String> = approvals
+        "listbannedpubkeys" => {
+            let approvals = crate::dump_pubkey_approvals(GLOBALS.store.get().unwrap())?;
+            let pubkeys: Vec<String> = approvals
                 .iter()
-                .filter_map(|(id, appr)| {
+                .filter_map(|(pk, appr)| {
                     if *appr {
                         None
                     } else {
-                        Some(id.as_hex_string())
+                        Some(pk.as_hex_string())
                     }
                 })
                 .collect();
             Ok(Some(json!({
-                "result": ids
+                "result": pubkeys
             })))
         }
-        "listallowedevents" => {
-            let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
-            let ids: Vec<String> = approvals
-                .iter()
-                .filter_map(|(id, appr)| {
-                    if *appr {
-                        Some(id.as_hex_string())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            Ok(Some(json!({
-                "result": ids
-            })))
-        }
-        "numconnections" => {
-            let num = &GLOBALS.num_connections;
-            Ok(Some(json!({
-                "result": num,
-            })))
-        }
-        "uptime" => {
-            let uptime_in_secs = GLOBALS.start_time.elapsed().as_secs();
-            Ok(Some(json!({
-                "result": uptime_in_secs,
-            })))
-        }
+
         "stats" => {
             let store_stats = GLOBALS.store.get().unwrap().stats()?;
             Ok(Some(json!({
@@ -238,6 +318,19 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 }
             })))
         }
+        "numconnections" => {
+            let num = &GLOBALS.num_connections;
+            Ok(Some(json!({
+                "result": num,
+            })))
+        }
+        "uptime" => {
+            let uptime_in_secs = GLOBALS.start_time.elapsed().as_secs();
+            Ok(Some(json!({
+                "result": uptime_in_secs,
+            })))
+        }
+
         "listadmins" => {
             let keys = GLOBALS.config.read().admin_hex_keys.clone();
             Ok(Some(json!({
@@ -322,80 +415,6 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 crate::rm_authorized_user(GLOBALS.store.get().unwrap(), pk)?;
                 Ok(None)
             }
-        }
-        "listeventsneedingmoderation" => {
-            // FIXME this scans the entire database, maybe we need to some process
-            // that does this in epochs and saves the result.
-
-            let allowed_kinds = [
-                Kind::from(4),     // Encrypted Direct Message
-                Kind::from(1059),  // Giftwrap
-                Kind::from(10002), // Relay list
-                Kind::from(10050), // DM Relay list
-                Kind::from(0),     // Metadata
-                Kind::from(3),     // Following list
-                Kind::from(7),     // Reaction
-            ];
-            let mut buffer: [u8; 128] = [0; 128];
-            let filter = {
-                let (_incount, _outcount, filter) = Filter::from_json(b"{}", &mut buffer)?;
-                filter
-            };
-            let screen = |e: &Event| -> ScreenResult {
-                if allowed_kinds.contains(&e.kind()) {
-                    ScreenResult::Mismatch
-                } else if e.kind().is_ephemeral() {
-                    ScreenResult::Mismatch
-                } else if crate::is_authorized_user(e.pubkey()) {
-                    ScreenResult::Mismatch
-                } else {
-                    ScreenResult::Match
-                }
-            };
-
-            let mut need_moderation: Vec<EventNeedingModeration> = Vec::new();
-
-            let (mut events, _redacted) = GLOBALS
-                .store
-                .get()
-                .unwrap()
-                .find_events(filter, true, 0, 0, screen)?;
-
-            for event in events.drain(..) {
-                // Delete if pubkey marked banned
-                if matches!(
-                    crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey()),
-                    Ok(Some(false))
-                ) {
-                    GLOBALS.store.get().unwrap().remove_event(event.id())?;
-                    continue;
-                }
-
-                // Skip if pubkey marked approved
-                if matches!(
-                    crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey()),
-                    Ok(Some(true))
-                ) {
-                    continue;
-                }
-
-                // Skip if event marked approved
-                if matches!(
-                    crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id()),
-                    Ok(Some(true))
-                ) {
-                    continue;
-                }
-
-                need_moderation.push(EventNeedingModeration {
-                    id: event.id().as_hex_string(),
-                    reason: "unmoderated".to_string(),
-                });
-            }
-
-            Ok(Some(json!({
-                "result": need_moderation,
-            })))
         }
 
         // Commands we do not support (yet)
