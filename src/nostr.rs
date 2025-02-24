@@ -794,13 +794,15 @@ pub fn screen_outgoing_event(
     event_flags: &EventFlags,
     authorized_user: bool,
 ) -> ScreenResult {
-    // Deny if it is a private event (DM or GiftWrap) and theey are neither the recipient
+    // Deny if it is a private event (DM or GiftWrap) and they are neither the recipient
     // nor the author
     // (even for authorized users)
     if event.kind() == Kind::from(4) || event.kind() == Kind::from(1059) {
         if event_flags.tags_current_user || event_flags.author_is_current_user {
+            // they are tagged, it is ok
             return ScreenResult::Match;
         } else {
+            // they are not tagged
             return ScreenResult::Redacted;
         }
     }
@@ -812,13 +814,28 @@ pub fn screen_outgoing_event(
         return ScreenResult::Mismatch;
     }
 
-    // Deny if it is marked approved:false
+    let event_approval = crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id());
+    let pubkey_approval = crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey());
+
+    // Deny if it is marked approval:false (event or pubkey)
     // (even for authorized users)
-    if let Ok(Some(false)) = crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id()) {
+    // event overrides pubkey
+    if let Ok(Some(false)) = event_approval {
+        return ScreenResult::Mismatch;
+    }
+    if let Ok(Some(false)) = pubkey_approval {
+        return ScreenResult::Mismatch;
+    }
+
+    // Allow if is is marked approval:true (event or pubkey)
+    if let Ok(Some(true)) = event_approval {
+        return ScreenResult::Match;
+    }
+    if let Ok(Some(true)) = pubkey_approval {
         return ScreenResult::Match;
     }
 
-    // Allow if an open relay
+    // Allow if we are an open relay
     if GLOBALS.config.read().open_relay {
         return ScreenResult::Match;
     }
@@ -842,17 +859,6 @@ pub fn screen_outgoing_event(
 
     // Allow if author is one of our authorized users
     if event_flags.author_is_an_authorized_user {
-        return ScreenResult::Match;
-    }
-
-    // Allow if event is explicitly approved
-    if let Ok(Some(true)) = crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id()) {
-        return ScreenResult::Match;
-    }
-
-    // Allow if author is explicitly approved
-    if let Ok(Some(true)) = crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey())
-    {
         return ScreenResult::Match;
     }
 
