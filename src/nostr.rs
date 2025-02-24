@@ -794,8 +794,9 @@ pub fn screen_outgoing_event(
     event_flags: &EventFlags,
     authorized_user: bool,
 ) -> ScreenResult {
-    // Forbid if it is a private event (DM or GiftWrap) and theey are neither the recipient
+    // Deny if it is a private event (DM or GiftWrap) and theey are neither the recipient
     // nor the author
+    // (even for authorized users)
     if event.kind() == Kind::from(4) || event.kind() == Kind::from(1059) {
         if event_flags.tags_current_user || event_flags.author_is_current_user {
             return ScreenResult::Match;
@@ -804,10 +805,17 @@ pub fn screen_outgoing_event(
         }
     }
 
-    // Forbid (and delete) if it has an expired expiration tag
+    // Deny (and delete) if it has an expired expiration tag
+    // (even for authorized users)
     if matches!(event.is_expired(), Ok(true)) {
         let _ = GLOBALS.store.get().unwrap().remove_event(event.id());
         return ScreenResult::Mismatch;
+    }
+
+    // Deny if it is marked approved:false
+    // (even for authorized users)
+    if let Ok(Some(false)) = crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id()) {
+        return ScreenResult::Match;
     }
 
     // Allow if an open relay
@@ -832,7 +840,7 @@ pub fn screen_outgoing_event(
         return ScreenResult::Match;
     }
 
-    // Everybody can see events from our authorized users
+    // Allow if author is one of our authorized users
     if event_flags.author_is_an_authorized_user {
         return ScreenResult::Match;
     }
