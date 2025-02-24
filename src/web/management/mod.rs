@@ -163,11 +163,10 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 filter
             };
             let screen = |e: &Event| -> ScreenResult {
-                if allowed_kinds.contains(&e.kind()) {
-                    ScreenResult::Mismatch
-                } else if e.kind().is_ephemeral() {
-                    ScreenResult::Mismatch
-                } else if crate::is_authorized_user(e.pubkey()) {
+                if allowed_kinds.contains(&e.kind())
+                    || e.kind().is_ephemeral()
+                    || crate::is_authorized_user(e.pubkey())
+                {
                     ScreenResult::Mismatch
                 } else {
                     ScreenResult::Match
