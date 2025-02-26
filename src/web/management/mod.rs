@@ -19,6 +19,13 @@ struct EventResult {
 }
 
 #[derive(Serialize)]
+struct FullEventResult {
+    event: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<String>,
+}
+
+#[derive(Serialize)]
 struct PubkeyResult {
     pubkey: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -128,6 +135,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
 
                 "listallowedevents",
                 "listbannedevents",
+                "listbannedevents2",
                 "listallowedpubkeys",
                 "listbannedpubkeys",
 
@@ -281,6 +289,25 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 .collect();
             Ok(Some(json!({
                 "result": ids
+            })))
+        }
+        "listbannedevents2" => {
+            let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
+            let mut results: Vec<FullEventResult> = Vec::new();
+            for (id, appr) in approvals.iter() {
+                if ! *appr {
+                    if let Some(event) = GLOBALS.store.get().unwrap().get_event_by_id(*id)? {
+                        results.push(
+                            FullEventResult {
+                                event: format!("{event}"),
+                                reason: None,
+                            }
+                        );
+                    }
+                }
+            }
+            Ok(Some(json!({
+                "result": results
             })))
         }
         "listallowedpubkeys" => {
