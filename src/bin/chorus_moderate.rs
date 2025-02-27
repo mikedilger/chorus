@@ -1,4 +1,5 @@
 use chorus::error::Error;
+use chorus::globals::GLOBALS;
 use pocket_db::ScreenResult;
 use pocket_types::{Event, Filter, Kind};
 use std::env;
@@ -30,13 +31,13 @@ fn main() -> Result<(), Error> {
         Kind::from(7),     // Reaction
     ];
 
-    let store = chorus::setup_store(&config)?;
+    chorus::setup_store(&config)?;
 
     let mut buffer: [u8; 128] = [0; 128];
     let (_incount, _outcount, filter) = Filter::from_json(b"{}", &mut buffer)?;
     let screen = |_: &Event| -> ScreenResult { ScreenResult::Match };
 
-    let (mut events, _redacted) = store.find_events(
+    let (mut events, _redacted) = GLOBALS.store.get().unwrap().find_events(
         filter,
         config.allow_scraping,
         config.allow_scrape_if_limited_to,
@@ -68,27 +69,18 @@ fn main() -> Result<(), Error> {
         //println!("{s}");
 
         // Skip if event marked approved
-        if matches!(
-            chorus::get_event_approval(&store, event.id()),
-            Ok(Some(true))
-        ) {
+        if matches!(chorus::get_event_approval(event.id()), Ok(Some(true))) {
             continue;
         }
 
         // Skip if pubkey marked approved
-        if matches!(
-            chorus::get_pubkey_approval(&store, event.pubkey()),
-            Ok(Some(true))
-        ) {
+        if matches!(chorus::get_pubkey_approval(event.pubkey()), Ok(Some(true))) {
             continue;
         }
 
         // Delete if pubkey marked banned
-        if matches!(
-            chorus::get_pubkey_approval(&store, event.pubkey()),
-            Ok(Some(false))
-        ) {
-            store.remove_event(event.id())?;
+        if matches!(chorus::get_pubkey_approval(event.pubkey()), Ok(Some(false))) {
+            GLOBALS.store.get().unwrap().remove_event(event.id())?;
             continue;
         }
 
@@ -111,24 +103,24 @@ fn main() -> Result<(), Error> {
             }
             match input.bytes().next().unwrap() {
                 b'p' => {
-                    chorus::mark_pubkey_approval(&store, event.pubkey(), true)?;
+                    chorus::mark_pubkey_approval(event.pubkey(), true)?;
                     println!("User approved.");
                     break;
                 }
                 b'P' => {
-                    chorus::mark_pubkey_approval(&store, event.pubkey(), false)?;
-                    store.remove_event(event.id())?;
+                    chorus::mark_pubkey_approval(event.pubkey(), false)?;
+                    GLOBALS.store.get().unwrap().remove_event(event.id())?;
                     println!("User banned.");
                     break;
                 }
                 b'i' => {
-                    chorus::mark_event_approval(&store, event.id(), true)?;
+                    chorus::mark_event_approval(event.id(), true)?;
                     println!("Event approved.");
                     break;
                 }
                 b'I' => {
-                    chorus::mark_event_approval(&store, event.id(), false)?;
-                    store.remove_event(event.id())?;
+                    chorus::mark_event_approval(event.id(), false)?;
+                    GLOBALS.store.get().unwrap().remove_event(event.id())?;
                     println!("Event banned.");
                     break;
                 }

@@ -19,12 +19,14 @@ fn main() -> Result<(), Error> {
     let stdin = std::io::stdin();
     let _ = stdin.lock().lines().next().unwrap().unwrap();
 
-    let store = chorus::setup_store(&config)?;
+    let store = chorus::setup_store_and_return(&config)?;
+
     let pre_stats = store.stats()?;
     println!("{:?}", pre_stats);
 
-    let store = unsafe { store.rebuild()? };
-    let post_stats = store.stats()?;
+    let new_store = unsafe { store.rebuild()? };
+
+    let post_stats = new_store.stats()?;
     println!("{:?}", post_stats);
 
     Ok(())

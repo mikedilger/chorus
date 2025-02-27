@@ -118,9 +118,7 @@ impl Service<Request<Incoming>> for ChorusService {
 
             // Possibly IP block late (if behind a proxy)
             if GLOBALS.config.read().enable_ip_blocking {
-                if let Ok(ip_data) =
-                    crate::get_ip_data(GLOBALS.store.get().unwrap(), hashed_peer.ip())
-                {
+                if let Ok(ip_data) = crate::get_ip_data(hashed_peer.ip()) {
                     if ip_data.is_banned() {
                         log::debug!(target: "Client",
                                     "{}: Blocking reconnection until {}",
@@ -324,10 +322,10 @@ async fn websocket_thread(peer: HashedPeer, websocket: HyperWebsocket, origin: S
             let minimum_ban_seconds = GLOBALS.config.read().minimum_ban_seconds;
             let ban_seconds = if GLOBALS.config.read().enable_ip_blocking {
                 let mut ban_seconds = 0;
-                if let Ok(mut ip_data) = get_ip_data(GLOBALS.store.get().unwrap(), peer.ip()) {
+                if let Ok(mut ip_data) = get_ip_data(peer.ip()) {
                     ban_seconds =
                         ip_data.update_on_session_close(session_exit, minimum_ban_seconds);
-                    let _ = update_ip_data(GLOBALS.store.get().unwrap(), peer.ip(), &ip_data);
+                    let _ = update_ip_data(peer.ip(), &ip_data);
                 }
                 ban_seconds
             } else {
@@ -672,7 +670,14 @@ pub fn setup_logging(config: &Config) {
 }
 
 /// Setup storage
-pub fn setup_store(config: &Config) -> Result<Store, Error> {
+pub fn setup_store(config: &Config) -> Result<(), Error> {
+    let store = setup_store_and_return(config)?;
+    let _ = GLOBALS.store.set(store);
+    Ok(())
+}
+
+/// Setup storage and return it
+pub fn setup_store_and_return(config: &Config) -> Result<Store, Error> {
     let store = Store::new(
         &config.data_directory,
         vec![
@@ -686,7 +691,8 @@ pub fn setup_store(config: &Config) -> Result<Store, Error> {
 }
 
 /// Get IpData from storage about this remote HashedIp
-pub fn get_ip_data(store: &Store, ip: HashedIp) -> Result<IpData, Error> {
+pub fn get_ip_data(ip: HashedIp) -> Result<IpData, Error> {
+    let store = GLOBALS.store.get().unwrap();
     let ip_data = store
         .extra_table("ip_data")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable("ip_data")))?;
@@ -700,7 +706,8 @@ pub fn get_ip_data(store: &Store, ip: HashedIp) -> Result<IpData, Error> {
 }
 
 /// Get IpData in storage about this remote HashedIp
-pub fn update_ip_data(store: &Store, ip: HashedIp, data: &IpData) -> Result<(), Error> {
+pub fn update_ip_data(ip: HashedIp, data: &IpData) -> Result<(), Error> {
+    let store = GLOBALS.store.get().unwrap();
     let ip_data = store
         .extra_table("ip_data")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable("ip_data")))?;
@@ -713,7 +720,8 @@ pub fn update_ip_data(store: &Store, ip: HashedIp, data: &IpData) -> Result<(), 
 }
 
 /// Dump all IpData from storage
-pub fn dump_ip_data(store: &Store) -> Result<Vec<(HashedIp, IpData)>, Error> {
+pub fn dump_ip_data() -> Result<Vec<(HashedIp, IpData)>, Error> {
+    let store = GLOBALS.store.get().unwrap();
     let ip_data = store
         .extra_table("ip_data")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable("ip_data")))?;
@@ -729,7 +737,8 @@ pub fn dump_ip_data(store: &Store) -> Result<Vec<(HashedIp, IpData)>, Error> {
 }
 
 /// Mark an event as approved or not
-pub fn mark_event_approval(store: &Store, id: Id, approval: bool) -> Result<(), Error> {
+pub fn mark_event_approval(id: Id, approval: bool) -> Result<(), Error> {
+    let store = GLOBALS.store.get().unwrap();
     let approved_events = store
         .extra_table("approved-events")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable(
@@ -742,7 +751,8 @@ pub fn mark_event_approval(store: &Store, id: Id, approval: bool) -> Result<(), 
 }
 
 /// Clear an event approval status
-pub fn clear_event_approval(store: &Store, id: Id) -> Result<(), Error> {
+pub fn clear_event_approval(id: Id) -> Result<(), Error> {
+    let store = GLOBALS.store.get().unwrap();
     let approved_events = store
         .extra_table("approved-events")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable(
@@ -755,7 +765,8 @@ pub fn clear_event_approval(store: &Store, id: Id) -> Result<(), Error> {
 }
 
 /// Fetch an event approval status
-pub fn get_event_approval(store: &Store, id: Id) -> Result<Option<bool>, Error> {
+pub fn get_event_approval(id: Id) -> Result<Option<bool>, Error> {
+    let store = GLOBALS.store.get().unwrap();
     let approved_events = store
         .extra_table("approved-events")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable(
@@ -768,7 +779,8 @@ pub fn get_event_approval(store: &Store, id: Id) -> Result<Option<bool>, Error> 
 }
 
 /// Dump all event approval statuses
-pub fn dump_event_approvals(store: &Store) -> Result<Vec<(Id, bool)>, Error> {
+pub fn dump_event_approvals() -> Result<Vec<(Id, bool)>, Error> {
+    let store = GLOBALS.store.get().unwrap();
     let mut output: Vec<(Id, bool)> = Vec::new();
     let approved_events = store
         .extra_table("approved-events")
@@ -786,7 +798,8 @@ pub fn dump_event_approvals(store: &Store) -> Result<Vec<(Id, bool)>, Error> {
 }
 
 /// Mark a pubkey as approved or not
-pub fn mark_pubkey_approval(store: &Store, pubkey: Pubkey, approval: bool) -> Result<(), Error> {
+pub fn mark_pubkey_approval(pubkey: Pubkey, approval: bool) -> Result<(), Error> {
+    let store = GLOBALS.store.get().unwrap();
     let approved_pubkeys = store
         .extra_table("approved-pubkeys")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable(
@@ -799,7 +812,8 @@ pub fn mark_pubkey_approval(store: &Store, pubkey: Pubkey, approval: bool) -> Re
 }
 
 /// Clear a pubkey approval status
-pub fn clear_pubkey_approval(store: &Store, pubkey: Pubkey) -> Result<(), Error> {
+pub fn clear_pubkey_approval(pubkey: Pubkey) -> Result<(), Error> {
+    let store = GLOBALS.store.get().unwrap();
     let approved_pubkeys = store
         .extra_table("approved-pubkeys")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable(
@@ -812,7 +826,8 @@ pub fn clear_pubkey_approval(store: &Store, pubkey: Pubkey) -> Result<(), Error>
 }
 
 /// Fetch a pubkey approval status
-pub fn get_pubkey_approval(store: &Store, pubkey: Pubkey) -> Result<Option<bool>, Error> {
+pub fn get_pubkey_approval(pubkey: Pubkey) -> Result<Option<bool>, Error> {
+    let store = GLOBALS.store.get().unwrap();
     let approved_pubkeys = store
         .extra_table("approved-pubkeys")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable(
@@ -825,7 +840,8 @@ pub fn get_pubkey_approval(store: &Store, pubkey: Pubkey) -> Result<Option<bool>
 }
 
 /// Dump all pubkey approval statuses
-pub fn dump_pubkey_approvals(store: &Store) -> Result<Vec<(Pubkey, bool)>, Error> {
+pub fn dump_pubkey_approvals() -> Result<Vec<(Pubkey, bool)>, Error> {
+    let store = GLOBALS.store.get().unwrap();
     let mut output: Vec<(Pubkey, bool)> = Vec::new();
     let approved_pubkeys = store
         .extra_table("approved-pubkeys")
@@ -843,7 +859,8 @@ pub fn dump_pubkey_approvals(store: &Store) -> Result<Vec<(Pubkey, bool)>, Error
 }
 
 /// Add authorized user (or change moderator flag)
-pub fn add_authorized_user(store: &Store, pubkey: Pubkey, moderator: bool) -> Result<(), Error> {
+pub fn add_authorized_user(pubkey: Pubkey, moderator: bool) -> Result<(), Error> {
+    let store = GLOBALS.store.get().unwrap();
     let users = store
         .extra_table("users")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable("users")))?;
@@ -854,7 +871,8 @@ pub fn add_authorized_user(store: &Store, pubkey: Pubkey, moderator: bool) -> Re
 }
 
 /// Remove authorized user
-pub fn rm_authorized_user(store: &Store, pubkey: Pubkey) -> Result<(), Error> {
+pub fn rm_authorized_user(pubkey: Pubkey) -> Result<(), Error> {
+    let store = GLOBALS.store.get().unwrap();
     let users = store
         .extra_table("users")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable("users")))?;
@@ -865,7 +883,8 @@ pub fn rm_authorized_user(store: &Store, pubkey: Pubkey) -> Result<(), Error> {
 }
 
 /// Get authorized user
-pub fn get_authorized_user(store: &Store, pubkey: Pubkey) -> Result<Option<bool>, Error> {
+pub fn get_authorized_user(pubkey: Pubkey) -> Result<Option<bool>, Error> {
+    let store = GLOBALS.store.get().unwrap();
     let users = store
         .extra_table("users")
         .ok_or(Into::<Error>::into(ChorusError::MissingTable("users")))?;
@@ -876,7 +895,8 @@ pub fn get_authorized_user(store: &Store, pubkey: Pubkey) -> Result<Option<bool>
 }
 
 /// Dump all authorized users
-pub fn dump_authorized_users(store: &Store) -> Result<Vec<(Pubkey, bool)>, Error> {
+pub fn dump_authorized_users() -> Result<Vec<(Pubkey, bool)>, Error> {
+    let store = GLOBALS.store.get().unwrap();
     let mut output: Vec<(Pubkey, bool)> = Vec::new();
     let users = store
         .extra_table("users")
@@ -893,8 +913,7 @@ pub fn dump_authorized_users(store: &Store) -> Result<Vec<(Pubkey, bool)>, Error
 
 /// Is the pubkey an authorized user?
 pub fn is_authorized_user(pubkey: Pubkey) -> bool {
-    let store = GLOBALS.store.get().unwrap();
-    match get_authorized_user(store, pubkey) {
+    match get_authorized_user(pubkey) {
         Err(_) => false,
         Ok(None) => false,
         Ok(Some(_)) => true,
@@ -903,8 +922,7 @@ pub fn is_authorized_user(pubkey: Pubkey) -> bool {
 
 /// Is the pubkey a moderator?
 pub fn is_moderator(pubkey: Pubkey) -> bool {
-    let store = GLOBALS.store.get().unwrap();
-    match get_authorized_user(store, pubkey) {
+    match get_authorized_user(pubkey) {
         Err(_) => false,
         Ok(None) => false,
         Ok(Some(moderator)) => moderator,

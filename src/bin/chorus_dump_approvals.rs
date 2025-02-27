@@ -16,15 +16,13 @@ fn main() -> Result<(), Error> {
     config.allow_scraping = true;
 
     chorus::setup_logging(&config);
+    chorus::setup_store(&config)?;
 
-    // Setup store
-    let store = chorus::setup_store(&config)?;
-
-    for (id, approved) in chorus::dump_event_approvals(&store)? {
+    for (id, approved) in chorus::dump_event_approvals()? {
         println!("ID {} = {}", id, approved);
     }
 
-    for (pubkey, approved) in chorus::dump_pubkey_approvals(&store)? {
+    for (pubkey, approved) in chorus::dump_pubkey_approvals()? {
         println!("PUBKEY {} = {}", pubkey, approved);
     }
 

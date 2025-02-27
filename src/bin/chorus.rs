@@ -28,8 +28,7 @@ async fn main() -> Result<(), Error> {
     // Log host name
     log::info!(target: "Server", "HOSTNAME = {}", config.hostname);
 
-    let store = chorus::setup_store(&config)?;
-    let _ = GLOBALS.store.set(store);
+    chorus::setup_store(&config)?;
 
     if let Some(ref blossom_directory) = config.blossom_directory {
         let filestore = chorus::filestore::FileStore::new(blossom_directory).await?;
@@ -101,7 +100,7 @@ async fn main() -> Result<(), Error> {
                 if ! GLOBALS.config.read().chorus_is_behind_a_proxy
                     && GLOBALS.config.read().enable_ip_blocking
                 {
-                    let ip_data = chorus::get_ip_data(GLOBALS.store.get().unwrap(), hashed_peer.ip())?;
+                    let ip_data = chorus::get_ip_data(hashed_peer.ip())?;
                     if ip_data.is_banned() {
                         log::debug!(target: "Client",
                                     "{}: Blocking reconnection until {}",

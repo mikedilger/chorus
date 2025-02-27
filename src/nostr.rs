@@ -335,13 +335,11 @@ impl WebSocketService {
         // Handle Request to Vanish events
         if event.kind() == Kind::from(62) {
             if let Ok(true) = verify_relay_tag(event, true) {
-                let store = GLOBALS.store.get().unwrap();
-
                 // Erase their events (and giftwraps to them)
-                store.vanish(event)?;
+                GLOBALS.store.get().unwrap().vanish(event)?;
 
                 // Add their pubkey to the blocklist so their events cannot come back
-                crate::mark_pubkey_approval(store, event.pubkey(), false)?;
+                crate::mark_pubkey_approval(event.pubkey(), false)?;
             }
 
             return Ok(());
@@ -731,12 +729,12 @@ async fn screen_incoming_event(
     }
 
     // Reject if event approval is false
-    if let Some(false) = crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id())? {
+    if let Some(false) = crate::get_event_approval(event.id())? {
         return Err(ChorusError::BannedEvent.into());
     }
 
     // Reject if pubkey approval is false
-    if let Some(false) = crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey())? {
+    if let Some(false) = crate::get_pubkey_approval(event.pubkey())? {
         return Err(ChorusError::BannedUser.into());
     }
 
@@ -814,8 +812,8 @@ pub fn screen_outgoing_event(
         return ScreenResult::Mismatch;
     }
 
-    let event_approval = crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id());
-    let pubkey_approval = crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey());
+    let event_approval = crate::get_event_approval(event.id());
+    let pubkey_approval = crate::get_pubkey_approval(event.pubkey());
 
     // Deny if it is marked approval:false (event or pubkey)
     // (even for authorized users)

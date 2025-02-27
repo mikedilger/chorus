@@ -191,18 +191,12 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
 
             for event in events.drain(..) {
                 // Skip if pubkey marked (either banned or approved)
-                if matches!(
-                    crate::get_pubkey_approval(GLOBALS.store.get().unwrap(), event.pubkey()),
-                    Ok(Some(_))
-                ) {
+                if matches!(crate::get_pubkey_approval(event.pubkey()), Ok(Some(_))) {
                     continue;
                 }
 
                 // Skip if event marked (either banned or approved)
-                if matches!(
-                    crate::get_event_approval(GLOBALS.store.get().unwrap(), event.id()),
-                    Ok(Some(_))
-                ) {
+                if matches!(crate::get_event_approval(event.id()), Ok(Some(_))) {
                     continue;
                 }
 
@@ -218,17 +212,17 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
         }
         "allowevent" => {
             let id = get_id_param(obj)?;
-            crate::mark_event_approval(GLOBALS.store.get().unwrap(), id, true)?;
+            crate::mark_event_approval(id, true)?;
             Ok(None)
         }
         "banevent" => {
             let id = get_id_param(obj)?;
-            crate::mark_event_approval(GLOBALS.store.get().unwrap(), id, false)?;
+            crate::mark_event_approval(id, false)?;
             Ok(None)
         }
         "clearevent" => {
             let id = get_id_param(obj)?;
-            crate::clear_event_approval(GLOBALS.store.get().unwrap(), id)?;
+            crate::clear_event_approval(id)?;
             Ok(None)
         }
         "removeevent" => {
@@ -239,22 +233,22 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
 
         "allowpubkey" => {
             let pk = get_pubkey_param(obj)?;
-            crate::mark_pubkey_approval(GLOBALS.store.get().unwrap(), pk, true)?;
+            crate::mark_pubkey_approval(pk, true)?;
             Ok(None)
         }
         "banpubkey" => {
             let pk = get_pubkey_param(obj)?;
-            crate::mark_pubkey_approval(GLOBALS.store.get().unwrap(), pk, false)?;
+            crate::mark_pubkey_approval(pk, false)?;
             Ok(None)
         }
         "clearpubkey" => {
             let pk = get_pubkey_param(obj)?;
-            crate::clear_pubkey_approval(GLOBALS.store.get().unwrap(), pk)?;
+            crate::clear_pubkey_approval(pk)?;
             Ok(None)
         }
 
         "listallowedevents" => {
-            let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
+            let approvals = crate::dump_event_approvals()?;
             let ids: Vec<EventResult> = approvals
                 .iter()
                 .filter_map(|(id, appr)| {
@@ -273,7 +267,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
             })))
         }
         "listbannedevents" => {
-            let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
+            let approvals = crate::dump_event_approvals()?;
             let ids: Vec<EventResult> = approvals
                 .iter()
                 .filter_map(|(id, appr)| {
@@ -292,17 +286,15 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
             })))
         }
         "listbannedevents2" => {
-            let approvals = crate::dump_event_approvals(GLOBALS.store.get().unwrap())?;
+            let approvals = crate::dump_event_approvals()?;
             let mut results: Vec<FullEventResult> = Vec::new();
             for (id, appr) in approvals.iter() {
-                if ! *appr {
+                if !*appr {
                     if let Some(event) = GLOBALS.store.get().unwrap().get_event_by_id(*id)? {
-                        results.push(
-                            FullEventResult {
-                                event: format!("{event}"),
-                                reason: None,
-                            }
-                        );
+                        results.push(FullEventResult {
+                            event: format!("{event}"),
+                            reason: None,
+                        });
                     }
                 }
             }
@@ -311,7 +303,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
             })))
         }
         "listallowedpubkeys" => {
-            let approvals = crate::dump_pubkey_approvals(GLOBALS.store.get().unwrap())?;
+            let approvals = crate::dump_pubkey_approvals()?;
             let pubkeys: Vec<PubkeyResult> = approvals
                 .iter()
                 .filter_map(|(pk, appr)| {
@@ -330,7 +322,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
             })))
         }
         "listbannedpubkeys" => {
-            let approvals = crate::dump_pubkey_approvals(GLOBALS.store.get().unwrap())?;
+            let approvals = crate::dump_pubkey_approvals()?;
             let pubkeys: Vec<PubkeyResult> = approvals
                 .iter()
                 .filter_map(|(pk, appr)| {
@@ -384,17 +376,16 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
             })))
         }
         "listmoderators" => {
-            let moderators: Vec<String> =
-                crate::dump_authorized_users(GLOBALS.store.get().unwrap())?
-                    .iter()
-                    .filter_map(|(pk, moderator)| {
-                        if *moderator {
-                            Some(pk.as_hex_string())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+            let moderators: Vec<String> = crate::dump_authorized_users()?
+                .iter()
+                .filter_map(|(pk, moderator)| {
+                    if *moderator {
+                        Some(pk.as_hex_string())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             Ok(Some(json!({
                 "result": moderators
             })))
@@ -407,7 +398,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 })))
             } else {
                 let pk = get_pubkey_param(obj)?;
-                crate::add_authorized_user(GLOBALS.store.get().unwrap(), pk, true)?;
+                crate::add_authorized_user(pk, true)?;
                 Ok(None)
             }
         }
@@ -424,13 +415,13 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 if !crate::is_authorized_user(pk) {
                     Ok(None)
                 } else {
-                    crate::add_authorized_user(GLOBALS.store.get().unwrap(), pk, false)?;
+                    crate::add_authorized_user(pk, false)?;
                     Ok(None)
                 }
             }
         }
         "listusers" => {
-            let users: Vec<String> = crate::dump_authorized_users(GLOBALS.store.get().unwrap())?
+            let users: Vec<String> = crate::dump_authorized_users()?
                 .iter()
                 .map(|(pk, _moderator)| pk.as_hex_string())
                 .collect();
@@ -446,7 +437,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 })))
             } else {
                 let pk = get_pubkey_param(obj)?;
-                crate::add_authorized_user(GLOBALS.store.get().unwrap(), pk, false)?;
+                crate::add_authorized_user(pk, false)?;
                 Ok(None)
             }
         }
@@ -458,7 +449,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 })))
             } else {
                 let pk = get_pubkey_param(obj)?;
-                crate::rm_authorized_user(GLOBALS.store.get().unwrap(), pk)?;
+                crate::rm_authorized_user(pk)?;
                 Ok(None)
             }
         }

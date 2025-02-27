@@ -1,4 +1,5 @@
 use chorus::error::{ChorusError, Error};
+use chorus::globals::GLOBALS;
 use pocket_db::ScreenResult;
 use pocket_types::{Filter, Id, Pubkey, Tags};
 use std::env;
@@ -21,11 +22,8 @@ fn main() -> Result<(), Error> {
     // Force allow of scraping (this program is a scraper)
     config.allow_scraping = true;
 
-    // Setup store
-    let store = chorus::setup_store(&config)?;
-
-    // Setup logging
     chorus::setup_logging(&config);
+    chorus::setup_store(&config)?;
 
     // Handle command
     let command = args
@@ -37,7 +35,7 @@ fn main() -> Result<(), Error> {
                 .next()
                 .ok_or::<Error>(ChorusError::General("ID argument missing".to_owned()).into())?;
             let id: Id = Id::read_hex(idstr.as_bytes())?;
-            store.remove_event(id)?;
+            GLOBALS.store.get().unwrap().remove_event(id)?;
             println!("Done.");
         }
         "delete_by_pubkey" => {
@@ -52,9 +50,13 @@ fn main() -> Result<(), Error> {
             let filter =
                 Filter::from_parts(&[], &[pk], &[], tags, None, None, None, &mut filter_buffer)?;
             let (events, _redacted) =
-                store.find_events(filter, true, 0, 0, |_| ScreenResult::Match)?;
+                GLOBALS
+                    .store
+                    .get()
+                    .unwrap()
+                    .find_events(filter, true, 0, 0, |_| ScreenResult::Match)?;
             for event in events.iter() {
-                store.remove_event(event.id())?;
+                GLOBALS.store.get().unwrap().remove_event(event.id())?;
             }
             println!("Done.");
         }
@@ -63,14 +65,14 @@ fn main() -> Result<(), Error> {
                 .next()
                 .ok_or::<Error>(ChorusError::General("ID argument missing".to_owned()).into())?;
             let id: Id = Id::read_hex(idstr.as_bytes())?;
-            if let Some(event) = store.get_event_by_id(id)? {
+            if let Some(event) = GLOBALS.store.get().unwrap().get_event_by_id(id)? {
                 println!("{event}");
             } else {
                 println!("Not found.");
             }
         }
         "dump_users" => {
-            let users = chorus::dump_authorized_users(&store)?;
+            let users = chorus::dump_authorized_users()?;
             for (pubkey, moderator) in users.iter() {
                 println!("{} {}", pubkey, if *moderator { "moderator" } else { "" });
             }
@@ -86,7 +88,7 @@ fn main() -> Result<(), Error> {
             )?;
             let moderator: bool = moderator == "1";
 
-            chorus::add_authorized_user(&store, pk, moderator)?;
+            chorus::add_authorized_user(pk, moderator)?;
         }
         "rm_user" => {
             let pubstr = args.next().ok_or::<Error>(
@@ -94,7 +96,7 @@ fn main() -> Result<(), Error> {
             )?;
             let pk: Pubkey = Pubkey::read_hex(pubstr.as_bytes())?;
 
-            chorus::rm_authorized_user(&store, pk)?;
+            chorus::rm_authorized_user(pk)?;
         }
         _ => {
             return Err(ChorusError::General("Unknown command.".to_owned()).into());
