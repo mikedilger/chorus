@@ -150,6 +150,9 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 "listusers",
                 "grantuser",
                 "revokeuser",
+                "listrole",
+                "grantrole",
+                "revokerole",
             ]
         }))),
         "listeventsneedingmoderation" => {
@@ -453,18 +456,118 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 Ok(None)
             }
         }
+        "listrole" => {
+            if !crate::is_admin(pubkey) {
+                Ok(Some(json!({
+                    "result": {},
+                    "error": "Unauthorized: Only admins can revoke user status"
+                })))
+            } else {
+                let role = get_string_param(obj)?;
+                match &*role {
+                    "admin" => {
+                        let keys = GLOBALS.config.read().admin_hex_keys.clone();
+                        Ok(Some(json!({
+                            "result": keys
+                        })))
+                    }
+                    "user" => {
+                        let users: Vec<String> = crate::dump_authorized_users()?
+                            .iter()
+                            .map(|(pk, _moderator)| pk.as_hex_string())
+                            .collect();
+                        Ok(Some(json!({
+                            "result": users
+                        })))
+                    }
+                    "moderator" => {
+                        let moderators: Vec<String> = crate::dump_authorized_users()?
+                            .iter()
+                            .filter_map(|(pk, moderator)| {
+                                if *moderator {
+                                    Some(pk.as_hex_string())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
+                        Ok(Some(json!({
+                            "result": moderators
+                        })))
+                    }
+                    _ => Ok(Some(json!({
+                        "result": {},
+                        "error": "Unknown role."
+                    }))),
+                }
+            }
+        }
+        "grantrole" => {
+            if !crate::is_admin(pubkey) {
+                Ok(Some(json!({
+                    "result": {},
+                    "error": "Unauthorized: Only admins can grant user status"
+                })))
+            } else {
+                let role = get_string_param(obj)?;
+                match &*role {
+                    "admin" => Ok(Some(json!({
+                        "result": {},
+                        "error": "The administrators cannot be managed via this interface."
+                    }))),
+                    "user" => {
+                        let pk = get_pubkey_param(obj)?;
+                        crate::add_authorized_user(pk, false)?;
+                        Ok(None)
+                    }
+                    "moderator" => {
+                        let pk = get_pubkey_param(obj)?;
+                        crate::add_authorized_user(pk, true)?;
+                        Ok(None)
+                    }
+                    _ => Ok(Some(json!({
+                        "result": {},
+                        "error": "Unknown role."
+                    }))),
+                }
+            }
+        }
+        "revokerole" => {
+            if !crate::is_admin(pubkey) {
+                Ok(Some(json!({
+                    "result": {},
+                    "error": "Unauthorized: Only admins can grant user status"
+                })))
+            } else {
+                let role = get_string_param(obj)?;
+                match &*role {
+                    "admin" => Ok(Some(json!({
+                        "result": {},
+                        "error": "The administrators cannot be managed via this interface."
+                    }))),
+                    "user" => {
+                        let pk = get_pubkey_param(obj)?;
+                        crate::rm_authorized_user(pk)?;
+                        Ok(None)
+                    }
+                    "moderator" => {
+                        let pk = get_pubkey_param(obj)?;
 
-        // Commands we do not support (yet)
-        "allowkind" => Err(ChorusError::NotImplemented.into()),
-        "disallowkind" => Err(ChorusError::NotImplemented.into()),
-        "listbannedkinds" => Err(ChorusError::NotImplemented.into()),
-        "listallowedkinds" => Err(ChorusError::NotImplemented.into()),
-        "blockip" => Err(ChorusError::NotImplemented.into()),
-        "unblockip" => Err(ChorusError::NotImplemented.into()),
-        "listblockedips" => Err(ChorusError::NotImplemented.into()),
-        "changerelayname" => Err(ChorusError::NotImplemented.into()),
-        "changerelaydescription" => Err(ChorusError::NotImplemented.into()),
-        "changerelayicon" => Err(ChorusError::NotImplemented.into()),
+                        // Do not do this if they aren't already an authorized user
+                        if !crate::is_authorized_user(pk) {
+                            Ok(None)
+                        } else {
+                            crate::add_authorized_user(pk, false)?;
+                            Ok(None)
+                        }
+                    }
+                    _ => Ok(Some(json!({
+                        "result": {},
+                        "error": "Unknown role."
+                    }))),
+                }
+            }
+        }
 
         _ => Err(ChorusError::NotImplemented.into()),
     }
@@ -496,4 +599,17 @@ fn get_id_param(obj: &Map<String, Value>) -> Result<Id, Error> {
         .ok_or(ChorusError::BadRequest("ID parameter is wrong type").into_err())?;
     Id::read_hex(id_text.as_bytes())
         .map_err(|_| ChorusError::BadRequest("ID could not be parsed").into_err())
+}
+
+fn get_string_param(obj: &Map<String, Value>) -> Result<String, Error> {
+    Ok(obj
+        .get("params")
+        .ok_or(ChorusError::BadRequest("Params field missing").into_err())?
+        .as_array()
+        .ok_or(ChorusError::BadRequest("Params not an array").into_err())?
+        .first()
+        .ok_or(ChorusError::BadRequest("Missing parameter").into_err())?
+        .as_str()
+        .ok_or(ChorusError::BadRequest("Parameter is not a string as expected").into_err())?
+        .to_owned())
 }
