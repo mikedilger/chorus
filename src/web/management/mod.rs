@@ -135,7 +135,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
 
                 "listallowedevents",
                 "listbannedevents",
-                "listbannedevents2",
+                "fetchbannedevents",
                 "listallowedpubkeys",
                 "listbannedpubkeys",
 
@@ -288,7 +288,7 @@ pub fn handle_inner(pubkey: Pubkey, command: Value) -> Result<Option<Value>, Err
                 "result": ids
             })))
         }
-        "listbannedevents2" => {
+        "fetchbannedevents" => {
             let approvals = crate::dump_event_approvals()?;
             let mut results: Vec<FullEventResult> = Vec::new();
             for (id, appr) in approvals.iter() {
