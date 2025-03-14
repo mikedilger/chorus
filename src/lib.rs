@@ -30,7 +30,6 @@ use neg_storage::NegentropyStorageVector;
 use pocket_db::{ScreenResult, Store};
 use pocket_types::{Id, OwnedFilter, Pubkey};
 use speedy::{Readable, Writable};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fs::OpenOptions;
@@ -44,6 +43,7 @@ use std::time::Duration;
 use textnonce::TextNonce;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::Instant;
+use tungstenite::protocol::frame::Utf8Bytes;
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::Message;
 
@@ -179,12 +179,10 @@ async fn handle_http_request(
             }
         }
 
-        let web_socket_config = WebSocketConfig {
-            max_write_buffer_size: 1024 * 1024,  // 1 MB
-            max_message_size: Some(1024 * 1024), // 1 MB
-            max_frame_size: Some(1024 * 1024),   // 1 MB
-            ..Default::default()
-        };
+        let mut web_socket_config = WebSocketConfig::default();
+        web_socket_config.max_write_buffer_size = 1024 * 1024;  // 1 MB
+        web_socket_config.max_message_size = Some(1024 * 1024); // 1 MB
+        web_socket_config.max_frame_size = Some(1024 * 1024);  // 1 MB
 
         let (mut response, websocket) =
             hyper_tungstenite::upgrade(&mut request, Some(web_socket_config))?;
@@ -389,12 +387,12 @@ impl WebSocketService {
         use tungstenite::protocol::frame::CloseFrame;
 
         let (code, reason) = match &error.inner {
-            ChorusError::TimedOut => (CloseCode::Policy, Cow::Borrowed("timed out")),
-            ChorusError::ShuttingDown => (CloseCode::Restart, Cow::Borrowed("restarting")),
+            ChorusError::TimedOut => (CloseCode::Policy, Utf8Bytes::from_static("timed out")),
+            ChorusError::ShuttingDown => (CloseCode::Restart, Utf8Bytes::from_static("restarting")),
             ChorusError::BannedUser | ChorusError::BlockedIp => {
-                (CloseCode::Policy, Cow::Borrowed("banned"))
+                (CloseCode::Policy, Utf8Bytes::from_static("banned"))
             }
-            e => (CloseCode::Error, Cow::Owned(format!("{}", e))),
+            e => (CloseCode::Error, format!("{}", e).into()),
         };
 
         let close_frame = CloseFrame { code, reason };

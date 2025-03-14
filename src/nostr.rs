@@ -4,7 +4,7 @@ use crate::neg_storage::NegentropyStorageVector;
 use crate::reply::{NostrReply, NostrReplyPrefix};
 use crate::WebSocketService;
 use hyper_tungstenite::tungstenite::Message;
-use negentropy::{Bytes, Negentropy};
+use negentropy::Negentropy;
 use pocket_db::ScreenResult;
 use pocket_types::json::{eat_whitespace, json_unescape, verify_char};
 use pocket_types::{read_hex, Event, Filter, Hll8, Kind, OwnedFilter, Pubkey, Time};
@@ -588,10 +588,10 @@ impl WebSocketService {
             .into());
         };
 
-        let mut neg = Negentropy::new(nsv, 1024 * 1024)?; // websocket frame size limit
-        match neg.reconcile(&Bytes::from(incoming_msg)) {
+        let mut neg = Negentropy::owned(nsv, 1024 * 1024)?; // websocket frame size limit
+        match neg.reconcile(&incoming_msg) {
             Ok(response) => {
-                let reply = NostrReply::NegMsg(&subid, response.as_bytes().to_owned());
+                let reply = NostrReply::NegMsg(&subid, response);
                 self.send(Message::text(reply.as_json()?)).await?;
             }
             Err(e) => {
@@ -673,10 +673,10 @@ impl WebSocketService {
             return Ok(());
         };
 
-        let mut neg = Negentropy::new(nsv, 1024 * 1024)?; // websocket frame size limit
-        match neg.reconcile(&Bytes::from(incoming_msg)) {
+        let mut neg = Negentropy::owned(nsv, 1024 * 1024)?; // websocket frame size limit
+        match neg.reconcile(&incoming_msg) {
             Ok(response) => {
-                let reply = NostrReply::NegMsg(&subid, response.as_bytes().to_owned());
+                let reply = NostrReply::NegMsg(&subid, response);
                 self.send(Message::text(reply.as_json()?)).await?;
             }
             Err(e) => {

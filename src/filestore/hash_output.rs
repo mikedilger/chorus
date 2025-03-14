@@ -8,7 +8,7 @@ pub struct HashOutput([u8; 32]);
 
 impl HashOutput {
     pub fn from_engine(engine: bitcoin_hashes::sha256::HashEngine) -> HashOutput {
-        use bitcoin_hashes::{sha256, Hash};
+        use bitcoin_hashes::sha256;
         let hashvalue = sha256::Hash::from_engine(engine);
         HashOutput(hashvalue.as_byte_array()[0..32].try_into().unwrap())
     }
