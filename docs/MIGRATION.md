@@ -10,10 +10,10 @@
 2) Users and moderators are now dynamically configured in the database. Use `chorus_cmd` to
    manage them from the command line:
 
-* Adding a user:  `chorus_cmd add_user <pubkey> 0`
-* Adding a moderator: `chorus_cmd add_user <pubkey> 1`
-* Removing a user or moderator: `chorus_cmd rm_user <pubkey>`
-* Listing users and moderators: `chorus_cmd dump_users`
+* Adding a user:  `chorus_cmd <chorus.toml> add_user <pubkey> 0`
+* Adding a moderator: `chorus_cmd <chorus.toml> add_user <pubkey> 1`
+* Removing a user or moderator: `chorus_cmd <chorus.toml> rm_user <pubkey>`
+* Listing users and moderators: `chorus_cmd <chorus.toml> dump_users`
 
 3) Remove the following from your config file as these are no longer used:
 
