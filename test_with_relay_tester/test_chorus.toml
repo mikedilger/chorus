@@ -1,0 +1,40 @@
+# See contrib/chorus.toml for a documented config file
+
+data_directory = "./data"
+ip_address = "127.0.0.1"
+port = 8080
+hostname = "localhost"
+chorus_is_behind_a_proxy = false
+use_tls = false
+certchain_pem_path = "tls/fullchain.pem"
+key_pem_path = "tls/privkey.pem"
+name = "Chorus Sample"
+description = "A sample run of the Chorus relay"
+#icon_url =
+open_relay = false
+admin_hex_keys = [
+  "ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49",
+
+  # npub1mctd8mfdtn4er5e788d7xpv9ze8qcx0n7t32tvfpmmcgddz85tjsuyxe7z
+  "de16d3ed2d5ceb91d33e39dbe30585164e0c19f3f2e2a5b121def086b447a2e5",
+
+  # npub1xhtthnchlsc6n38h5tmg4fq26vkgl80p4em4qhw9avmj9k9jnp7sm78ql6
+  "35d6bbcf17fc31a9c4f7a2f68aa40ad32c8f9de1ae77505dc5eb3722d8b2987d"
+]
+verify_events = true
+allow_scraping = false
+allow_scrape_if_limited_to = 100
+allow_scrape_if_max_seconds = 7200
+max_subscriptions = 128
+serve_ephemeral = true
+serve_relay_lists = true
+server_log_level = "Info"
+library_log_level = "Info"
+client_log_level = "Debug"
+enable_ip_blocking = false
+minimum_ban_seconds = 1
+timeout_seconds = 60
+max_connections_per_ip = 5
+throttling_bytes_per_second = 131072
+throttling_burst = 4194304
+enable_negentropy = true
