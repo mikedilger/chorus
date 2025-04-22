@@ -180,9 +180,9 @@ async fn handle_http_request(
         }
 
         let mut web_socket_config = WebSocketConfig::default();
-        web_socket_config.max_write_buffer_size = 1024 * 1024;  // 1 MB
+        web_socket_config.max_write_buffer_size = 1024 * 1024; // 1 MB
         web_socket_config.max_message_size = Some(1024 * 1024); // 1 MB
-        web_socket_config.max_frame_size = Some(1024 * 1024);  // 1 MB
+        web_socket_config.max_frame_size = Some(1024 * 1024); // 1 MB
 
         let (mut response, websocket) =
             hyper_tungstenite::upgrade(&mut request, Some(web_socket_config))?;

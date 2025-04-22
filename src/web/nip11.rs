@@ -5,6 +5,7 @@ use crate::ip::HashedPeer;
 use http_body_util::combinators::BoxBody;
 use http_body_util::{BodyExt, Full};
 use hyper::body::Bytes;
+use hyper::http::uri::Uri;
 use hyper::{Response, StatusCode};
 
 pub async fn serve_nip11(peer: HashedPeer) -> Result<Response<BoxBody<Bytes, Error>>, Error> {
@@ -80,16 +81,16 @@ fn build_rid(config: &Config) -> String {
         rid.push_str(description);
         rid.push('\"');
     }
+    if let Some(banner_url) = &config.banner_url {
+        rid.push(',');
+        rid.push_str("\"banner\":\"");
+        rid.push_str(banner_url);
+        rid.push('\"');
+    }
     if let Some(icon_url) = &config.icon_url {
         rid.push(',');
         rid.push_str("\"icon\":\"");
         rid.push_str(icon_url);
-        rid.push('\"');
-    }
-    if let Some(contact) = &config.contact {
-        rid.push(',');
-        rid.push_str("\"contact\":\"");
-        rid.push_str(contact);
         rid.push('\"');
     }
     if let Some(pubkey) = &config.contact_public_key {
@@ -98,6 +99,44 @@ fn build_rid(config: &Config) -> String {
         rid.push(',');
         rid.push_str("\"pubkey\":\"");
         rid.push_str(unsafe { std::str::from_utf8_unchecked(pkh.as_slice()) });
+        rid.push('\"');
+    }
+    if let Some(contact) = &config.contact {
+        rid.push(',');
+        rid.push_str("\"contact\":\"");
+        rid.push_str(contact);
+        rid.push('\"');
+    }
+    if config.privacy_policy.is_some() {
+        rid.push(',');
+        rid.push_str("\"privacy_policy\":\"");
+        let url = match config.uri_parts(
+            Uri::from_static("https://authority-will-be-replaced/privacy-policy"),
+            true,
+        ) {
+            Ok(parts) => match Uri::from_parts(parts) {
+                Ok(uri) => format!("{}", uri),
+                Err(_) => "".to_owned(),
+            },
+            Err(_) => "".to_owned(),
+        };
+        rid.push_str(&url);
+        rid.push('\"');
+    }
+    if config.terms_of_service.is_some() {
+        rid.push(',');
+        rid.push_str("\"terms_of_service\":\"");
+        let url = match config.uri_parts(
+            Uri::from_static("https://authority-will-be-replaced/terms-of-service"),
+            true,
+        ) {
+            Ok(parts) => match Uri::from_parts(parts) {
+                Ok(uri) => format!("{}", uri),
+                Err(_) => "".to_owned(),
+            },
+            Err(_) => "".to_owned(),
+        };
+        rid.push_str(&url);
         rid.push('\"');
     }
 

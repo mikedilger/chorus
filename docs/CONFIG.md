@@ -94,9 +94,21 @@ This is an optional description for your relay, displayed in the NIP-11 response
 
 Default is "A default config of the Chorus relay".
 
+### banner_url
+
+This is an optional URL for an graphical banner representing your relay, displayed in the NIP-11 response.
+
 ### icon_url
 
 This is an optional URL for an graphical icon representing your relay, displayed in the NIP-11 response.
+
+### privacy_policy
+
+This is an optional privacy policy as a blob of text (not a URL, not HTML).
+
+### terms_of_service
+
+This is an optional terms of service document as a blob of text (not a URL, not HTML).
 
 ### contact
 

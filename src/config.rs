@@ -19,7 +19,10 @@ pub struct FriendlyConfig {
     pub key_pem_path: String,
     pub name: Option<String>,
     pub description: Option<String>,
+    pub banner_url: Option<String>,
     pub icon_url: Option<String>,
+    pub privacy_policy: Option<String>,
+    pub terms_of_service: Option<String>,
     pub contact: Option<String>,
     #[serde(alias = "public_key_hex")]
     pub contact_public_key_hex: Option<String>,
@@ -60,7 +63,10 @@ impl Default for FriendlyConfig {
             key_pem_path: "/opt/chorus/etc/tls/privkey.pem".to_string(),
             name: Some("Chorus Default".to_string()),
             description: Some("A default config of the Chorus relay".to_string()),
+            banner_url: None,
             icon_url: None,
+            privacy_policy: None,
+            terms_of_service: None,
             contact: None,
             contact_public_key_hex: None,
             open_relay: false,
@@ -102,7 +108,10 @@ impl FriendlyConfig {
             key_pem_path,
             name,
             description,
+            banner_url,
             icon_url,
+            privacy_policy,
+            terms_of_service,
             contact,
             contact_public_key_hex,
             open_relay,
@@ -159,7 +168,10 @@ impl FriendlyConfig {
             key_pem_path,
             name,
             description,
+            banner_url,
             icon_url,
+            privacy_policy,
+            terms_of_service,
             contact,
             contact_public_key,
             open_relay,
@@ -201,7 +213,10 @@ pub struct Config {
     pub key_pem_path: String,
     pub name: Option<String>,
     pub description: Option<String>,
+    pub banner_url: Option<String>,
     pub icon_url: Option<String>,
+    pub privacy_policy: Option<String>,
+    pub terms_of_service: Option<String>,
     pub contact: Option<String>,
     pub contact_public_key: Option<Pubkey>,
     pub open_relay: bool,
@@ -238,6 +253,8 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Get the URI for our server matching the inner Uri, overridden with either
+    /// our base_url parts or our hostname/port.
     pub fn uri_parts(&self, inner: Uri, http: bool) -> Result<http::uri::Parts, Error> {
         let mut uri_parts = inner.into_parts();
 

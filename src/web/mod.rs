@@ -53,6 +53,36 @@ pub async fn serve_http(
 
     let uri = request.uri().to_owned();
 
+    if p == "/privacy-policy" {
+        let config = &*GLOBALS.config.read();
+        if let Some(pp) = &config.privacy_policy {
+            let response = Response::builder()
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Access-Control-Allow-Headers", "Authorization, *")
+                .header("Access-Control-Allow-Methods", "*")
+                .header("Allow", "OPTIONS, GET, HEAD")
+                .header("Content-Type", "text/plain")
+                .status(StatusCode::OK)
+                .body(Full::new(pp.clone().into()).map_err(|e| e.into()).boxed())?;
+            return Ok(response);
+        }
+    }
+
+    if p == "/terms-of-service" {
+        let config = &*GLOBALS.config.read();
+        if let Some(tos) = &config.terms_of_service {
+            let response = Response::builder()
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Access-Control-Allow-Headers", "Authorization, *")
+                .header("Access-Control-Allow-Methods", "*")
+                .header("Allow", "OPTIONS, GET, HEAD")
+                .header("Content-Type", "text/plain")
+                .status(StatusCode::OK)
+                .body(Full::new(tos.clone().into()).map_err(|e| e.into()).boxed())?;
+            return Ok(response);
+        }
+    }
+
     // Try blossom if enabled
     if GLOBALS.config.read().blossom_directory.is_some() {
         match blossom::handle(request).await {
