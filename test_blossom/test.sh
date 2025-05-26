@@ -18,6 +18,12 @@ then
     exit 1
 fi
 
+# ADD ADMIN AS A USER ------------
+
+echo "Adding user..."
+PUBKEY=12bb541d03bfc3cab0f4a8e4db28947f60faae6fca4e315eb27f809c6eff9a0b
+../target/release/chorus_cmd ./config.toml add_user $PUBKEY 0
+
 # UPLOAD TEST ------------
 
 FILE="./Example.png"
