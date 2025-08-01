@@ -124,10 +124,9 @@ impl WebSocketService {
             return Err(ChorusError::TooManySubscriptions.into());
         }
 
-        let user = self.user;
-        let authorized_user = self.user.map(crate::is_authorized_user).unwrap_or(false);
+        let authorized_user = self.authed_as.iter().any(|u| crate::is_authorized_user(*u));
 
-        if user.is_none() {
+        if self.authed_as.is_empty() {
             for filter in filters.iter() {
                 // If any DM kinds were requested, complain.
                 // But if NO kinds were requested, we will just silently not return DMs (elsewhere)
@@ -163,7 +162,7 @@ impl WebSocketService {
 
             for filter in filters.iter() {
                 let screen = |event: &Event| -> ScreenResult {
-                    let event_flags = event_flags(event, &user);
+                    let event_flags = event_flags(event, self.authed_as.as_slice());
                     screen_outgoing_event(event, &event_flags, authorized_user)
                 };
                 let (filter_events, was_redacted) = {
@@ -317,13 +316,12 @@ impl WebSocketService {
     }
 
     async fn event_inner(&mut self) -> Result<(), Error> {
-        let user = self.user;
-        let authorized_user = self.user.map(crate::is_authorized_user).unwrap_or(false);
+        let authorized_user = self.authed_as.iter().any(|u| crate::is_authorized_user(*u));
 
         // Delineate the event back out of the session buffer
         let event = unsafe { Event::delineate(&self.buffer)? };
 
-        let event_flags = event_flags(event, &user);
+        let event_flags = event_flags(event, self.authed_as.as_slice());
 
         if GLOBALS.config.read().verify_events {
             // Verify the event is valid (id is hash, signature is valid)
@@ -347,10 +345,10 @@ impl WebSocketService {
 
         // Screen the event to see if we are willing to accept it
         if !screen_incoming_event(event, event_flags, authorized_user).await? {
-            if self.user.is_some() {
-                return Err(ChorusError::Restricted.into());
-            } else {
+            if self.authed_as.is_empty() {
                 return Err(ChorusError::AuthRequired.into());
+            } else {
+                return Err(ChorusError::Restricted.into());
             }
         }
 
@@ -463,7 +461,7 @@ impl WebSocketService {
         }
 
         // They are now authenticated
-        self.user = Some(event.pubkey());
+        self.authed_as.push(event.pubkey());
 
         Ok(())
     }
@@ -542,13 +540,12 @@ impl WebSocketService {
             return Ok(());
         }
 
-        let user = self.user;
-        let authorized_user = self.user.map(crate::is_authorized_user).unwrap_or(false);
+        let authorized_user = self.authed_as.iter().any(|u| crate::is_authorized_user(*u));
 
         // Find all matching events
         let mut events: Vec<&Event> = Vec::new();
         let screen = |event: &Event| -> ScreenResult {
-            let event_flags = event_flags(event, &user);
+            let event_flags = event_flags(event, self.authed_as.as_slice());
             screen_outgoing_event(event, &event_flags, authorized_user)
         };
         let (filter_events, _redacted) = {
@@ -871,13 +868,10 @@ pub struct EventFlags {
     pub tags_current_user: bool,
 }
 
-pub fn event_flags(event: &Event, user: &Option<Pubkey>) -> EventFlags {
+pub fn event_flags(event: &Event, authed_as: &[Pubkey]) -> EventFlags {
     let author_is_an_authorized_user = crate::is_authorized_user(event.pubkey());
 
-    let author_is_current_user = match user {
-        None => false,
-        Some(pk) => event.pubkey() == *pk,
-    };
+    let author_is_current_user = authed_as.iter().any(|u| *u == event.pubkey());
 
     let mut tags_an_authorized_user = false;
     let mut tags_current_user = false;
@@ -887,10 +881,8 @@ pub fn event_flags(event: &Event, user: &Option<Pubkey>) -> EventFlags {
             if let Some(b"p") = tag.next() {
                 if let Some(value) = tag.next() {
                     if let Ok(tagged_pk) = Pubkey::read_hex(value) {
-                        if let Some(current_user) = user {
-                            if *current_user == tagged_pk {
-                                tags_current_user = true;
-                            }
+                        if authed_as.contains(&tagged_pk) {
+                            tags_current_user = true;
                         }
 
                         if crate::is_authorized_user(tagged_pk) {

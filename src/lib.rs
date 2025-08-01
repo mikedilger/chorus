@@ -220,7 +220,7 @@ async fn websocket_thread(peer: HashedPeer, websocket: HyperWebsocket, origin: S
                 last_message: Instant::now(),
                 burst_tokens: GLOBALS.config.read().throttling_burst,
                 challenge: TextNonce::new().into_string(),
-                user: None,
+                authed_as: Vec::new(),
                 error_punishment: 0.0,
                 replied: false,
                 negentropy_sub: None,
@@ -356,7 +356,7 @@ struct WebSocketService {
     pub last_message: Instant,
     pub burst_tokens: usize,
     pub challenge: String,
-    pub user: Option<Pubkey>,
+    pub authed_as: Vec<Pubkey>,
     pub error_punishment: f32,
     pub replied: bool,
     pub negentropy_sub: Option<String>,
@@ -473,8 +473,8 @@ impl WebSocketService {
             .unwrap()
             .get_event_by_offset(new_event_offset)?;
 
-        let event_flags = nostr::event_flags(event, &self.user);
-        let authorized_user = self.user.map(is_authorized_user).unwrap_or(false);
+        let event_flags = nostr::event_flags(event, self.authed_as.as_slice());
+        let authorized_user = self.authed_as.iter().any(|u| is_authorized_user(*u));
 
         'subs: for (subid, filters) in self.subscriptions.iter() {
             for filter in filters.iter() {
