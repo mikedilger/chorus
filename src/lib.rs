@@ -254,20 +254,29 @@ async fn websocket_thread(peer: HashedPeer, websocket: HyperWebsocket, origin: S
             // Handle the websocket
             if let Err(e) = ws_service.handle_websocket_stream().await {
                 match e.inner {
-                    ChorusError::Tungstenite(tungstenite::error::Error::Protocol(
-                        tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
-                    )) => {
-                        // So they disconnected ungracefully.
-                        // No big deal, still SessionExit::Ok
-                        msg = "Reset";
-                    }
-                    ChorusError::Tungstenite(tungstenite::error::Error::Io(ref ioerror)) => {
-                        match ioerror.kind() {
-                            std::io::ErrorKind::ConnectionReset
-                            | std::io::ErrorKind::ConnectionAborted
-                            | std::io::ErrorKind::UnexpectedEof => {
-                                // no biggie.
+                    ChorusError::Tungstenite(ref t) => {
+                        match *t.as_ref() {
+                            tungstenite::error::Error::Protocol(
+                                tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
+                            ) => {
+                                // So they disconnected ungracefully.
+                                // No big deal, still SessionExit::Ok
                                 msg = "Reset";
+                            }
+                            tungstenite::error::Error::Io(ref ioerror) => {
+                                match ioerror.kind() {
+                                    std::io::ErrorKind::ConnectionReset
+                                    | std::io::ErrorKind::ConnectionAborted
+                                    | std::io::ErrorKind::UnexpectedEof => {
+                                        // no biggie.
+                                        msg = "Reset";
+                                    }
+                                    _ => {
+                                        log::error!(target: "Client", "{}: {}", peer, e);
+                                        session_exit = SessionExit::ErrorExit;
+                                        msg = "Error Exited";
+                                    }
+                                }
                             }
                             _ => {
                                 log::error!(target: "Client", "{}: {}", peer, e);

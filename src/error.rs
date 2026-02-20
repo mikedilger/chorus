@@ -45,7 +45,7 @@ pub enum ChorusError {
     BannedUser,
 
     // Base64 Decode Error
-    Base64Decode(base64::DecodeError),
+    Base64Decode(base64::DecodeError), // 24b
 
     // Blocked IP
     BlockedIp,
@@ -54,16 +54,16 @@ pub enum ChorusError {
     BlossomAuthFailure(String),
 
     // Channel Recv
-    ChannelRecv(tokio::sync::broadcast::error::RecvError),
+    ChannelRecv(tokio::sync::broadcast::error::RecvError), // 24b
 
     // Channel Send
-    ChannelSend(tokio::sync::broadcast::error::SendError<u64>),
+    ChannelSend(tokio::sync::broadcast::error::SendError<u64>), // 16b
 
     // Config
-    Config(toml::de::Error),
+    Config(Box<toml::de::Error>), // 16b
 
     // Crypto
-    Crypto(secp256k1::Error),
+    Crypto(secp256k1::Error), // 16b
 
     // Closing on error(s)
     ErrorClose,
@@ -72,16 +72,16 @@ pub enum ChorusError {
     EventIsInvalid(String),
 
     // From hex
-    FromHex(hex::FromHexError),
+    FromHex(hex::FromHexError), // 24b
 
     // From UTF8
-    FromUtf8(std::string::FromUtf8Error),
+    FromUtf8(Box<std::string::FromUtf8Error>),
 
     // General
     General(String),
 
     // Http
-    Http(hyper::http::Error),
+    Http(Box<hyper::http::Error>),
 
     // Hyper
     Hyper(hyper::Error),
@@ -126,7 +126,7 @@ pub enum ChorusError {
     PocketDb(pocket_db::Error),
 
     // Pocket Db Heed Error
-    PocketDbHeed(pocket_db::heed::Error),
+    PocketDbHeed(Box<pocket_db::heed::Error>),
 
     // Pocket Types Error
     PocketType(pocket_types::Error),
@@ -141,7 +141,7 @@ pub enum ChorusError {
     Restricted,
 
     // Rustls
-    Rustls(tokio_rustls::rustls::Error),
+    Rustls(Box<tokio_rustls::rustls::Error>),
 
     // Filter is underspecified
     Scraper,
@@ -165,7 +165,7 @@ pub enum ChorusError {
     TooManySubscriptions,
 
     // Tungstenite
-    Tungstenite(hyper_tungstenite::tungstenite::error::Error),
+    Tungstenite(Box<hyper_tungstenite::tungstenite::error::Error>),
 
     // URL Parse
     UrlParse(url::ParseError),
@@ -382,7 +382,7 @@ impl From<toml::de::Error> for Error {
     #[track_caller]
     fn from(err: toml::de::Error) -> Self {
         Error {
-            inner: ChorusError::Config(err),
+            inner: ChorusError::Config(Box::new(err)),
             location: std::panic::Location::caller(),
         }
     }
@@ -402,7 +402,7 @@ impl From<hyper::http::Error> for Error {
     #[track_caller]
     fn from(err: hyper::http::Error) -> Self {
         Error {
-            inner: ChorusError::Http(err),
+            inner: ChorusError::Http(Box::new(err)),
             location: std::panic::Location::caller(),
         }
     }
@@ -472,7 +472,7 @@ impl From<pocket_db::heed::Error> for Error {
     #[track_caller]
     fn from(err: pocket_db::heed::Error) -> Self {
         Error {
-            inner: ChorusError::PocketDbHeed(err),
+            inner: ChorusError::PocketDbHeed(Box::new(err)),
             location: std::panic::Location::caller(),
         }
     }
@@ -492,7 +492,7 @@ impl From<tokio_rustls::rustls::Error> for Error {
     #[track_caller]
     fn from(err: tokio_rustls::rustls::Error) -> Self {
         Error {
-            inner: ChorusError::Rustls(err),
+            inner: ChorusError::Rustls(Box::new(err)),
             location: std::panic::Location::caller(),
         }
     }
@@ -502,7 +502,7 @@ impl From<hyper_tungstenite::tungstenite::error::Error> for Error {
     #[track_caller]
     fn from(err: hyper_tungstenite::tungstenite::error::Error) -> Self {
         Error {
-            inner: ChorusError::Tungstenite(err),
+            inner: ChorusError::Tungstenite(Box::new(err)),
             location: std::panic::Location::caller(),
         }
     }
@@ -572,7 +572,7 @@ impl From<std::string::FromUtf8Error> for Error {
     #[track_caller]
     fn from(err: std::string::FromUtf8Error) -> Self {
         Error {
-            inner: ChorusError::FromUtf8(err),
+            inner: ChorusError::FromUtf8(Box::new(err)),
             location: std::panic::Location::caller(),
         }
     }
