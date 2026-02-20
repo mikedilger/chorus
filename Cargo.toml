@@ -24,8 +24,8 @@ log = "0.4"
 mime-sniffer = "0.1"
 mime2ext = "0.1"
 negentropy = "0.5"
-pocket-types = { git = "https://github.com/mikedilger/pocket", ref = "1de83a9befeccffbd9f1b96b20dcd96dd623a4f3" }
-pocket-db = { git = "https://github.com/mikedilger/pocket", ref = "1de83a9befeccffbd9f1b96b20dcd96dd623a4f3" }
+pocket-types = { git = "https://github.com/mikedilger/pocket", ref = "43d35015f7caf1db48eb846a1d6916a5716048da" }
+pocket-db = { git = "https://github.com/mikedilger/pocket", ref = "43d35015f7caf1db48eb846a1d6916a5716048da" }
 parking_lot = "0.12"
 rustls-pki-types = "1.11"
 rustls-pemfile = "2.2"
