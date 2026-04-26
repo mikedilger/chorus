@@ -1,0 +1,12 @@
+services:
+  chorus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chorus
+    restart: unless-stopped
+    volumes:
+      - ./etc:/opt/chorus/etc
+      - ./var:/opt/chorus/var
+    ports:
+      - 443:1444
