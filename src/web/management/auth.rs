@@ -89,7 +89,7 @@ pub async fn check_auth(request: Request<Incoming>) -> Result<(Pubkey, Value), E
             format!("{}", uri)
         };
 
-        if actual_url != auth_url {
+        if actual_url.trim_end_matches('/') != auth_url.trim_end_matches('/') {
             return s_err(&format!(
                 "Authorization event URL {} does not match requqest URL {}",
                 auth_url, actual_url
